@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mandala Bloom</title>
+<style>
+  :root{
+    --bg:#140a1e; --rose:#ff7ab8; --gold:#ffd76f; --violet:#8a7dff; --ink:#e9def7;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    overflow:hidden;
+  }
+  #stage{
+    position:fixed;inset:0;
+    background:
+      radial-gradient(120vmin 120vmin at 50% 44%, rgba(138,125,255,0.10), rgba(20,10,30,0) 62%),
+      radial-gradient(80vmin 80vmin at 50% 50%, rgba(255,122,184,0.05), rgba(20,10,30,0) 55%),
+      var(--bg);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .mandala-layer{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .mandala-layer svg{
+    width:min(92vmin,92vw);height:min(92vmin,92vw);
+    display:block;
+    will-change:opacity;
+  }
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:5}
+  #page{
+    position:absolute;top:calc(18px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+    font-size:clamp(9px,1.4vmin,11px);letter-spacing:0.42em;text-transform:uppercase;
+    color:rgba(233,222,247,0.5);white-space:nowrap;
+  }
+  #caption{
+    position:absolute;bottom:calc(30px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+    font-size:clamp(10px,1.6vmin,13px);letter-spacing:0.34em;text-transform:uppercase;
+    color:var(--gold);
+    border:1px solid rgba(255,215,111,0.30);
+    border-radius:999px;
+    padding:10px 26px 9px;
+    background:rgba(20,10,30,0.55);
+    white-space:nowrap;
+  }
+  #morph{
+    position:absolute;bottom:calc(30px + env(safe-area-inset-bottom));right:calc(22px + env(safe-area-inset-right));
+    pointer-events:auto;cursor:pointer;
+    font-family:inherit;font-size:clamp(10px,1.5vmin,12px);letter-spacing:0.3em;text-transform:uppercase;
+    color:var(--ink);background:transparent;
+    border:1px solid rgba(233,222,247,0.35);border-radius:999px;
+    padding:12px 22px 11px;
+    transition:background 0.35s ease,color 0.35s ease,border-color 0.35s ease,box-shadow 0.35s ease;
+  }
+  #morph:hover{
+    background:var(--rose);border-color:var(--rose);color:#140a1e;
+    box-shadow:0 0 26px rgba(255,122,184,0.35);
+  }
+  #morph:active{transform:translateY(1px)}
+  @media (max-width:480px){
+    #morph{right:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom))}
+    #morph:active{transform:translateX(-50%) translateY(1px)}
+    #caption{padding:9px 18px 8px}
+  }
+</style>
+</head>
+<body>
+<div id="stage" aria-hidden="true"></div>
+<div id="hud">
+  <div id="page">Mandala Bloom - 031</div>
+  <div id="caption">MANDALA - SEED 4821</div>
+  <button id="morph" type="button">Morph</button>
+</div>
+<script>
+(function(){
+"use strict";
+var COLORS=["#ff7ab8","#ffd76f","#8a7dff","#ff7ab8","#ffd76f","#8a7dff"];
+var COUNTS=[8,12,16,20,24,32];
+var R0=[56,94,140,190,242,298];
+var R1=[96,142,192,246,302,366];
+var SPEED=[5,-7,9,-11,13,-15];
+
+var stage=document.getElementById("stage");
+var capEl=document.getElementById("caption");
+var morphBtn=document.getElementById("morph");
+var layers=[];
+var seed=4821;
+var px=0,py=0,tx=0,ty=0;
+
+function mulberry32(a){
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    var t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+function f(n){return Math.round(n*10)/10;}
+function clamp01(x){return x<0?0:(x>1?1:x);}
+function ez(x){var y=1-x;return 1-y*y*y;}
+
+function petalPath(r0,r1,rng){
+  var L=r1-r0;
+  var w=L*(0.30+0.24*rng());
+  var c1=L*(0.34+0.28*rng());
+  var c2=L*(0.44+0.24*rng());
+  var tw=w*(0.50+0.36*rng());
+  return "M"+f(r0)+" 0 C"+f(r0+c1)+" "+f(-w)+" "+f(r1-c2)+" "+f(-tw)+" "+f(r1)+
+         " 0 C"+f(r1-c2)+" "+f(tw)+" "+f(r0+c1)+" "+f(w)+" "+f(r0)+" 0 Z";
+}
+
+function ticksSVG(){
+  var d="";
+  for(var i=0;i<72;i++){
+    var a=i*5*Math.PI/180;
+    var x1=f(430*Math.cos(a)), y1=f(430*Math.sin(a));
+    var x2=f(444*Math.cos(a)), y2=f(444*Math.sin(a));
+    d+='<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="rgba(233,222,247,0.14)" stroke-width="1"/>';
+  }
+  return d;
+}
+
+function buildSVG(sd){
+  var rng=mulberry32(sd);
+  var out='<svg viewBox="-500 -500 1000 1000" aria-hidden="true">';
+  out+='<defs><filter id="glow" x="-60%" y="-60%" width="220%" height="220%">'+
+       '<feGaussianBlur stdDeviation="7" result="b"/>'+
+       '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>'+
+       '</filter></defs>';
+  out+='<circle r="396" fill="none" stroke="rgba(255,215,111,0.18)" stroke-width="1" stroke-dasharray="2 10"/>';
+  out+='<g>'+ticksSVG()+'</g>';
+  for(var s=0;s<6;s++){
+    out+='<circle r="'+R1[s]+'" fill="none" stroke="rgba(233,222,247,0.05)" stroke-width="1"/>';
+  }
+  out+='<circle r="30" fill="rgba(255,215,111,0.10)" stroke="rgba(255,215,111,0.55)" stroke-width="1.2"/>';
+  out+='<circle r="7" fill="#ff7ab8" opacity="0.9"/>';
+  for(var k=0;k<6;k++){
+    var n=COUNTS[k], col=COLORS[k];
+    var r0=R0[k]+(rng()*8-4);
+    var r1=R1[k]+(rng()*10-5);
+    var sw=f(2.6-k*0.2);
+    var inner="";
+    for(var i=0;i<n;i++){
+      var a=f(360/n*i+(k%2?180/n:0)+rng()*2-1);
+      inner+='<path d="'+petalPath(r0,r1,rng)+'" transform="rotate('+a+')" '+
+             'fill="'+col+'" fill-opacity="0.10" stroke="'+col+'" '+
+             'stroke-width="'+sw+'" stroke-linejoin="round"/>';
+    }
+    out+='<g class="ring" data-k="'+k+'" filter="url(#glow)" opacity="0">'+inner+'</g>';
+  }
+  out+='</svg>';
+  return out;
+}
+
+function addLayer(sd,fast){
+  var wrap=document.createElement("div");
+  wrap.className="mandala-layer";
+  wrap.innerHTML=buildSVG(sd);
+  stage.appendChild(wrap);
+  var rings=[];
+  var gs=wrap.querySelectorAll(".ring");
+  for(var i=0;i<gs.length;i++){rings.push(gs[i]);}
+  layers.push({
+    el:wrap, rings:rings,
+    born:performance.now(),
+    dying:false, dyingAt:0, alpha:1,
+    delay:fast?380:1800,
+    bloom:fast?1100:2400
+  });
+}
+
+function frame(now){
+  requestAnimationFrame(frame);
+  try{
+    px+=(tx-px)*0.07;
+    py+=(ty-py)*0.07;
+    for(var i=layers.length-1;i>=0;i--){
+      var L=layers[i];
+      var t=now-L.born;
+      if(L.dying){
+        L.alpha=Math.max(0,1-(now-L.dyingAt)/800);
+        L.el.style.opacity=String(L.alpha);
+        if(L.alpha<=0){
+          if(L.el.parentNode){L.el.parentNode.removeChild(L.el);}
+          layers.splice(i,1);
+          continue;
+        }
+      }else{
+        L.el.style.opacity="1";
+      }
+      for(var k=0;k<6;k++){
+        var bt=clamp01((t-k*L.delay)/L.bloom);
+        var sc=ez(bt);
+        var a=(SPEED[k]*(t/1000))%360;
+        var depth=(k+1)*2.4;
+        var ox=f(px*depth), oy=f(py*depth);
+        L.rings[k].setAttribute("transform","translate("+ox+" "+oy+") rotate("+f(a)+") scale("+f(sc)+")");
+        L.rings[k].setAttribute("opacity",sc.toFixed(2));
+      }
+    }
+  }catch(err){
+    /* keep the loop alive */
+  }
+}
+
+morphBtn.addEventListener("click",function(){
+  seed=1000+Math.floor(Math.random()*9000);
+  capEl.textContent="MANDALA - SEED "+seed;
+  var now=performance.now();
+  for(var i=0;i<layers.length;i++){
+    layers[i].dying=true;
+    layers[i].dyingAt=now;
+  }
+  addLayer(seed,true);
+});
+
+window.addEventListener("pointermove",function(e){
+  tx=(e.clientX/window.innerWidth)*2-1;
+  ty=(e.clientY/window.innerHeight)*2-1;
+});
+
+addLayer(seed,false);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

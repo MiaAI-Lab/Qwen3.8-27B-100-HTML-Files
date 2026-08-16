@@ -1,0 +1,11 @@
+=== 070 ===
+070-honey-hex.html
+HONEY HEX - full-bleed honeycomb (pointy-top hex grid ~28x16). Cells: honey #e0a422 varied in brightness by noise; ~15% empty comb #f2e8d5; ~6% capped cells (lighter, inner hex, slightly raised). 9 bees: tiny 3-dot bodies with fluttering wings (two ellipses, alpha toggled ~30fps) flying hex-to-hex - pick a random adjacent hex, 30% chance to go back, leaving a faint fading scent dot. Hover a hex: brightness gurgles + slight scale. Click an empty hex: it fills with honey and ripples to neighbors. Caption 'HIVE / 448 CELLS - 9 WORKERS'.
+
+=== 071 ===
+071-synth-extrude.html
+SYNTH EXTRUDE - 3D extruded neon type. The word 'SYNTH' (or typed 3-8 char word) built from ~40 stacked text layers, each 1px translated, colored front #ff2e88 -> back #3d1a6e; the front layer carries a sliding linear-gradient chrome shine (background-clip: text). Drag rotates the whole word (rotateY +/-25deg, rotateX +/-12deg); hover a letter: all its layers spring 8px forward and shift hue. Floor reflection: mirrored layers, alpha .12, blurred. BG #0d0a18 with faint grid. Caption 'TYPE / EXTRUDE - 40 PLATES'. Chunky, glossy, 80s.
+
+=== 072 ===
+072-tarot-deck.html
+GLASS TAROT - seven tarot cards fanned on deep #141024 with a star background. Cards: CSS 3D glass (rgba(255,255,255,.06), blur 14, 1px border, rounded). Faces = inline SVG arcana: THE FOOL (sun + figure silhouette), THE MOON (crescent + droplets), THE STAR (7-point star), THE SUN (radiant disc), THE TOWER (lightning bolt), THE WHEEL (circle + spokes), THE HERMIT (lantern). Click a card: it flips (rotateY 600ms) and lifts to center; click again: returns to fan. DRAW button flies a random card to center. Hover in fan: card lifts 12px + glows. Caption 'SEVEN ARCS - DRAW ONE'.

@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terrarium Isle — Bottle 03</title>
+<style>
+  :root{
+    --bg:#101418; --glass:#cfe8f5; --soil:#4a3527;
+    --leaf:#5f9e6e; --ink:#e8f0ea; --dim:#7d8f88; --chip:#20302a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(120% 90% at 50% 8%, #171d22 0%, var(--bg) 60%, #0a0d10 100%);
+    color:var(--ink);
+    font-family:system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height:100dvh; display:flex; flex-direction:column; align-items:center;
+    overflow:hidden;
+  }
+  header{
+    width:100%; display:flex; justify-content:space-between; align-items:baseline;
+    padding:clamp(.7rem,2vw,1.2rem) clamp(1rem,3.5vw,2rem) 0;
+  }
+  h1{font-size:clamp(.95rem,2.4vw,1.35rem); font-weight:600; letter-spacing:.3em; text-transform:uppercase}
+  .sub{font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:clamp(.55rem,1.3vw,.7rem); letter-spacing:.24em; color:var(--dim)}
+
+  #stage{
+    position:relative; flex:1; width:100%; display:flex; align-items:center; justify-content:center;
+    min-height:0;
+  }
+  /* glass bottle: CSS-3D-ish panes */
+  #bottle{
+    position:relative;
+    width:clamp(280px, 62vmin, 560px);
+    height:clamp(380px, 78vmin, 720px);
+  }
+  .pane{position:absolute; border-radius:46% 46% 38% 38% / 30% 30% 22% 22%}
+  .pane.back{
+    inset:4%; background:linear-gradient(180deg, rgba(207,232,245,.10), rgba(207,232,245,.04) 60%, rgba(207,232,245,.08));
+    border:1px solid rgba(207,232,245,.22);
+  }
+  .pane.front{
+    inset:0; border-radius:46% 46% 40% 40% / 28% 28% 18% 18%;
+    background:
+      linear-gradient(115deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,.05) 18%, transparent 34%),
+      linear-gradient(295deg, rgba(207,232,245,.10) 0%, transparent 30%);
+    border:1.5px solid rgba(207,232,245,.4);
+    box-shadow:inset 0 0 60px rgba(120,190,220,.12), 0 30px 60px rgba(0,0,0,.5);
+  }
+  .rim{
+    position:absolute; top:-2.5%; left:18%; right:18%; height:6%;
+    border-radius:50%; border:2px solid rgba(207,232,245,.5);
+    background:rgba(207,232,245,.08);
+    box-shadow:0 0 18px rgba(207,232,245,.25);
+  }
+  .neck{
+    position:absolute; top:-10%; left:30%; right:30%; height:12%;
+    border-radius:40% 40% 0 0; border:1.5px solid rgba(207,232,245,.35);
+    background:linear-gradient(180deg, rgba(207,232,245,.12), transparent);
+  }
+  #scene{
+    position:absolute; inset:5% 7% 4% 7%;
+    width:auto; height:auto;
+  }
+  /* condensing droplet on glass */
+  #drop{
+    position:absolute; width:11px; height:14px; z-index:5;
+    background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.95), rgba(207,232,245,.55) 55%, rgba(150,200,220,.35));
+    border-radius:50% 50% 55% 55% / 40% 40% 60% 60%;
+    box-shadow:0 1px 3px rgba(0,0,0,.35);
+    opacity:0; pointer-events:none;
+  }
+  /* rain drops sliding on exterior */
+  .raindrop{
+    position:absolute; width:6px; height:10px; z-index:6; pointer-events:none;
+    background:linear-gradient(180deg, rgba(220,245,255,.9), rgba(180,220,240,.45));
+    border-radius:40% 40% 60% 60% / 30% 30% 70% 70%;
+    opacity:0;
+  }
+  .plantlabel{
+    position:absolute; z-index:7; pointer-events:none;
+    font-family:ui-monospace, "SF Mono", Menlo, monospace;
+    font-size:.62rem; letter-spacing:.18em; color:var(--ink);
+    background:var(--chip); border:1px solid rgba(95,158,110,.5);
+    padding:.4em .8em; border-radius:4px; white-space:nowrap;
+    opacity:0; transform:translate(-50%,-130%); transition:opacity .18s;
+  }
+  .plantlabel.show{opacity:1}
+
+  footer{
+    width:100%; display:flex; flex-wrap:wrap; gap:.7rem 1.4rem; align-items:center; justify-content:center;
+    padding:clamp(.7rem,2vw,1.2rem); border-top:1px solid rgba(207,232,245,.12);
+  }
+  .ctl{display:flex; align-items:center; gap:.7em}
+  .ctl label{font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:.6rem; letter-spacing:.24em; color:var(--dim); text-transform:uppercase}
+  .ctl output{font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:.6rem; color:#a8d8b0; min-width:3.2em; text-align:right}
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:clamp(110px,22vw,200px); height:4px;
+    border-radius:2px; background:linear-gradient(90deg,#3a5a45,#a8d8b0); outline:none; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:#e8f0ea; border:2px solid #5f9e6e; cursor:grab;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:12px; height:12px; border-radius:50%; background:#e8f0ea; border:2px solid #5f9e6e; cursor:grab;
+  }
+  .chipbtn{
+    font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:.62rem; letter-spacing:.24em;
+    text-transform:uppercase; color:var(--ink); background:transparent;
+    border:1px solid rgba(207,232,245,.3); border-radius:999px; padding:.55em 1.3em; cursor:pointer;
+    transition:all .2s;
+  }
+  .chipbtn:hover{border-color:var(--glass); color:var(--glass)}
+  .chipbtn.on{background:rgba(120,180,220,.15); border-color:#8fc4e8; color:#bcdcf2}
+  .caption{
+    font-family:ui-monospace, "SF Mono", Menlo, monospace; font-size:.6rem;
+    letter-spacing:.26em; color:var(--dim); text-transform:uppercase;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Terrarium Isle</h1>
+  <span class="sub">FLORA DEPT / BOTTLE 03</span>
+</header>
+
+<div id="stage">
+  <div id="bottle">
+    <div class="neck"></div>
+    <div class="rim"></div>
+    <div class="pane back"></div>
+    <canvas id="scene"></canvas>
+    <div class="pane front"></div>
+    <div id="drop"></div>
+    <div class="plantlabel" id="plabel"></div>
+  </div>
+</div>
+
+<footer>
+  <span class="caption">TERRARIUM &mdash; BOTTLE 03, 5 PLANTS</span>
+  <div class="ctl">
+    <label for="time">Time</label>
+    <input id="time" type="range" min="0" max="24" step="0.25" value="14">
+    <output id="timev">14:00</output>
+  </div>
+  <button class="chipbtn" id="rain" aria-pressed="false">Rain</button>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var canvas = document.getElementById("scene");
+  var bottle = document.getElementById("bottle");
+  var drop = document.getElementById("drop");
+  var plabel = document.getElementById("plabel");
+  var ctx = canvas.getContext("2d");
+  var W = 0, H = 0, DPR = 1;
+
+  var timeEl = document.getElementById("time");
+  var timev = document.getElementById("timev");
+  var rainBtn = document.getElementById("rain");
+
+  var state = {
+    hour: 14,
+    rain: false,
+    raindrops: [],
+    firefly: 0,
+    hover: -1,
+    lastNow: 0,
+    dropY: 0.15,
+    dropGrow: 0,
+    seed: 7
+  };
+
+  function fit(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    var r = canvas.getBoundingClientRect();
+    W = Math.max(1, Math.round(r.width));
+    H = Math.max(1, Math.round(r.height));
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener("resize", fit);
+
+  // deterministic pseudo-random
+  function rnd(i){
+    var x = Math.sin(state.seed + i * 127.1) * 43758.5453;
+    return x - Math.floor(x);
+  }
+
+  // light model: sun angle from hour, 0-24
+  function light(){
+    // daylight factor: 1 at noon, 0 at midnight, smooth
+    var d = Math.cos((state.hour - 12) / 24 * Math.PI * 2);
+    var day = Math.max(0, d);
+    var night = 1 - day;
+    var angle = (state.hour / 24) * Math.PI * 2 - Math.PI / 2;
+    return { day: day, night: night, angle: angle, x: Math.cos(angle), y: Math.sin(angle) };
+  }
+
+  function mix(a, b, t){ return a + (b - a) * t; }
+  function rgb(c1, c2, t){
+    return "rgb(" + Math.round(mix(c1[0], c2[0], t)) + "," + Math.round(mix(c1[1], c2[1], t)) + "," + Math.round(mix(c1[2], c2[2], t)) + ")";
+  }
+
+  var plants = [
+    { name: "MOSS CARPET", x: 0.18, y: 0.78, w: 0.22, h: 0.16, kind: "moss" },
+    { name: "SUCCULENT", x: 0.40, y: 0.62, w: 0.10, h: 0.22, kind: "succulent" },
+    { name: "FEATHER FERN", x: 0.56, y: 0.58, w: 0.14, h: 0.30, kind: "fern" },
+    { name: "MINI TREE", x: 0.74, y: 0.55, w: 0.16, h: 0.40, kind: "tree" },
+    { name: "FLOWER CLUSTER", x: 0.88, y: 0.76, w: 0.12, h: 0.20, kind: "flowers" }
+  ];
+  var stones = [
+    { x: 0.30, y: 0.86, rx: 0.055, ry: 0.035 },
+    { x: 0.66, y: 0.88, rx: 0.04, ry: 0.026 }
+  ];
+
+  function soilColor(L){ return rgb([74, 53, 39], [30, 24, 30], L.night); }
+
+  function sway(){
+    if (!state.rain) return 0;
+    return Math.sin(state.firefly * 1.7) * 0.06;
+  }
+
+  function drawSoil(L){
+    ctx.fillStyle = soilColor(L);
+    ctx.beginPath();
+    var baseY = H * 0.86;
+    ctx.moveTo(0, H);
+    ctx.lineTo(0, baseY + H * 0.04);
+    // gentle mound
+    ctx.quadraticCurveTo(W * 0.2, baseY - H * 0.06, W * 0.45, baseY - H * 0.02);
+    ctx.quadraticCurveTo(W * 0.7, baseY + H * 0.02, W, baseY - H * 0.04);
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+    // pebbles in soil
+    for (var i = 0; i < 26; i++){
+      var px = rnd(i * 3.1) * W;
+      var py = baseY + rnd(i * 5.7) * (H - baseY) * 0.9 + 2;
+      var pr = 1 + rnd(i * 7.3) * 2.2;
+      ctx.fillStyle = "rgba(210,190,160," + (0.10 + L.day * 0.12).toFixed(2) + ")";
+      ctx.beginPath();
+      ctx.arc(px, py, pr, 0, 6.2831853);
+      ctx.fill();
+    }
+  }
+
+  function drawMoss(p, L, L2){
+    var cx = p.x * W, cy = p.y * H, rw = p.w * W, rh = p.h * H;
+    var col = rgb([95, 158, 110], [38, 66, 52], L.night);
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rw * 0.5, rh * 0.5, 0, 0, 6.2831853);
+    ctx.fill();
+    // clumps
+    for (var i = 0; i < 14; i++){
+      var ox = (rnd(i * 2.3) - 0.5) * rw * 0.8;
+      var oy = (rnd(i * 4.9) - 0.5) * rh * 0.6;
+      ctx.fillStyle = i % 2 ? "rgba(140,190,150," + (0.25 + L.day * 0.3).toFixed(2) + ")" : "rgba(60,100,70,.45)";
+      ctx.beginPath();
+      ctx.arc(cx + ox, cy + oy, 2.5 + rnd(i * 6.1) * 3, 0, 6.2831853);
+      ctx.fill();
+    }
+  }
+
+  function drawSucculent(p, L, L2){
+    var cx = p.x * W, cy = p.y * H, s = p.h * H;
+    var col = rgb([122, 178, 140], [52, 84, 70], L.night);
+    var sw = sway();
+    for (var ring = 3; ring >= 1; ring--){
+      var rr = s * 0.16 * ring;
+      var leaves = 5 + ring * 2;
+      for (var i = 0; i < leaves; i++){
+        var a = (i / leaves) * 6.2831853 + ring * 0.5 + sw;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.ellipse(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.7, rr * 0.55, rr * 0.24, a, 0, 6.2831853);
+        ctx.fill();
+      }
+    }
+    ctx.fillStyle = rgb([170, 210, 180], [80, 110, 95], L.night);
+    ctx.beginPath();
+    ctx.arc(cx, cy, s * 0.07, 0, 6.2831853);
+    ctx.fill();
+  }
+
+  function drawFern(p, L, L2){
+    var cx = p.x * W, baseY = p.y * H + p.h * H * 0.4, s = p.h * H;
+    var sw = sway();
+    var fronds = 7;
+    for (var i = 0; i < fronds; i++){
+      var spread = (i / (fronds - 1) - 0.5) * 1.5;
+      var fx = cx + spread * s * 0.35;
+      var fy = baseY - s * 0.15;
+      var len = s * (0.55 + rnd(i * 9.7) * 0.45);
+      var col = rgb([96, 150, 100], [40, 70, 52], L.night);
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      // curving frond
+      ctx.quadraticCurveTo(fx + spread * len * 0.5 + sw * len * 0.3, fy - len * 0.6, fx + spread * len * 0.9 + sw * len * 0.5, fy - len * 0.85);
+      ctx.stroke();
+      // leaflets
+      for (var j = 1; j <= 8; j++){
+        var t = j / 9;
+        var lx = fx + spread * len * 0.9 * t + sw * len * 0.5 * t;
+        var ly = fy - len * 0.85 * t;
+        var ll = len * 0.14 * (1 - t * 0.6);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(lx, ly);
+        ctx.lineTo(lx - ll, ly - ll * 0.4);
+        ctx.moveTo(lx, ly);
+        ctx.lineTo(lx + ll, ly - ll * 0.4);
+        ctx.stroke();
+      }
+    }
+  }
+
+  function drawTree(p, L, L2){
+    var cx = p.x * W, baseY = p.y * H + p.h * H * 0.45, s = p.h * H;
+    var sw = sway();
+    // trunk
+    ctx.strokeStyle = rgb([92, 68, 48], [40, 30, 26], L.night);
+    ctx.lineWidth = Math.max(3, s * 0.05);
+    ctx.beginPath();
+    ctx.moveTo(cx, baseY);
+    ctx.quadraticCurveTo(cx + sw * s * 0.2, baseY - s * 0.4, cx + sw * s * 0.3, baseY - s * 0.62);
+    ctx.stroke();
+    // canopy blobs
+    var cols = [[86, 140, 92], [66, 116, 80], [106, 158, 108]];
+    for (var i = 0; i < 5; i++){
+      var bx = cx + sw * s * 0.3 + (rnd(i * 3.7) - 0.5) * s * 0.42;
+      var by = baseY - s * 0.72 - rnd(i * 5.3) * s * 0.28;
+      var br = s * (0.13 + rnd(i * 7.1) * 0.1);
+      var c = cols[i % cols.length];
+      ctx.fillStyle = rgb(c, [c[0] * 0.45, c[1] * 0.45, c[2] * 0.45], L.night);
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, 6.2831853);
+      ctx.fill();
+    }
+  }
+
+  function drawFlowers(p, L, L2){
+    var cx = p.x * W, baseY = p.y * H + p.h * H * 0.45, s = p.h * H;
+    var sw = sway();
+    var blooms = [
+      { dx: -0.3, dy: 0.7, c: [214, 140, 180] },
+      { dx: 0.05, dy: 0.9, c: [230, 200, 120] },
+      { dx: 0.35, dy: 0.6, c: [220, 120, 110] }
+    ];
+    for (var i = 0; i < blooms.length; i++){
+      var b = blooms[i];
+      var fx = cx + b.dx * s + sw * s * 0.15;
+      var fy = baseY - b.dy * s;
+      ctx.strokeStyle = rgb([90, 130, 80], [36, 56, 38], L.night);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, baseY);
+      ctx.quadraticCurveTo(fx, fy + s * 0.2, fx, fy);
+      ctx.stroke();
+      var pet = b.c;
+      ctx.fillStyle = rgb(pet, [pet[0] * 0.4, pet[1] * 0.4, pet[2] * 0.4], L.night * 0.8);
+      for (var k = 0; k < 5; k++){
+        var a = (k / 5) * 6.2831853 + state.firefly * 0.05;
+        ctx.beginPath();
+        ctx.ellipse(fx + Math.cos(a) * s * 0.05, fy + Math.sin(a) * s * 0.05, s * 0.045, s * 0.03, a, 0, 6.2831853);
+        ctx.fill();
+      }
+      ctx.fillStyle = "rgba(60,40,20,.8)";
+      ctx.beginPath();
+      ctx.arc(fx, fy, s * 0.022, 0, 6.2831853);
+      ctx.fill();
+      // dew in rain
+      if (state.rain){
+        ctx.fillStyle = "rgba(200,235,255,.55)";
+        ctx.beginPath();
+        ctx.arc(fx + s * 0.02, fy + s * 0.03, 1.2, 0, 6.2831853);
+        ctx.fill();
+      }
+    }
+  }
+
+  function drawStones(L){
+    for (var i = 0; i < stones.length; i++){
+      var st = stones[i];
+      var cx = st.x * W, cy = st.y * H;
+      var rx = st.rx * W, ry = st.ry * H;
+      ctx.fillStyle = rgb([120, 124, 130], [54, 58, 66], L.night);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, 6.2831853);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255," + (0.08 + L.day * 0.12).toFixed(2) + ")";
+      ctx.beginPath();
+      ctx.ellipse(cx - rx * 0.3, cy - ry * 0.4, rx * 0.4, ry * 0.35, -0.4, 0, 6.2831853);
+      ctx.fill();
+    }
+  }
+
+  function drawFirefly(L){
+    if (L.night < 0.45) return;
+    var t = state.firefly;
+    var fx = W * (0.5 + 0.32 * Math.sin(t * 0.7) * Math.cos(t * 0.31));
+    var fy = H * (0.45 + 0.18 * Math.sin(t * 0.93 + 1.4));
+    var glow = 0.6 + 0.4 * Math.sin(t * 4.2);
+    var g = ctx.createRadialGradient(fx, fy, 0, fx, fy, 14);
+    g.addColorStop(0, "rgba(220,255,150," + (0.85 * glow * L.night).toFixed(3) + ")");
+    g.addColorStop(1, "rgba(220,255,150,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(fx, fy, 14, 0, 6.2831853);
+    ctx.fill();
+    ctx.fillStyle = "rgba(240,255,190," + (0.95 * L.night).toFixed(3) + ")";
+    ctx.beginPath();
+    ctx.arc(fx, fy, 1.8, 0, 6.2831853);
+    ctx.fill();
+  }
+
+  function drawLightWash(L){
+    // interior tint by time of day
+    if (L.night > 0.2){
+      ctx.fillStyle = "rgba(10,16,34," + (L.night * 0.35).toFixed(3) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+    // sunbeam direction
+    if (L.day > 0.15){
+      var bx = L.x > 0 ? 0 : W;
+      var grad = ctx.createLinearGradient(bx, 0, bx + (L.x > 0 ? 1 : -1) * W * 0.9, H * 0.5);
+      grad.addColorStop(0, "rgba(255,238,190," + (L.day * 0.14).toFixed(3) + ")");
+      grad.addColorStop(1, "rgba(255,238,190,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+    // golden hour
+    var golden = Math.abs(state.hour - 6.5) < 1.2 || Math.abs(state.hour - 17.5) < 1.2;
+    if (golden && L.day > 0.05){
+      ctx.fillStyle = "rgba(255,170,80," + (L.day * 0.10).toFixed(3) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  function drawPlant(p, L, L2){
+    if (p.kind === "moss") drawMoss(p, L, L2);
+    else if (p.kind === "succulent") drawSucculent(p, L, L2);
+    else if (p.kind === "fern") drawFern(p, L, L2);
+    else if (p.kind === "tree") drawTree(p, L, L2);
+    else drawFlowers(p, L, L2);
+  }
+
+  function render(){
+    var L = light();
+    ctx.clearRect(0, 0, W, H);
+    drawSoil(L);
+    drawStones(L);
+    for (var i = 0; i < plants.length; i++){
+      drawPlant(plants[i], L, i);
+    }
+    drawFirefly(L);
+    drawLightWash(L);
+    // hover highlight
+    if (state.hover >= 0){
+      var p = plants[state.hover];
+      ctx.strokeStyle = "rgba(168,216,176,.8)";
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(p.x * W - p.w * W * 0.6, p.y * H - p.h * H * 0.55, p.w * W * 1.2, p.h * H * 1.2);
+      ctx.setLineDash([]);
+    }
+  }
+
+  function frame(now){
+    try{
+      var dt = Math.min(0.05, (now - state.lastNow) / 1000 || 0);
+      state.lastNow = now;
+      state.firefly += dt * (state.rain ? 0.8 : 1.2);
+
+      // condensing droplet on glass: grows, slides, resets
+      state.dropGrow = Math.min(1, state.dropGrow + dt * 0.12);
+      if (state.dropGrow >= 1){
+        state.dropY += dt * 0.06;
+        if (state.dropY > 0.85){ state.dropY = 0.1; state.dropGrow = 0; }
+      }
+      var bw = bottle.clientWidth, bh = bottle.clientHeight;
+      var dw = 8 + state.dropGrow * 6;
+      drop.style.width = dw.toFixed(1) + "px";
+      drop.style.height = (dw * 1.25).toFixed(1) + "px";
+      drop.style.left = (bw * 0.82 - dw / 2).toFixed(1) + "px";
+      drop.style.top = (bh * state.dropY).toFixed(1) + "px";
+      drop.style.opacity = (0.35 + state.dropGrow * 0.55).toFixed(2);
+
+      // rain drops
+      if (state.rain && state.raindrops.length < 9 && Math.random() < 0.05){
+        var rd = { el: makeRaindrop(), x: Math.random(), y: -0.05, v: 0.18 + Math.random() * 0.15 };
+        state.raindrops.push(rd);
+      }
+      for (var i = state.raindrops.length - 1; i >= 0; i--){
+        var d2 = state.raindrops[i];
+        d2.y += d2.v * dt * 2.2;
+        if (d2.y > 1.05){
+          d2.el.remove();
+          state.raindrops.splice(i, 1);
+          continue;
+        }
+        d2.el.style.left = (d2.x * 100).toFixed(2) + "%";
+        d2.el.style.top = (d2.y * 100).toFixed(2) + "%";
+        d2.el.style.opacity = "0.8";
+      }
+      if (!state.rain && state.raindrops.length){
+        for (var j = state.raindrops.length - 1; j >= 0; j--){
+          state.raindrops[j].el.remove();
+          state.raindrops.splice(j, 1);
+        }
+      }
+
+      render();
+    }catch(e){ /* guard */ }
+    requestAnimationFrame(frame);
+  }
+
+  function makeRaindrop(){
+    var el = document.createElement("div");
+    el.className = "raindrop";
+    bottle.appendChild(el);
+    return el;
+  }
+
+  // hover plant label
+  canvas.addEventListener("pointermove", function(e){
+    var r = canvas.getBoundingClientRect();
+    var px = (e.clientX - r.left) / W;
+    var py = (e.clientY - r.top) / H;
+    var hit = -1;
+    for (var i = 0; i < plants.length; i++){
+      var p = plants[i];
+      var dx = px - p.x, dy = py - (p.y + p.h * 0.1);
+      if (Math.abs(dx) < p.w * 0.7 && Math.abs(dy) < p.h * 0.75) hit = i;
+    }
+    state.hover = hit;
+    if (hit >= 0){
+      var hp = plants[hit];
+      plabel.textContent = hp.name;
+      var br = bottle.getBoundingClientRect();
+      plabel.style.left = ((r.left - br.left + hp.x * W)).toFixed(1) + "px";
+      plabel.style.top = ((r.top - br.top + hp.y * H - hp.h * H * 0.4)).toFixed(1) + "px";
+      plabel.classList.add("show");
+    } else {
+      plabel.classList.remove("show");
+    }
+  });
+  canvas.addEventListener("pointerleave", function(){
+    state.hover = -1;
+    plabel.classList.remove("show");
+  });
+
+  function fmtTime(h){
+    var hh = Math.floor(h);
+    var mm = Math.floor((h - hh) * 60);
+    return (hh < 10 ? "0" + hh : hh) + ":" + (mm < 10 ? "0" + mm : mm);
+  }
+
+  timeEl.addEventListener("input", function(){
+    state.hour = Number(timeEl.value);
+    timev.textContent = fmtTime(state.hour);
+  });
+
+  rainBtn.addEventListener("click", function(){
+    state.rain = !state.rain;
+    rainBtn.classList.toggle("on", state.rain);
+    rainBtn.setAttribute("aria-pressed", String(state.rain));
+  });
+
+  fit();
+  timev.textContent = fmtTime(state.hour);
+  state.lastNow = performance.now();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

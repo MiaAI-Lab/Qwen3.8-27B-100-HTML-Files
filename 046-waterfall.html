@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>THE FALLS - 120M</title>
+<style>
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #0d1013;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.hud {
+  position: fixed; left: clamp(16px, 3vw, 40px); bottom: clamp(14px, 3vh, 34px);
+  color: #cfe4ee; pointer-events: none; z-index: 2;
+}
+.cap {
+  font-size: clamp(11px, 1.5vw, 15px);
+  letter-spacing: 0.42em; font-weight: 600; text-transform: uppercase;
+  text-shadow: 0 1px 10px rgba(0,0,0,.65);
+}
+.sub {
+  margin-top: 7px; font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: 0.26em; text-transform: uppercase;
+  color: rgba(190,215,228,.5);
+}
+.ctrl {
+  position: fixed; right: clamp(16px, 3vw, 40px); bottom: clamp(14px, 3vh, 34px);
+  z-index: 2; display: flex; flex-direction: column; align-items: flex-end; gap: 9px;
+}
+.lab {
+  font-size: 10px; letter-spacing: .3em; color: rgba(200,224,235,.7); font-weight: 600;
+}
+.lab b { color: #9fd3e8; font-weight: 700; }
+input[type=range] {
+  width: clamp(120px, 24vw, 230px); accent-color: #6fb7d6; cursor: pointer;
+  height: 18px;
+}
+#sound {
+  font: 600 10px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: .26em; padding: 10px 15px; color: #cfe4ee;
+  background: rgba(16,24,30,.55); border: 1px solid rgba(150,190,205,.35);
+  border-radius: 999px; cursor: pointer;
+  transition: background .25s, border-color .25s, box-shadow .25s, color .25s;
+}
+#sound.on {
+  background: rgba(56,118,148,.5); border-color: #8fd0e8; color: #eaffff;
+  box-shadow: 0 0 16px rgba(110,190,220,.35);
+}
+#sound:hover { border-color: rgba(160,205,225,.75); }
+@media (max-width: 480px) {
+  .ctrl { bottom: 84px; }
+}
+</style>
+</head>
+<body>
+<canvas id="scene" aria-label="Animated waterfall scene"></canvas>
+<div class="hud">
+  <div class="cap">THE FALLS - 120M</div>
+  <div class="sub">cascading &middot; 600 particle streams</div>
+</div>
+<div class="ctrl">
+  <div class="lab">FLOW <b id="flowv">65%</b></div>
+  <input type="range" id="flow" min="0" max="100" step="1" value="65" aria-label="Water flow">
+  <button id="sound" type="button">SOUND OFF</button>
+</div>
+<script>
+(() => {
+  'use strict';
+  const canvas = document.getElementById('scene');
+  const ctx = canvas.getContext('2d');
+  const flowEl = document.getElementById('flow');
+  const flowV = document.getElementById('flowv');
+  const soundBtn = document.getElementById('sound');
+
+  let W = 0, H = 0, DPR = 1;
+  let flow = 0.65;
+  let soundOn = false;
+  let lipY = 0, lipCX = 0, lipW = 0, poolY = 0;
+  let bg = null, fg = null;
+  let particles = [], rings = [], mists = [], shimmers = [], rays = [];
+  let vines = [];
+  let audio = null;
+  let last = performance.now();
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+
+  function bez(p0, p1, p2, p3, u) {
+    const s = 1 - u;
+    return s * s * s * p0 + 3 * s * s * u * p1 + 3 * s * u * u * p2 + u * u * u * p3;
+  }
+
+  function buildBackground() {
+    bg = document.createElement('canvas');
+    bg.width = Math.max(1, Math.round(W * DPR));
+    bg.height = Math.max(1, Math.round(H * DPR));
+    const g = bg.getContext('2d');
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    const grad = g.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#1c222a');
+    grad.addColorStop(0.55, '#12161c');
+    grad.addColorStop(1, '#0d1013');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, W, H);
+
+    const leftEdge = lipCX - lipW / 2 - 36;
+    const rightEdge = lipCX + lipW / 2 + 36;
+
+    // gorge opening above the lip (hazy sky behind the source)
+    g.fillStyle = '#1a2028';
+    g.fillRect(leftEdge, 0, rightEdge - leftEdge, lipY);
+
+    // gorge back wall under the lip
+    g.fillStyle = '#171a20';
+    g.fillRect(leftEdge, lipY, rightEdge - leftEdge, poolY - lipY + 26);
+
+    // side cliff walls with strata
+    wall(g, leftEdge, 1);
+    wall(g, rightEdge, -1);
+    strata(g, leftEdge + 4, rightEdge - 4, lipY, poolY + 20, 0.10);
+
+    // distant conifer silhouettes along the top band
+    g.fillStyle = 'rgba(13,17,22,0.92)';
+    for (let i = 0; i < 16; i++) {
+      let tx;
+      if (i % 2 === 0) tx = rand(4, Math.max(6, leftEdge - 14));
+      else tx = rand(rightEdge + 14, W - 4);
+      if (tx < 2 || tx > W - 2) continue;
+      const ty = rand(4, lipY * 0.55);
+      const tw = rand(9, 22), th = rand(14, 34);
+      g.beginPath();
+      g.moveTo(tx, ty - th);
+      g.lineTo(tx + tw / 2, ty);
+      g.lineTo(tx - tw / 2, ty);
+      g.closePath();
+      g.fill();
+      g.beginPath();
+      g.moveTo(tx, ty - th * 0.72);
+      g.lineTo(tx + tw * 0.62, ty + 4);
+      g.lineTo(tx - tw * 0.62, ty + 4);
+      g.closePath();
+      g.fill();
+    }
+
+    // lip ledge
+    g.fillStyle = '#23262c';
+    g.fillRect(leftEdge - 5, lipY - 7, rightEdge - leftEdge + 10, 8);
+    g.strokeStyle = 'rgba(255,255,255,0.10)';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(leftEdge - 5, lipY - 7);
+    g.lineTo(rightEdge + 5, lipY - 7);
+    g.stroke();
+
+    // pool
+    const pg = g.createLinearGradient(0, poolY, 0, H);
+    pg.addColorStop(0, '#214f63');
+    pg.addColorStop(0.28, '#1a3a4a');
+    pg.addColorStop(1, '#102835');
+    g.fillStyle = pg;
+    g.fillRect(0, poolY, W, H - poolY);
+
+    // impact glow where the falls meet the pool
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.fillStyle = 'rgba(130,185,200,0.14)';
+    g.beginPath();
+    g.ellipse(lipCX, poolY + 6, lipW * 0.85, 17, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = 'rgba(130,185,200,0.07)';
+    g.beginPath();
+    g.ellipse(lipCX, poolY + 10, lipW * 1.3, 30, 0, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+
+    // soft vignette
+    const vg = g.createRadialGradient(W / 2, H * 0.42, Math.min(W, H) * 0.35, W / 2, H * 0.5, Math.max(W, H) * 0.78);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.42)');
+    g.fillStyle = vg;
+    g.fillRect(0, 0, W, H);
+  }
+
+  function wall(g, innerX, side) {
+    // side 1 = left wall, -1 = right wall
+    const steps = Math.max(6, Math.round(H / 26));
+    const edge = [];
+    let x = innerX + rand(-8, 8);
+    for (let i = 0; i <= steps; i++) {
+      edge.push(x);
+      x += rand(-13, 13);
+      const pull = side === 1 ? innerX + 14 : innerX - 14;
+      if (x < pull) x = pull + rand(0, 8);
+      if (x > pull) x = pull - rand(0, 8);
+    }
+    g.fillStyle = '#2a2e35';
+    g.beginPath();
+    if (side === 1) {
+      g.moveTo(0, 0);
+      for (let i = 0; i <= steps; i++) g.lineTo(edge[i], (H / steps) * i);
+      g.lineTo(0, H);
+    } else {
+      g.moveTo(W, 0);
+      for (let i = 0; i <= steps; i++) g.lineTo(edge[i], (H / steps) * i);
+      g.lineTo(W, H);
+    }
+    g.closePath();
+    g.fill();
+
+    // strata lines on the wall face
+    g.lineWidth = 1.2;
+    for (let i = 1; i < steps; i++) {
+      const y = (H / steps) * i;
+      const x0 = edge[i] + (side === 1 ? 4 : -4);
+      const x1 = side === 1 ? x0 + Math.min(40, x0 - 6) : x0 - Math.min(40, W - x0 - 6);
+      g.strokeStyle = i % 3 === 0 ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.22)';
+      g.beginPath();
+      g.moveTo(x1, y + rand(-3, 3));
+      g.lineTo(x0, y + rand(-3, 3));
+      g.stroke();
+    }
+  }
+
+  function strata(g, x0, x1, y0, y1, alpha) {
+    if (x1 - x0 < 20 || y1 - y0 < 20) return;
+    g.lineWidth = 1;
+    for (let y = y0 + rand(8, 20); y < y1; y += rand(16, 30)) {
+      g.strokeStyle = 'rgba(0,0,0,' + (alpha + rand(0, 0.08)).toFixed(3) + ')';
+      g.beginPath();
+      g.moveTo(x0 + rand(0, 8), y + rand(-2, 2));
+      g.lineTo(x1 - rand(0, 8), y + rand(-2, 2));
+      g.stroke();
+    }
+  }
+
+  function buildForeground() {
+    fg = document.createElement('canvas');
+    fg.width = Math.max(1, Math.round(W * DPR));
+    fg.height = Math.max(1, Math.round(H * DPR));
+    const g = fg.getContext('2d');
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    boulder(g, W * 0.05, W * 0.30, H * 0.20);
+    boulder(g, W * 0.88, W * 0.24, H * 0.16);
+  }
+
+  function boulder(g, cx, w, h) {
+    const baseY = H + 2;
+    g.fillStyle = '#0b0d10';
+    g.beginPath();
+    g.moveTo(cx - w / 2, baseY);
+    g.bezierCurveTo(cx - w / 2, baseY - h * 0.6, cx - w * 0.24, baseY - h, cx + w * 0.04, baseY - h * 0.93);
+    g.bezierCurveTo(cx + w * 0.34, baseY - h * 0.82, cx + w / 2, baseY - h * 0.36, cx + w / 2, baseY);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = 'rgba(160,190,205,0.09)';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.moveTo(cx - w * 0.30, baseY - h * 0.78);
+    g.quadraticCurveTo(cx - w * 0.04, baseY - h * 1.02, cx + w * 0.20, baseY - h * 0.84);
+    g.stroke();
+  }
+
+  function seedVines() {
+    vines = [
+      { ax: W * 0.80, len: H * 0.46, ph: rand(0, 6.28), leaves: 14 },
+      { ax: W * 0.115, len: H * 0.30, ph: rand(0, 6.28), leaves: 9 }
+    ];
+  }
+
+  function drawVine(g, v, t) {
+    const sway = Math.sin(t * 0.5 + v.ph) * 15;
+    const ex = v.ax + sway * 0.45;
+    const ey = v.len;
+    const c1x = v.ax + 12 + sway * 0.15;
+    const c1y = v.len * 0.42;
+    const c2x = v.ax - 20 + sway * 0.3;
+    const c2y = v.len * 0.78;
+    g.strokeStyle = 'rgba(26,44,32,0.9)';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(v.ax, -4);
+    g.bezierCurveTo(c1x, c1y, c2x, c2y, ex, ey);
+    g.stroke();
+    g.fillStyle = 'rgba(34,58,40,0.85)';
+    for (let i = 1; i <= v.leaves; i++) {
+      const u = i / (v.leaves + 1);
+      const bx = bez(v.ax, c1x, c2x, ex, u);
+      const by = bez(-4, c1y, c2y, ey, u);
+      const side = i % 2 === 1 ? 1 : -1;
+      g.beginPath();
+      g.ellipse(bx + side * 5, by + 3, 5.2, 2.4, side * 0.7, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+
+  function seedWater() {
+    shimmers = [];
+    for (let i = 0; i < 26; i++) {
+      shimmers.push({
+        x: rand(0, W),
+        y: rand(poolY + 16, H - 14),
+        len: rand(14, 72),
+        ph: rand(0, 6.28),
+        sp: rand(0.2, 0.7),
+        a: rand(0.04, 0.14)
+      });
+    }
+    rays = [];
+    for (let i = 0; i < 5; i++) {
+      rays.push({
+        x: lipCX + rand(-lipW * 0.42, lipW * 0.42),
+        w: rand(10, 26),
+        ph: rand(0, 6.28),
+        a: rand(0.03, 0.07)
+      });
+    }
+  }
+
+  function spawnParticle() {
+    const z = Math.random();
+    const sp = 0.55 + flow * 0.9;
+    particles.push({
+      x: lipCX + rand(-1, 1) * lipW * 0.5 * (0.55 + 0.45 * z),
+      y: lipY + rand(0, 6),
+      vy: rand(20, 90) * sp,
+      z: z,
+      drift: rand(-9, 9) * sp,
+      ph: rand(0, 6.28)
+    });
+  }
+
+  function frame(t, dt) {
+    // base scene
+    ctx.drawImage(bg, 0, 0, W, H);
+
+    // faint god-ray refractions in the falls
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < rays.length; i++) {
+      const r = rays[i];
+      const a = r.a * (0.5 + 0.5 * Math.sin(t * 0.25 + r.ph));
+      if (a <= 0.004) continue;
+      const rg = ctx.createLinearGradient(0, lipY, 0, poolY + 30);
+      rg.addColorStop(0, 'rgba(190,230,240,' + (a * 0.9).toFixed(3) + ')');
+      rg.addColorStop(1, 'rgba(190,230,240,0)');
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.moveTo(r.x - r.w / 2, lipY);
+      ctx.lineTo(r.x + r.w / 2, lipY);
+      ctx.lineTo(r.x + r.w * 1.6, poolY + 30);
+      ctx.lineTo(r.x - r.w * 1.6, poolY + 30);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // continuous water sheet behind the particle streams
+    const sheet = ctx.createLinearGradient(0, lipY, 0, poolY + 14);
+    sheet.addColorStop(0, 'rgba(215,235,244,' + (0.13 + flow * 0.1).toFixed(3) + ')');
+    sheet.addColorStop(0.5, 'rgba(205,228,240,' + (0.08 + flow * 0.06).toFixed(3) + ')');
+    sheet.addColorStop(1, 'rgba(205,228,240,0.02)');
+    ctx.fillStyle = sheet;
+    ctx.fillRect(lipCX - lipW * 0.5, lipY, lipW, poolY - lipY + 10);
+
+    // spawn to target count
+    const target = Math.floor(120 + flow * 480);
+    let guard = 0;
+    while (particles.length < target && guard < 60) {
+      spawnParticle();
+      guard++;
+    }
+
+    // particle streams
+    const sp = 0.55 + flow * 0.9;
+    const gAcc = 1500 * sp;
+    ctx.lineCap = 'round';
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.drift * dt + Math.sin(t * 2 + p.ph) * 14 * dt;
+      p.y += p.vy * dt;
+      p.vy += gAcc * dt;
+      if (p.y >= poolY + p.z * 26) {
+        particles.splice(i, 1);
+        if (Math.random() < 0.16 + flow * 0.3) {
+          rings.push({
+            x: p.x, y: poolY + rand(2, 20), r: 1,
+            max: rand(5, 9) + flow * 16 * p.z,
+            a: rand(0.3, 0.55), sp: rand(26, 46)
+          });
+        }
+        if (Math.random() < 0.28 + flow * 0.42 && mists.length < 220) {
+          mists.push({
+            x: p.x + rand(-16, 16), y: poolY + rand(-4, 8),
+            r: rand(6, 15) * (0.6 + flow), a: rand(0.05, 0.13),
+            vy: -rand(10, 28)
+          });
+        }
+        continue;
+      }
+      const a = 0.05 + p.z * 0.3;
+      ctx.strokeStyle = 'rgba(226,240,246,' + a.toFixed(3) + ')';
+      ctx.lineWidth = 0.8 + p.z * 1.7;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - 5 - p.z * 7);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    }
+
+    // splash rings
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i];
+      r.r += r.sp * dt * (0.8 + flow * 0.6);
+      r.a -= dt * 0.9;
+      if (r.r >= r.max || r.a <= 0) { rings.splice(i, 1); continue; }
+      const f = r.r / r.max;
+      const a = Math.max(0, r.a * (1 - f) * 1.4);
+      if (a <= 0.004) continue;
+      ctx.strokeStyle = 'rgba(210,235,242,' + a.toFixed(3) + ')';
+      ctx.lineWidth = 1 + f * 1.5;
+      ctx.beginPath();
+      ctx.ellipse(r.x, r.y, r.r, r.r * 0.32, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // rising spray mist
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = mists.length - 1; i >= 0; i--) {
+      const m = mists[i];
+      m.y += m.vy * dt * (0.6 + flow);
+      m.r += dt * 11;
+      m.a -= dt * 0.05;
+      if (m.a <= 0.004) { mists.splice(i, 1); continue; }
+      ctx.fillStyle = 'rgba(200,220,230,' + m.a.toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // broad mist veil near the base
+    const ma = 0.05 + flow * 0.09;
+    const mg = ctx.createRadialGradient(lipCX, poolY + 8, 8, lipCX, poolY + 8, lipW * 1.5);
+    mg.addColorStop(0, 'rgba(205,225,235,' + ma.toFixed(3) + ')');
+    mg.addColorStop(1, 'rgba(205,225,235,0)');
+    ctx.fillStyle = mg;
+    ctx.beginPath();
+    ctx.arc(lipCX, poolY + 8, lipW * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // pool shimmer lines
+    ctx.lineWidth = 1;
+    for (let i = 0; i < shimmers.length; i++) {
+      const s = shimmers[i];
+      const x = s.x + Math.sin(t * s.sp + s.ph) * 26;
+      const a = s.a * (0.6 + 0.4 * Math.sin(t * 0.9 + s.ph * 2));
+      if (a <= 0.005) continue;
+      ctx.strokeStyle = 'rgba(180,215,228,' + a.toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.moveTo(x - s.len / 2, s.y);
+      ctx.lineTo(x + s.len / 2, s.y);
+      ctx.stroke();
+    }
+
+    // foreground rocks + hanging vines
+    if (fg) ctx.drawImage(fg, 0, 0, W, H);
+    for (let i = 0; i < vines.length; i++) drawVine(ctx, vines[i], t);
+  }
+
+  function fit() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.max(1, Math.round(W * DPR));
+    canvas.height = Math.max(1, Math.round(H * DPR));
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    lipY = Math.max(70, H * 0.16);
+    lipCX = W * 0.5;
+    lipW = Math.max(140, Math.min(W * 0.30, 380));
+    poolY = H * 0.68;
+    buildBackground();
+    buildForeground();
+    seedVines();
+    seedWater();
+    particles.length = 0;
+    rings.length = 0;
+    mists.length = 0;
+  }
+
+  function buildAudio() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    const ac = new AC();
+    const len = Math.floor(ac.sampleRate * 2);
+    const buf = ac.createBuffer(1, len, ac.sampleRate);
+    const data = buf.getChannelData(0);
+    let b = 0;
+    for (let i = 0; i < len; i++) {
+      const white = Math.random() * 2 - 1;
+      b = (b + 0.02 * white) / 1.02;
+      data[i] = b * 3.2;
+    }
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const lp = ac.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.Q.value = 0.7;
+    lp.frequency.value = 400;
+    const gain = ac.createGain();
+    gain.gain.value = 0;
+    src.connect(lp);
+    lp.connect(gain);
+    gain.connect(ac.destination);
+    src.start();
+    return { ac, lp, gain };
+  }
+
+  function applySound(on) {
+    if (!audio) return;
+    const target = on ? Math.max(0.0001, 0.05 + flow * 0.18) : 0.0001;
+    const fTarget = on ? 260 + flow * 620 : 140;
+    const nowA = audio.ac.currentTime;
+    audio.gain.gain.cancelScheduledValues(nowA);
+    audio.gain.gain.setValueAtTime(Math.max(audio.gain.gain.value, 0.0001), nowA);
+    audio.gain.gain.exponentialRampToValueAtTime(target, nowA + 0.8);
+    audio.lp.frequency.cancelScheduledValues(nowA);
+    audio.lp.frequency.setValueAtTime(Math.max(audio.lp.frequency.value, 1), nowA);
+    audio.lp.frequency.exponentialRampToValueAtTime(fTarget, nowA + 0.8);
+  }
+
+  soundBtn.addEventListener('click', () => {
+    soundOn = !soundOn;
+    if (!audio) audio = buildAudio();
+    if (audio) {
+      if (audio.ac.state === 'suspended') audio.ac.resume();
+      applySound(soundOn);
+    }
+    soundBtn.textContent = soundOn ? 'SOUND ON' : 'SOUND OFF';
+    soundBtn.classList.toggle('on', soundOn);
+  });
+
+  flowEl.addEventListener('input', () => {
+    flow = Number(flowEl.value) / 100;
+    flowV.textContent = Math.round(flow * 100) + '%';
+    applySound(soundOn);
+  });
+
+  window.addEventListener('resize', fit);
+
+  function tick() {
+    requestAnimationFrame(tick);
+    const now = performance.now();
+    let dt = (now - last) / 1000;
+    last = now;
+    if (dt <= 0) return;
+    if (dt > 0.1) dt = 0.1;
+    try {
+      frame(now / 1000, dt);
+    } catch (e) {
+      /* keep the loop alive */
+    }
+  }
+
+  fit();
+  tick();
+})();
+</script>
+</body>
+</html>

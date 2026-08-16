@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<title>Neon Terminal Noir</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  min-height:100dvh;
+  background:#0a0a0c;
+  color:#b8ffe9;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  overflow:hidden;
+  position:relative;
+}
+/* ---- CRT atmosphere ---- */
+.scanlines{position:fixed;inset:0;z-index:40;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0px,rgba(0,0,0,.22) 1px,transparent 1px,transparent 3px);
+  mix-blend-mode:multiply}
+.vignette{position:fixed;inset:0;z-index:41;pointer-events:none;
+  background:radial-gradient(ellipse at 42% 46%,transparent 30%,rgba(0,0,0,.55) 78%,rgba(0,0,0,.92) 100%)}
+.flicker{position:fixed;inset:0;z-index:42;pointer-events:none;background:#00f0ff;opacity:0;animation:crt-flick 9s steps(1,end) infinite}
+@keyframes crt-flick{
+  0%,4.6%,4.9%,31%,31.4%,31.8%,64%,64.3%,97%,100%{opacity:0}
+  4.7%{opacity:.018}
+  4.8%{opacity:.03}
+  31.1%{opacity:.02}
+  31.6%{opacity:.008}
+  64.1%{opacity:.024}
+  97.1%{opacity:.012}
+}
+/* ---- corner HUD ---- */
+.hud{position:fixed;z-index:30;font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:rgba(0,240,255,.62);text-shadow:0 0 8px rgba(0,240,255,.35)}
+.hud.tl{top:16px;left:18px}
+.hud.tr{top:16px;right:18px;color:rgba(255,46,136,.62);text-shadow:0 0 8px rgba(255,46,136,.35)}
+.hud.bl{bottom:16px;left:18px}
+.hud.br{bottom:16px;right:18px}
+.hud b{font-weight:400;color:#eafffb}
+@media(max-width:560px){
+  .hud{font-size:8px;letter-spacing:.26em}
+  .hud.tl{top:10px;left:12px}.hud.tr{top:10px;right:12px}
+  .hud.bl{bottom:10px;left:12px}.hud.br{bottom:10px;right:12px}
+}
+/* ---- terminal window: center-left ---- */
+.stage{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center}
+.term{
+  width:min(680px,92vw);
+  height:min(72dvh,600px);
+  margin-right:8vw;
+  border:2px solid #00f0ff;
+  border-radius:10px;
+  background:rgba(4,10,12,.92);
+  box-shadow:0 0 22px rgba(0,240,255,.45),0 0 90px rgba(0,240,255,.14),inset 0 0 30px rgba(0,240,255,.06);
+  display:flex;flex-direction:column;overflow:hidden;
+  animation:term-in .9s cubic-bezier(.2,.9,.25,1) both;
+}
+@keyframes term-in{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+@media(max-width:560px){.term{margin-right:0;height:74dvh;width:94vw}}
+.tbar{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid rgba(0,240,255,.35);background:rgba(0,240,255,.05)}
+.tdot{width:10px;height:10px;border-radius:50%}
+.tdot.r{background:#ff2e88;box-shadow:0 0 8px rgba(255,46,136,.8)}
+.tdot.y{background:#00f0ff;box-shadow:0 0 8px rgba(0,240,255,.8)}
+.tdot.g{background:#37ff8b;box-shadow:0 0 8px rgba(55,255,139,.8)}
+.ttitle{margin-left:8px;font-size:10px;letter-spacing:.3em;color:rgba(184,255,233,.65);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.screen{flex:1;min-height:0;padding:14px 16px;overflow:hidden;position:relative;font-size:13px;line-height:1.55}
+@media(max-width:560px){.screen{font-size:11px;padding:10px 12px}}
+.log{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none}
+.log::-webkit-scrollbar{display:none}
+.ln{white-space:pre-wrap;word-break:break-word}
+.ln.dim{color:rgba(184,255,233,.5)}
+.ln.green{color:#37ff8b;text-shadow:0 0 7px rgba(55,255,139,.35)}
+.ln.cyan{color:#00f0ff;text-shadow:0 0 7px rgba(0,240,255,.35)}
+.ln.mag{color:#ff2e88;text-shadow:0 0 7px rgba(255,46,136,.4)}
+.ln.head{margin-top:10px}
+.ln .k{color:rgba(255,46,136,.85)}
+.prompt-line{white-space:pre}
+.ps1{color:#37ff8b;text-shadow:0 0 7px rgba(55,255,139,.4)}
+.typed{color:#eafffb}
+.caret{display:inline-block;width:9px;height:15px;margin-left:2px;vertical-align:-2px;background:#00f0ff;box-shadow:0 0 9px rgba(0,240,255,.9);animation:blink 1.06s steps(1,end) infinite}
+@keyframes blink{0%,55%{opacity:1}56%,100%{opacity:0}}
+.glitch{color:#ffb3d1;text-shadow:-2px 0 rgba(0,240,255,.95),2px 0 rgba(255,46,136,.95);animation:shake .12s steps(2,end) 6}
+@keyframes shake{0%{transform:translate(0,0)}50%{transform:translate(1px,-1px)}100%{transform:translate(-1px,1px)}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <section class="term" aria-label="NEON-7 terminal">
+    <div class="tbar">
+      <span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span>
+      <span class="ttitle">neon-7 &mdash; /dev/tty0 &mdash; 80&times;24</span>
+    </div>
+    <div class="screen" id="screen">
+      <div class="log" id="log"></div>
+      <div class="prompt-line" id="promptLine">
+        <span class="ps1">neon-7:~$</span> <span class="typed" id="typed"></span><span class="caret" id="caret"></span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="hud tl">SIG <b>/</b> NEON-7</div>
+<div class="hud tr">CH 0x2F &middot; NOIR</div>
+<div class="hud bl" id="hudUp">UP 00:00:00</div>
+<div class="hud br">002 &middot; NEON TERMINAL NOIR</div>
+
+<div class="scanlines"></div>
+<div class="vignette"></div>
+<div class="flicker"></div>
+
+<script>
+(function(){
+  "use strict";
+  var log=document.getElementById("log");
+  var typedEl=document.getElementById("typed");
+  var caret=document.getElementById("caret");
+  var hudUp=document.getElementById("hudUp");
+
+  /* ---- uptime HUD ---- */
+  var bootTs=Date.now();
+  function pad(n){return (n<10?"0":"")+n;}
+  function tickUp(){
+    var s=Math.floor((Date.now()-bootTs)/1000);
+    hudUp.textContent="UP "+pad(Math.floor(s/3600))+":"+pad(Math.floor(s/60)%60)+":"+pad(s%60);
+  }
+  tickUp();
+  setInterval(tickUp,1000);
+
+  function scrollDown(){log.scrollTop=log.scrollHeight;}
+
+  function makeLine(cls,head){
+    var d=document.createElement("div");
+    d.className="ln "+cls+(head?" head":"");
+    log.appendChild(d);
+    scrollDown();
+    return d;
+  }
+
+  /* ---- boot log: ~30 lines, typed character by character ---- */
+  var boot=[
+    ["dim","[ 0.000000 ] NEON-BIOS v7.3.1 - city build"],
+    ["green","[ 0.001124 ] cpu0: neon core @ 4.20 ghz - ok"],
+    ["green","[ 0.002871 ] memory map: 512 giga shadow-ram"],
+    ["cyan","[ 0.003540 ] mounting /dev/darkness ... done"],
+    ["cyan","[ 0.004201 ] mounting /dev/neon    ... done"],
+    ["dim","[ 0.005977 ] calibrating phosphor layer"],
+    ["green","[ 0.008112 ] scanline sync: 60 hz - locked"],
+    ["green","[ 0.009854 ] vignette: radial - armed"],
+    ["cyan","[ 0.011022 ] loading sig/neon-7 kernel"],
+    ["dim","[ 0.014558 ] entropy pool: rain-slick, good"],
+    ["green","[ 0.018203 ] net: noir0 up - 13.4 mb/s"],
+    ["green","[ 0.021771 ] net: noir0 up - 24.9 mb/s"],
+    ["cyan","[ 0.025340 ] daemon: streetlight started"],
+    ["cyan","[ 0.028914 ] daemon: siren-relay started"],
+    ["dim","[ 0.031455 ] warming neon tubes ..."],
+    ["green","[ 0.036002 ] tube-01 cyan: 100% glow"],
+    ["green","[ 0.036010 ] tube-02 magenta: 98% glow"],
+    ["green","[ 0.036018 ] tube-03 green: 101% glow (clipped)"],
+    ["dim","[ 0.040122 ] chromatic split: -2px/+2px"],
+    ["cyan","[ 0.044871 ] loading theme: noir-terminal"],
+    ["cyan","[ 0.045900 ] loading palette: #00f0ff / #ff2e88"],
+    ["green","[ 0.050233 ] auth: ghost id - granted"],
+    ["dim","[ 0.055560 ] spooling boot cache"],
+    ["green","[ 0.059811 ] cache: 4.2 mb - hot"],
+    ["cyan","[ 0.064450 ] hud: uptime ticker armed"],
+    ["green","[ 0.070112 ] check: all systems glow"],
+    ["dim","[ 0.074876 ] rain: detected - continuing"],
+    ["green","[ 0.080233 ] init: prompt ready"],
+    ["mag","   NEON-7 is live. type 'help' to begin."]
+  ];
+  var bootIdx=0;
+  var typeTimer=null;
+  var typing=true;
+
+  function typeLine(){
+    if(bootIdx>=boot.length){typing=false;return;}
+    var item=boot[bootIdx];
+    var line=makeLine(item[0],bootIdx===0);
+    var text=item[1];
+    var i=0;
+    var fast=item[0]==="dim"?5:9;
+    typeTimer=setTimeout(function step(){
+      i+=1;
+      line.textContent=text.slice(0,i);
+      scrollDown();
+      if(i<text.length){
+        typeTimer=setTimeout(step,fast+Math.random()*8);
+      }else{
+        bootIdx+=1;
+        typeTimer=setTimeout(typeLine,item[0]==="mag"?420:110+Math.random()*140);
+      }
+    },fast);
+  }
+  typeLine();
+
+  /* ---- shell ---- */
+  var buf="";
+  function echoCmd(){
+    var d=makeLine("",false);
+    var k=document.createElement("span");
+    k.className="ps1";
+    k.textContent="neon-7:~$ ";
+    d.appendChild(k);
+    d.appendChild(document.createTextNode(buf));
+    scrollDown();
+  }
+  function out(cls,text,head){
+    var d=makeLine(cls,head);
+    d.textContent=text;
+    scrollDown();
+  }
+  function glitch(text){
+    var d=makeLine("glitch",false);
+    d.textContent=text;
+    scrollDown();
+  }
+
+  var HELP=[
+    ["help", "this list of commands"],
+    ["files","list the noir filesystem"],
+    ["neon","toggle the city glow"],
+    ["clear","wipe the screen"]
+  ];
+  var FILES=[
+    "neon-7:/srv ~",
+    "  drwxr-xr-x  rain/          12.1 gb",
+    "  drwxr-xr-x  alley/          840 mb",
+    "  -rw-r--r--  siren.log        44 kb",
+    "  -rw-r--r--  last_cab.mp4    2.7 gb",
+    "  crwx------  city.neon       tube-03",
+    "  total: 5.3 gb of 128 gb shadow-space"
+  ];
+  var NEON=[
+    "glow matrix (live):",
+    "  cyan    #00f0ff  100%  primary",
+    "  magenta #ff2e88   92%  accent",
+    "  green   #37ff8b   88%  status",
+    "flicker: 9 s cycle - armed",
+    "chromatic split: -2px/+2px",
+    "the city never turns off. it just dims."
+  ];
+
+  function run(cmd){
+    var c=cmd.trim().toLowerCase();
+    if(!c)return;
+    echoCmd();
+    if(c==="help"){
+      out("head cyan","available commands:",true);
+      for(let i=0;i<HELP.length;i++){
+        out("dim","  "+HELP[i][0].padEnd(7)+" - "+HELP[i][1]);
+      }
+    }else if(c==="files"){
+      for(let i=0;i<FILES.length;i++){
+        out(i===0?"head cyan":"dim",FILES[i],i===0);
+      }
+    }else if(c==="neon"){
+      for(let i=0;i<NEON.length;i++){
+        out(i===0?"head cyan":(i===NEON.length-1?"mag":"dim"),NEON[i],i===0);
+      }
+    }else if(c==="clear"){
+      log.innerHTML="";
+      scrollDown();
+    }else{
+      glitch("command not found: "+c+"  [rgb-split: "+c+"]");
+    }
+  }
+
+  document.addEventListener("keydown",function(e){
+    var k=e.key;
+    if(typing){
+      if(k==="Enter"||k===" "){bootIdx=boot.length;typing=false;if(typeTimer)clearTimeout(typeTimer);}
+      else if(k.length===1){bootIdx=boot.length;typing=false;if(typeTimer)clearTimeout(typeTimer);}
+      return;
+    }
+    if(k==="Enter"){
+      e.preventDefault();
+      run(buf);
+      buf="";
+      typedEl.textContent="";
+    }else if(k==="Backspace"){
+      e.preventDefault();
+      buf=buf.slice(0,-1);
+      typedEl.textContent=buf;
+    }else if(k.length===1){
+      e.preventDefault();
+      buf+=k;
+      typedEl.textContent=buf;
+    }
+  });
+
+  /* keep caret at bottom while typing commands */
+  scrollDown();
+})();
+</script>
+</body>
+</html>

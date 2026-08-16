@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glass Tarot</title>
+<style>
+:root{--cw:clamp(50px,11.5vw,112px);--ch:calc(var(--cw)*1.48)}
+*{margin:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:#141024;font-family:system-ui,-apple-system,sans-serif;overflow:hidden;min-height:100dvh}
+#sky{position:fixed;inset:0;width:100%;height:100%;display:block}
+.vignette{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 40%,transparent 0 44%,rgba(6,4,16,.6) 100%);pointer-events:none;z-index:2}
+.caption{position:fixed;top:3.5dvh;left:0;right:0;text-align:center;font-size:clamp(9px,1.5vw,12px);letter-spacing:.44em;text-indent:.44em;color:rgba(226,219,255,.82);text-transform:uppercase;z-index:6}
+.deck{position:absolute;left:50%;bottom:14dvh;transform:translateX(-50%);width:0;height:0;z-index:10}
+.card{position:absolute;left:50%;bottom:0;width:var(--cw);height:var(--ch);margin-left:calc(var(--cw)/-2);transform-origin:50% 100%;transform:rotate(var(--a));transition:transform .55s cubic-bezier(.22,.9,.24,1);cursor:pointer;z-index:1;border:0;padding:0;background:none;font:inherit}
+.card:hover:not(.up){transform:rotate(var(--a)) translateY(-12px);z-index:20}
+.card.up{transform:translateY(calc(var(--ch)/2 - 36dvh));z-index:30}
+.flip3d{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.32,.72,.25,1);border-radius:12px}
+.card.up .flip3d{transform:rotateY(360deg)}
+.face{position:absolute;inset:0;border-radius:12px;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:1px solid rgba(255,255,255,.18);overflow:hidden}
+.front{background:rgba(255,255,255,.06);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5%;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.card:hover:not(.up) .front{box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 0 26px rgba(186,148,255,.4)}
+.card.up .front{box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 0 46px rgba(206,170,255,.55)}
+.front::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 32%,rgba(255,255,255,.15) 50%,transparent 68%);transform:translateX(-130%);animation:sheen 6s ease-in-out infinite;animation-delay:var(--d);pointer-events:none}
+@keyframes sheen{0%,58%{transform:translateX(-130%)}78%,100%{transform:translateX(130%)}}
+.back{transform:rotateY(180deg);background:rgba(255,255,255,.05);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);display:flex;align-items:center;justify-content:center}
+.back::before{content:"\263E";font-family:Georgia,serif;font-size:calc(var(--cw)*.42);color:rgba(214,196,255,.55)}
+.back::after{content:"";position:absolute;inset:7%;border:1px solid rgba(255,255,255,.22);border-radius:8px;pointer-events:none}
+svg.art{width:60%;height:auto;color:#d9cdf2;filter:drop-shadow(0 0 6px rgba(186,148,255,.35))}
+.art .acc{stroke:#f2cf6f}
+.name{font-family:Georgia,serif;font-size:calc(var(--cw)*.118);letter-spacing:.2em;text-indent:.2em;color:rgba(236,229,255,.94);text-transform:uppercase;text-align:center}
+.num{position:absolute;top:6%;left:0;right:0;text-align:center;font-family:Georgia,serif;font-size:calc(var(--cw)*.105);color:rgba(242,207,111,.9);letter-spacing:.12em}
+.draw{position:fixed;bottom:4.5dvh;left:50%;transform:translateX(-50%);z-index:40;padding:11px 30px;border-radius:999px;border:1px solid rgba(255,255,255,.26);background:rgba(255,255,255,.07);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:rgba(238,230,255,.95);font-size:12px;letter-spacing:.42em;text-indent:.42em;cursor:pointer;transition:box-shadow .3s,transform .15s}
+.draw:hover{box-shadow:0 0 24px rgba(190,150,255,.5);transform:translateX(-50%) translateY(-2px)}
+.draw:active{transform:translateX(-50%) scale(.94)}
+</style>
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+<div class="vignette"></div>
+<header class="caption">Seven Arcs - Draw One</header>
+<main class="deck" id="deck" aria-label="tarot fan">
+<button class="card" style="--a:-25deg;--d:0s" aria-label="The Fool"><span class="flip3d"><span class="face front"><span class="num">0</span><svg class="art" viewBox="0 0 100 130" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle class="acc" cx="74" cy="28" r="11"/><path class="acc" d="M89 28h4M84.6 17.4l2.9-2.9M74 13v-4M63.4 17.4l-2.9-2.9M59 28h-4M63.4 38.6l-2.9 2.9M74 43v4M84.6 38.6l2.9 2.9"/><path d="M10 112h26l-6 12H10z"/><circle cx="46" cy="56" r="6"/><path d="M46 62l-2 24M44 86l-10 20M44 86l12-2M45 66l15-8"/><circle class="acc" cx="63" cy="55" r="3"/></svg><span class="name">The Fool</span></span><span class="face back"></span></span></button>
+<button class="card" style="--a:-16.5deg;--d:.9s" aria-label="The Moon"><span class="flip3d"><span class="face front"><span class="num">XVIII</span><svg class="art" viewBox="0 0 100 130" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="acc" d="M60 24a28 28 0 1 0 0 56 22 22 0 1 1 0-56z"/><path d="M33 90c4 7 4 11 0 13-4-2-4-6 0-13zM50 96c5 8 5 12 0 14-5-2-5-6 0-14zM67 90c4 7 4 11 0 13-4-2-4-6 0-13z"/><circle cx="24" cy="72" r="1.6"/><circle cx="78" cy="66" r="1.6"/><circle cx="68" cy="44" r="1.6"/></svg><span class="name">The Moon</span></span><span class="face back"></span></span></button>
+<button class="card" style="--a:-8.5deg;--d:1.8s" aria-label="The Star"><span class="flip3d"><span class="face front"><span class="num">XVII</span><svg class="art" viewBox="0 0 100 130" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon class="acc" points="50,24 55.6,43.3 73.5,36.3 62.7,52.1 79.2,61.7 60.2,63.1 63,82 50,68 37,82 39.8,63.1 20.8,61.7 37.3,52.1 26.5,36.3 44.4,43.3"/><path d="M36 96c3.5 6 3.5 9 0 11-3.5-2-3.5-5 0-11zM64 100c4 7 4 10 0 12-4-2-4-5 0-12z"/><circle cx="22" cy="30" r="1.6"/><circle cx="80" cy="26" r="1.6"/><circle cx="78" cy="86" r="1.6"/></svg><span class="name">The Star</span></span><span class="face back"></span></span></button>
+<button class="card" style="--a:0deg;--d:2.7s" aria-label="The Sun"><span class="flip3d"><span class="face front"><span class="num">XIX</span><svg class="art" viewBox="0 0 100 130" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle class="acc" cx="50" cy="58" r="15"/><path class="acc" d="M72 58h8M69 69l5.9 4M61 77l4 6.98M50 80v8M39 77l-4 6.98M31 69l-5.9 4M28 58h-8M31 47l-5.9-4M39 39l-4-6.98M50 36v-8M61 39l4-6.98M69 47l5.9-4"/><circle cx="45" cy="55" r="1.3"/><circle cx="55" cy="55" r="1.3"/><path d="M45 62q5 4 10 0"/></svg><span class="name">The Sun</span></span><span class="face back"></span></span></button>
+<button class="card" style="--a:8.5deg;--d:3.6s" aria-label="The Tower"><span class="flip3d"><span class="face front"><span class="num">XVI</span><svg class="art" viewBox="0 0 100 130" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M40 40v68h20V40z"/><path d="M36 40l14-16 14 16z"/><rect x="45" y="52" width="4" height="8"/><rect x="53" y="70" width="4" height="8"/><path class="acc" d="M60 28L44 56h10L40 86l24-34h-10z"/><path d="M44 36l6 8M58 34l-5 9"/></svg><span class="name">The Tower</span></span><span class="face back"></span></span></button>
+<button class="card" style="--a:16.5deg;--d:4.5s" aria-label="The Wheel"><span class="flip3d"><span class="face front"><span class="num">X</span><svg class="art" viewBox="0 0 100 130" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle class="acc" cx="50" cy="58" r="28"/><circle cx="50" cy="58" r="8"/><path d="M78 58H58M69.8 77.8L55.7 63.7M50 86V66M30.2 77.8L44.3 63.7M22 58h20M30.2 38.2L44.3 52.3M50 30v20M69.8 38.2L55.7 52.3"/></svg><span class="name">The Wheel</span></span><span class="face back"></span></span></button>
+<button class="card" style="--a:25deg;--d:5.4s" aria-label="The Hermit"><span class="flip3d"><span class="face front"><span class="num">IX</span><svg class="art" viewBox="0 0 100 130" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle class="acc" cx="50" cy="45" r="22" opacity=".28"/><rect x="43" y="35" width="14" height="18" rx="3"/><path d="M43 44h14M50 35v18M46 35l4-5 4 5"/><circle cx="50" cy="68" r="6"/><path d="M42 76q8-6 16 0l6 32H36z"/><path d="M64 70l6 38M28 112h44" opacity=".6"/></svg><span class="name">The Hermit</span></span><span class="face back"></span></span></button>
+</main>
+<button id="draw" class="draw">Draw</button>
+<script>
+(function(){
+"use strict";
+var cv=document.getElementById("sky"),ctx=cv.getContext("2d");
+var W=0,H=0,DPR=1,stars=[];
+function fit(){
+  DPR=Math.min(2,window.devicePixelRatio||1);
+  W=window.innerWidth;H=window.innerHeight;
+  cv.width=Math.max(1,Math.round(W*DPR));cv.height=Math.max(1,Math.round(H*DPR));
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+function seed(){
+  stars=[];
+  var n=Math.round(W*H/8500);
+  for(let i=0;i<n;i++){
+    stars.push({x:Math.random()*W,y:Math.random()*H,r:.3+Math.random()*1.4,p:Math.random()*6.283,s:.35+Math.random()*.9,g:Math.random()<.18});
+  }
+}
+var t0=performance.now();
+function frame(now){
+  try{
+    var t=(now-t0)/1000;
+    ctx.clearRect(0,0,W,H);
+    for(let i=0;i<stars.length;i++){
+      var st=stars[i];
+      var a=.22+.5*(.5+.5*Math.sin(t*st.s+st.p));
+      ctx.globalAlpha=a;
+      ctx.fillStyle=st.g?"#f2cf6f":"#cfd4ff";
+      ctx.beginPath();ctx.arc(st.x,st.y,st.r,0,6.2832);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }catch(e){}
+  window.requestAnimationFrame(frame);
+}
+fit();seed();
+window.addEventListener("resize",function(){fit();seed();});
+window.requestAnimationFrame(frame);
+
+var cards=Array.prototype.slice.call(document.querySelectorAll(".card"));
+function lift(c){
+  for(let i=0;i<cards.length;i++){ if(cards[i]!==c) cards[i].classList.remove("up"); }
+  c.classList.add("up");
+}
+cards.forEach(function(c){
+  c.addEventListener("click",function(){
+    if(c.classList.contains("up")){ c.classList.remove("up"); }
+    else{ lift(c); }
+  });
+});
+document.getElementById("draw").addEventListener("click",function(){
+  var down=[];
+  cards.forEach(function(c){ if(!c.classList.contains("up")) down.push(c); });
+  if(down.length){ lift(down[Math.floor(Math.random()*down.length)]); }
+});
+})();
+</script>
+</body>
+</html>

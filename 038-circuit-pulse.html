@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuit Pulse — 038</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #07120e;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #cfe8df;
+  }
+  #board {
+    position: fixed;
+    inset: 0;
+    height: 100dvh;
+    width: 100vw;
+  }
+  #board svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .hud {
+    position: fixed;
+    top: clamp(10px, 2vw, 20px);
+    left: clamp(12px, 2.4vw, 26px);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: clamp(10px, 1.3vw, 12px);
+    letter-spacing: 0.22em;
+    color: #4fae97;
+    text-shadow: 0 0 10px rgba(63, 143, 127, 0.6);
+    pointer-events: none;
+    z-index: 3;
+  }
+  .hud .dim { color: #2f6f5f; }
+  .caption {
+    position: fixed;
+    left: 0; right: 0; bottom: clamp(10px, 2vw, 20px);
+    display: flex;
+    justify-content: space-between;
+    padding: 0 clamp(14px, 3vw, 30px);
+    font-size: clamp(9px, 1.2vw, 12px);
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: rgba(125, 255, 208, 0.5);
+    pointer-events: none;
+    z-index: 3;
+  }
+  #chip {
+    position: fixed;
+    padding: 5px 10px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: #0f231d;
+    background: #7dffd0;
+    border-radius: 3px;
+    box-shadow: 0 0 14px rgba(125, 255, 208, 0.65);
+    opacity: 0;
+    transform: translate(-50%, -130%);
+    transition: opacity 0.14s ease;
+    pointer-events: none;
+    z-index: 4;
+    white-space: nowrap;
+  }
+  @media (max-width: 480px) {
+    .caption span:last-child { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="board">
+  <div id="svgroot"></div>
+  <canvas id="fx"></canvas>
+</div>
+<div class="hud">PULSE NET v2 <span class="dim">- 8 ACTIVE</span></div>
+<div id="chip"></div>
+<footer class="caption">
+  <span>Circuit / Pulse</span>
+  <span>hover a part - click a pad</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var VBW = 1000, VBH = 640;
+  var svgroot = document.getElementById("svgroot");
+  var canvas = document.getElementById("fx");
+  var ctx = canvas.getContext("2d");
+  var chip = document.getElementById("chip");
+  var W = 0, H = 0, DPR = 1, scale = 1, ox = 0, oy = 0;
+
+  var COMPS = [
+    { id: "CPU", label: "CPU - 420MHz", box: [340, 150, 260, 260], pad: [470, 390] },
+    { id: "RAM", label: "RAM - 3200MT/s", box: [670, 410, 180, 120], pad: [760, 510] },
+    { id: "C1",  label: "C1 - 100uF", box: [150, 200, 80, 80], pad: [190, 258] },
+    { id: "C2",  label: "C2 - 22uF", box: [230, 490, 80, 80], pad: [270, 514] },
+    { id: "C3",  label: "C3 - 4.7uF", box: [790, 130, 80, 80], pad: [830, 152] },
+    { id: "OSC", label: "OSC - 25MHz", box: [70, 420, 104, 92], pad: [122, 466] }
+  ];
+  var compIdx = {};
+  COMPS.forEach(function (c, i) { compIdx[c.id] = i; });
+
+  var TRACES = [
+    { pts: [[580, 280], [650, 280], [650, 470], [690, 470]], comp: ["CPU", "RAM"] },
+    { pts: [[360, 280], [300, 280], [300, 240], [208, 240]], comp: ["CPU", "C1"] },
+    { pts: [[470, 170], [470, 130], [830, 130], [830, 152]], comp: ["CPU", "C3"] },
+    { pts: [[470, 390], [470, 530], [286, 530]], comp: ["CPU", "C2"] },
+    { pts: [[760, 430], [760, 350], [900, 350], [900, 170], [848, 170]], comp: ["RAM", "C3"] },
+    { pts: [[154, 466], [250, 466], [250, 280], [360, 280]], comp: ["OSC", "CPU"] },
+    { pts: [[270, 546], [122, 546], [122, 492]], comp: ["C2", "OSC"] },
+    { pts: [[760, 510], [760, 570], [470, 570], [470, 390]], comp: ["RAM", "CPU"] }
+  ];
+
+  TRACES.forEach(function (tr) {
+    tr.segs = [];
+    tr.total = 0;
+    for (let i = 0; i < tr.pts.length - 1; i++) {
+      let a = tr.pts[i], b = tr.pts[i + 1];
+      let dx = b[0] - a[0], dy = b[1] - a[1];
+      let len = Math.hypot(dx, dy);
+      tr.segs.push({ a: a, b: b, len: len, start: tr.total });
+      tr.total += len;
+    }
+  });
+
+  function tracePoint(tr, d) {
+    d = ((d % tr.total) + tr.total) % tr.total;
+    for (let i = 0; i < tr.segs.length; i++) {
+      let s = tr.segs[i];
+      if (d <= s.start + s.len) {
+        let k = s.len === 0 ? 0 : (d - s.start) / s.len;
+        return [s.a[0] + (s.b[0] - s.a[0]) * k, s.a[1] + (s.b[1] - s.a[1]) * k];
+      }
+    }
+    let last = tr.pts[tr.pts.length - 1];
+    return [last[0], last[1]];
+  }
+
+  var PULSES = [];
+  for (let i = 0; i < 8; i++) {
+    PULSES.push({ tr: i, off: (i * 0.137) % 1, speed: 95 + i * 26, boost: 1 });
+  }
+
+  var BURSTS = [];
+
+  function buildSvg() {
+    let out = [];
+    out.push('<svg viewBox="0 0 ' + VBW + ' ' + VBH + '" preserveAspectRatio="xMidYMid meet">');
+    out.push('<rect x="0" y="0" width="' + VBW + '" height="' + VBH + '" fill="#0f231d"/>');
+    let g = '<g stroke="#16382c" stroke-width="1">';
+    for (let x = 0; x <= VBW; x += 40) { g += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="' + VBH + '"/>'; }
+    for (let y = 0; y <= VBH; y += 40) { g += '<line x1="0" y1="' + y + '" x2="' + VBW + '" y2="' + y + '"/>'; }
+    out.push(g + '</g>');
+    let glow = '<g stroke="#3f8f7f" stroke-width="7" stroke-linecap="square" opacity="0.16" fill="none">';
+    let core = '<g stroke="#2f6f5f" stroke-width="2" stroke-linecap="square" fill="none">';
+    TRACES.forEach(function (tr) {
+      let d = "M" + tr.pts.map(function (p) { return p.join(" "); }).join(" L");
+      glow += '<path d="' + d + '"/>';
+      core += '<path d="' + d + '"/>';
+    });
+    out.push(glow + '</g>' + core + '</g>');
+    let pads = '<g fill="#1c4a3c" stroke="#3f8f7f" stroke-width="1.5">';
+    TRACES.forEach(function (tr) {
+      tr.pts.forEach(function (p, i) {
+        if (i === 0 || i === tr.pts.length - 1) {
+          pads += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="4.5"/>';
+        }
+      });
+    });
+    out.push(pads + '</g>');
+
+    out.push('<g id="comps">');
+    COMPS.forEach(function (c) {
+      let b = c.box;
+      if (c.id === "CPU") {
+        out.push('<g>');
+        out.push('<rect x="' + b[0] + '" y="' + b[1] + '" width="' + b[2] + '" height="' + b[3] + '" fill="#123529" stroke="#3f8f7f" stroke-width="2.5" rx="6"/>');
+        out.push('<rect x="' + (b[0] + 18) + '" y="' + (b[1] + 18) + '" width="' + (b[2] - 36) + '" height="' + (b[3] - 36) + '" fill="none" stroke="#2f6f5f" stroke-width="1.5" rx="4" opacity="0.8"/>');
+        for (let i = 0; i < 8; i++) {
+          let px = b[0] + 20 + i * ((b[2] - 40) / 7);
+          out.push('<line x1="' + px.toFixed(1) + '" y1="' + (b[1] - 6) + '" x2="' + px.toFixed(1) + '" y2="' + (b[1] + 6) + '" stroke="#3f8f7f" stroke-width="2"/>');
+          out.push('<line x1="' + px.toFixed(1) + '" y1="' + (b[1] + b[3] - 6) + '" x2="' + px.toFixed(1) + '" y2="' + (b[1] + b[3] + 6) + '" stroke="#3f8f7f" stroke-width="2"/>');
+        }
+        out.push('<text x="' + (b[0] + b[2] / 2) + '" y="' + (b[1] + b[3] / 2 + 7) + '" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="26" letter-spacing="6" fill="#7dffd0" opacity="0.9">CPU</text>');
+        out.push('</g>');
+      } else if (c.id === "RAM") {
+        out.push('<g>');
+        out.push('<rect x="' + b[0] + '" y="' + b[1] + '" width="' + b[2] + '" height="' + b[3] + '" fill="#123529" stroke="#3f8f7f" stroke-width="2" rx="3"/>');
+        for (let i = 0; i < 6; i++) {
+          let rx = b[0] + 14 + i * ((b[2] - 28) / 5);
+          out.push('<line x1="' + rx.toFixed(1) + '" y1="' + (b[1] + 10) + '" x2="' + rx.toFixed(1) + '" y2="' + (b[1] + b[3] - 10) + '" stroke="#2f6f5f" stroke-width="1" opacity="0.7"/>');
+        }
+        out.push('<text x="' + (b[0] + b[2] / 2) + '" y="' + (b[1] + b[3] / 2 + 5) + '" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="15" letter-spacing="4" fill="#7dffd0" opacity="0.9">RAM</text>');
+        out.push('</g>');
+      } else if (c.id === "OSC") {
+        out.push('<g>');
+        out.push('<rect x="' + b[0] + '" y="' + b[1] + '" width="' + b[2] + '" height="' + b[3] + '" fill="#1a3335" stroke="#3f8f7f" stroke-width="2" rx="10"/>');
+        out.push('<circle cx="' + (b[0] + b[2] / 2) + '" cy="' + (b[1] + b[3] / 2) + '" r="9" fill="none" stroke="#7dffd0" stroke-width="1.5" opacity="0.8"/>');
+        out.push('<text x="' + (b[0] + b[2] / 2) + '" y="' + (b[1] + b[3] + 20) + '" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="12" letter-spacing="3" fill="#7dffd0" opacity="0.85">OSC</text>');
+        out.push('</g>');
+      } else {
+        let cx = b[0] + b[2] / 2, cy = b[1] + b[3] / 2;
+        out.push('<g>');
+        out.push('<circle cx="' + cx + '" cy="' + cy + '" r="' + (b[2] / 2) + '" fill="#123529" stroke="#3f8f7f" stroke-width="2"/>');
+        out.push('<circle cx="' + cx + '" cy="' + cy + '" r="' + (b[2] / 2 - 7) + '" fill="none" stroke="#2f6f5f" stroke-width="1.2" opacity="0.8"/>');
+        out.push('<line x1="' + (cx - 7) + '" y1="' + cy + '" x2="' + (cx + 7) + '" y2="' + cy + '" stroke="#7dffd0" stroke-width="1.6" opacity="0.9"/>');
+        out.push('<text x="' + cx + '" y="' + (cy - b[2] / 2 - 8) + '" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="11" letter-spacing="2" fill="#7dffd0" opacity="0.85">' + c.id + '</text>');
+        out.push('</g>');
+      }
+    });
+    out.push('</g>');
+    out.push('</svg>');
+    svgroot.innerHTML = out.join("");
+  }
+
+  function fit() {
+    var r = document.getElementById("board").getBoundingClientRect();
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.max(1, Math.floor(r.width));
+    H = Math.max(1, Math.floor(r.height));
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    scale = Math.min(W / VBW, H / VBH);
+    ox = (W - VBW * scale) / 2;
+    oy = (H - VBH * scale) / 2;
+  }
+
+  function toView(cx, cy) {
+    return [(cx - ox) / scale, (cy - oy) / scale];
+  }
+  function toCss(vx, vy) {
+    return [ox + vx * scale, oy + vy * scale];
+  }
+
+  var hoverComp = -1;
+
+  document.getElementById("board").addEventListener("pointermove", function (ev) {
+    let v = toView(ev.clientX, ev.clientY);
+    hoverComp = -1;
+    for (let i = 0; i < COMPS.length; i++) {
+      let b = COMPS[i].box;
+      if (v[0] >= b[0] - 12 && v[0] <= b[0] + b[2] + 12 && v[1] >= b[1] - 12 && v[1] <= b[1] + b[3] + 12) {
+        hoverComp = i;
+        break;
+      }
+    }
+    if (hoverComp >= 0) {
+      chip.textContent = COMPS[hoverComp].label;
+      chip.style.left = ev.clientX + "px";
+      chip.style.top = ev.clientY + "px";
+      chip.style.opacity = "1";
+      document.body.style.cursor = "pointer";
+    } else {
+      chip.style.opacity = "0";
+      document.body.style.cursor = "default";
+    }
+  });
+
+  document.getElementById("board").addEventListener("pointerleave", function () {
+    hoverComp = -1;
+    chip.style.opacity = "0";
+  });
+
+  document.getElementById("board").addEventListener("click", function (ev) {
+    let v = toView(ev.clientX, ev.clientY);
+    for (let i = 0; i < COMPS.length; i++) {
+      let c = COMPS[i];
+      let b = c.box;
+      let cx = b[0] + b[2] / 2, cy = b[1] + b[3] / 2;
+      let rad = Math.max(b[2], b[3]) * 0.72;
+      if (Math.hypot(v[0] - cx, v[1] - cy) <= rad) {
+        let p = toCss(c.pad[0], c.pad[1]);
+        for (let j = 0; j < 12; j++) {
+          let ang = (j / 12) * 6.2832 + Math.random() * 0.5;
+          BURSTS.push({
+            x: p[0], y: p[1],
+            vx: Math.cos(ang) * (90 + Math.random() * 110),
+            vy: Math.sin(ang) * (90 + Math.random() * 110),
+            life: 0, max: 0.7 + Math.random() * 0.35
+          });
+        }
+        break;
+      }
+    }
+  });
+
+  var lastTs = 0;
+  function frame(ts) {
+    try {
+      if (!lastTs) lastTs = ts;
+      let dt = Math.min(0.05, (ts - lastTs) / 1000);
+      lastTs = ts;
+
+      PULSES.forEach(function (p, i) {
+        let target = 1;
+        if (hoverComp >= 0) {
+          let tr = TRACES[p.tr];
+          if (tr.comp.indexOf(COMPS[hoverComp].id) >= 0) target = 2.6;
+        }
+        p.boost += (target - p.boost) * Math.min(1, dt * 6);
+        p.off = (p.off + (dt * p.speed * p.boost) / TRACES[p.tr].total) % 1;
+      });
+
+      ctx.clearRect(0, 0, W, H);
+
+      PULSES.forEach(function (p, i) {
+        let tr = TRACES[p.tr];
+        let d = p.off * tr.total;
+        let n = 6;
+        for (let k = n; k >= 0; k--) {
+          let q = tracePoint(tr, d - k * 7 * p.boost);
+          let c2 = toCss(q[0], q[1]);
+          let fade = 1 - k / (n + 1);
+          ctx.globalAlpha = fade * (0.25 + 0.75 * Math.min(1, p.boost));
+          ctx.fillStyle = "#7dffd0";
+          ctx.beginPath();
+          ctx.arc(c2[0], c2[1], (k === 0 ? 3.2 : 2.2) * fade + 0.4, 0, 6.2832);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      });
+
+      BURSTS = BURSTS.filter(function (b) { return b.life < b.max; });
+      BURSTS.forEach(function (b) {
+        b.life += dt;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        b.vx *= (1 - dt * 1.8);
+        b.vy *= (1 - dt * 1.8);
+        let a = 1 - b.life / b.max;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = "#7dffd0";
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 2.4 * a + 0.5, 0, 6.2832);
+        ctx.fill();
+        ctx.globalAlpha = a * 0.35;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 6 * a + 1, 0, 6.2832);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    } catch (e) {
+      return;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  buildSvg();
+  fit();
+  window.addEventListener("resize", fit);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

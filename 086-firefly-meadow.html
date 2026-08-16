@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Firefly Meadow - Dusk</title>
+<style>
+:root{
+  --sky-top:#2a3a5e; --sky-bot:#0d1428; --grass:#1a2a1e;
+  --firefly:#d4ff6f; --ink:#cfe3d8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  overflow:hidden; background:var(--sky-bot);
+  font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color:var(--ink); -webkit-font-smoothing:antialiased;
+}
+#scene{position:fixed;inset:0;width:100vw;height:100dvh;display:block;cursor:crosshair}
+/* moon */
+#moon{
+  position:fixed; right:9%; top:12%;
+  width:clamp(44px,6vmin,72px); aspect-ratio:1; border-radius:50%;
+  background:radial-gradient(circle at 38% 34%, #f5f3e8 0%, #d9d4bd 42%, #9a97a8 100%);
+  box-shadow:0 0 44px 14px rgba(240,238,220,.16), 0 0 120px 40px rgba(240,238,220,.07);
+  pointer-events:none;
+}
+#moon::after{
+  content:""; position:absolute; inset:0; border-radius:50%;
+  background:
+    radial-gradient(12px 12px at 62% 40%, rgba(120,118,135,.5), rgba(0,0,0,0) 70%),
+    radial-gradient(9px 9px at 38% 64%, rgba(120,118,135,.42), rgba(0,0,0,0) 70%),
+    radial-gradient(6px 6px at 70% 70%, rgba(120,118,135,.38), rgba(0,0,0,0) 70%);
+}
+/* control bar */
+#bar{
+  position:fixed; left:50%; bottom:0; transform:translateX(-50%);
+  width:100%; max-width:520px; padding:14px 18px 16px;
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  background:linear-gradient(180deg, rgba(13,20,40,0), rgba(10,15,30,.82) 34%);
+}
+#calm{
+  appearance:none; border:1px solid rgba(212,255,111,.4);
+  background:rgba(212,255,111,.08); color:var(--firefly);
+  font:inherit; font-size:11px; letter-spacing:.3em; text-transform:uppercase;
+  padding:10px 18px; border-radius:999px; cursor:pointer;
+  transition:all .25s ease; white-space:nowrap;
+}
+#calm:hover{background:rgba(212,255,111,.18); box-shadow:0 0 18px rgba(212,255,111,.25)}
+#calm.on{background:rgba(212,255,111,.28); box-shadow:0 0 22px rgba(212,255,111,.4)}
+#windbox{display:flex; align-items:center; gap:10px; flex:1; min-width:170px}
+#windbox label{font-size:10px; letter-spacing:.28em; color:#8fa5c8; text-transform:uppercase; white-space:nowrap}
+#wind{
+  appearance:none; width:100%; height:4px; border-radius:2px;
+  background:linear-gradient(90deg, rgba(143,165,200,.25), rgba(212,255,111,.55));
+  outline:none; cursor:pointer;
+}
+#wind::-webkit-slider-thumb{
+  appearance:none; width:14px; height:14px; border-radius:50%;
+  background:var(--firefly); box-shadow:0 0 10px rgba(212,255,111,.7);
+}
+#wind::-moz-range-thumb{
+  width:14px; height:14px; border:none; border-radius:50%;
+  background:var(--firefly); box-shadow:0 0 10px rgba(212,255,111,.7);
+}
+#windv{font-size:10px; color:#8fa5c8; min-width:2.5em; font-variant-numeric:tabular-nums}
+/* caption */
+#cap{
+  position:fixed; left:18px; top:16px; pointer-events:none;
+  font-size:clamp(10px,1.3vmin,12px); letter-spacing:.42em;
+  color:rgba(212,255,111,.85); text-transform:uppercase;
+  text-shadow:0 0 12px rgba(212,255,111,.35);
+}
+#cap small{display:block; letter-spacing:.24em; font-size:8px; color:rgba(143,165,200,.75); margin-top:5px}
+@media (max-width:420px){
+  #bar{gap:10px; padding:10px 12px 14px}
+  #calm{padding:8px 14px}
+}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div id="moon" aria-hidden="true"></div>
+<div id="cap">Fireflies / 60 · Dusk<small>pointer = lantern</small></div>
+<div id="bar">
+  <button id="calm" type="button">Calm</button>
+  <div id="windbox">
+    <label for="wind">Wind</label>
+    <input id="wind" type="range" min="0" max="100" value="18" aria-label="wind drift bias">
+    <span id="windv">18</span>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+var cv = document.getElementById("scene"), cx = cv.getContext("2d");
+var W=0,H=0,DPR=1, fit;
+fit = function(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  W = Math.max(2, window.innerWidth); H = Math.max(2, window.innerHeight);
+  cv.width = W*DPR; cv.height = H*DPR;
+  cx.setTransform(DPR,0,0,DPR,0,0);
+};
+window.addEventListener("resize", fit);
+fit();
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:(v>b?b:v);}
+function lerp(a,b,t){return a+(b-a)*t;}
+
+/* ---------- meadow silhouettes ---------- */
+var blades = [];
+function seedGrass(){
+  blades = [];
+  var n = clamp(Math.round(W/7), 60, 220);
+  for(var i=0;i<n;i++){
+    var x = rnd(0,W);
+    var h = rnd(8, H*0.16);
+    blades.push({x:x, h:h, lean:rnd(-0.5,0.5), sway:rnd(0.2,0.9), ph:rnd(0,6.283), w:rnd(1,2.6), deep:Math.random()<0.28});
+  }
+}
+seedGrass();
+window.addEventListener("resize", seedGrass);
+
+/* ---------- fireflies ---------- */
+var FF = 60, flies = [];
+function spawnFly(home){
+  return {
+    x:rnd(0,W), y:rnd(H*0.15, H*0.8),
+    vx:0, vy:0,
+    hx:home.x, hy:home.y,
+    blink:rnd(0,4),          // phase into blink cycle
+    ph:rnd(0,6.283),
+    size:rnd(1.6,3.2),
+    wander:rnd(0.4,1),
+    scared:0
+  };
+}
+for(var i=0;i<FF;i++){
+  var hx=rnd(W*0.05,W*0.95), hy=rnd(H*0.18,H*0.78);
+  flies.push(spawnFly({x:hx,y:hy}));
+}
+
+/* blink envelope: two fast pulses then ~1.5s off */
+function blinkEnv(t, scared){
+  var rate = 1 + scared*0.9;           // rate doubles when fleeing
+  var ph = (t*rate) % 3.4;             // cycle: 1.9s on, 1.5s off
+  if(ph > 1.9) return 0;
+  var p1 = Math.exp(-Math.pow((ph-0.45)/0.22, 2));
+  var p2 = Math.exp(-Math.pow((ph-0.95)/0.22, 2));
+  return clamp(p1 + p2*0.9, 0, 1);
+}
+
+/* ---------- moon-moth on a figure-8 ---------- */
+var moth = {t:0, x:W*0.5, y:H*0.42, ph:0};
+function mothPath(tt){
+  /* lemniscate: x = a*sin(t), y = a*sin(t)*cos(t) */
+  var a = Math.min(W,H)*0.16;
+  var cxm = W*0.5, cym = H*0.34;
+  return {
+    x: cxm + a*Math.sin(tt)*1.25,
+    y: cym + a*Math.sin(tt)*Math.cos(tt)*0.8
+  };
+}
+
+/* ---------- pointer / lantern ---------- */
+var ptr = {x:-9999, y:-9999, on:false};
+cv.addEventListener("pointermove", function(e){
+  ptr.x = e.clientX; ptr.y = e.clientY; ptr.on = true;
+});
+cv.addEventListener("pointerleave", function(){ ptr.on = false; ptr.x = -9999; });
+cv.addEventListener("pointerdown", function(e){
+  ptr.x = e.clientX; ptr.y = e.clientY; ptr.on = true;
+});
+var calmOn = false;
+var calmBtn = document.getElementById("calm");
+calmBtn.addEventListener("click", function(){
+  calmOn = !calmOn;
+  calmBtn.classList.toggle("on", calmOn);
+  calmBtn.textContent = calmOn ? "Calm · On" : "Calm";
+});
+var windEl = document.getElementById("wind"), windv = document.getElementById("windv");
+function windAmt(){ return windEl.value/100; }
+windEl.addEventListener("input", function(){ windv.textContent = windEl.value; });
+
+/* ---------- stars ---------- */
+var stars = [];
+(function(){
+  for(var i=0;i<90;i++) stars.push({x:Math.random(), y:Math.random()*0.55, s:rnd(0.4,1.4), tw:rnd(0,6.283)});
+})();
+
+/* ---------- main loop ---------- */
+var last = 0, T = 0;
+function tick(now){
+  var dt = Math.min(0.05, (now-last)/1000 || 0); last = now; T += dt;
+  draw(dt);
+  requestAnimationFrame(tick);
+}
+
+function draw(dt){
+  var wAmt = windAmt();
+  var wx = (wAmt-0.5)*90;           // wind bias, px/s
+  var lanternActive = ptr.on && !calmOn;
+
+  /* sky */
+  var sky = cx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0, "#2a3a5e");
+  sky.addColorStop(0.45, "#1c2745");
+  sky.addColorStop(1, "#0d1428");
+  cx.fillStyle = sky; cx.fillRect(0,0,W,H);
+
+  /* stars */
+  var i, s;
+  for(i=0;i<stars.length;i++){
+    s = stars[i];
+    var a = 0.25 + 0.5*Math.abs(Math.sin(T*0.6 + s.tw));
+    cx.globalAlpha = a;
+    cx.fillStyle = "#dfe6ff";
+    cx.fillRect(s.x*W, s.y*H, s.s, s.s);
+  }
+  cx.globalAlpha = 1;
+
+  /* fireflies */
+  for(i=0;i<flies.length;i++){
+    var f = flies[i];
+    /* wander */
+    f.ph += dt*f.wander*2.2;
+    f.vx += Math.cos(f.ph)*14*dt*f.wander;
+    f.vy += Math.sin(f.ph*0.83)*14*dt*f.wander;
+    /* home pull (drift home when calm) */
+    var homeK = calmOn ? 14 : 2.2;
+    f.vx += (f.hx - f.x)*homeK*dt;
+    f.vy += (f.hy - f.y)*homeK*dt;
+    /* wind */
+    f.vx += wx*dt*2.2;
+    f.vy += Math.sin(T*0.5 + f.ph)*wAmt*6*dt;
+    /* lantern flee within 140px */
+    f.scared = 0;
+    if(lanternActive){
+      var dx = f.x - ptr.x, dy = f.y - ptr.y;
+      var d2 = dx*dx + dy*dy;
+      if(d2 < 140*140 && d2 > 0.01){
+        var d = Math.sqrt(d2);
+        f.scared = 1 - d/140;
+        f.vx += (dx/d)*220*dt*(0.5+f.scared);
+        f.vy += (dy/d)*220*dt*(0.5+f.scared);
+      }
+    }
+    /* damping + speed cap */
+    f.vx *= Math.pow(0.25, dt);
+    f.vy *= Math.pow(0.25, dt);
+    var sp = Math.sqrt(f.vx*f.vx + f.vy*f.vy);
+    var cap = 34 + (f.scared?150:0) + wAmt*22;
+    if(sp > cap){ f.vx *= cap/sp; f.vy *= cap/sp; }
+    f.x += f.vx*dt; f.y += f.vy*dt;
+    /* soft wrap */
+    if(f.x < -30) f.x = W+30; else if(f.x > W+30) f.x = -30;
+    if(f.y < -30) f.y = -30;
+    if(f.y > H*0.86 + 30) f.y = H*0.86;
+
+    var env = blinkEnv(T + f.ph*0.5, f.scared);
+    if(env > 0.02){
+      /* pass 1: soft halo */
+      cx.globalAlpha = env*0.34;
+      cx.fillStyle = "rgba(212,255,111,1)";
+      cx.beginPath();
+      cx.arc(f.x, f.y, f.size*4.6, 0, 6.2832);
+      cx.fill();
+      /* pass 2: bright core */
+      cx.globalAlpha = env;
+      cx.fillStyle = "#f4ffc8";
+      cx.beginPath();
+      cx.arc(f.x, f.y, f.size, 0, 6.2832);
+      cx.fill();
+    }
+  }
+  cx.globalAlpha = 1;
+
+  /* moon-moth: figure-8, white */
+  moth.t += dt*0.55;
+  var mp = mothPath(moth.t);
+  var px = moth.x, py = moth.y;
+  moth.x = mp.x; moth.y = mp.y;
+  cx.globalAlpha = 0.55;
+  cx.strokeStyle = "rgba(245,245,255,.5)";
+  cx.lineWidth = 1;
+  cx.beginPath(); cx.moveTo(px,py); cx.lineTo(moth.x, moth.y); cx.stroke();
+  cx.globalAlpha = 0.95;
+  cx.fillStyle = "#f5f5ff";
+  var fl = 1 + 0.35*Math.sin(T*22);
+  cx.beginPath();
+  cx.ellipse(moth.x - 5*fl, moth.y, 5.4*fl, 2.2, -0.5, 0, 6.2832);
+  cx.ellipse(moth.x + 5*fl, moth.y, 5.4*fl, 2.2, 0.5, 0, 6.2832);
+  cx.fill();
+  cx.beginPath();
+  cx.ellipse(moth.x, moth.y, 1.6, 3.4, 0, 0, 6.2832);
+  cx.fill();
+  cx.globalAlpha = 1;
+
+  /* lantern glow under pointer */
+  if(lanternActive){
+    var lg = cx.createRadialGradient(ptr.x, ptr.y, 0, ptr.x, ptr.y, 150);
+    lg.addColorStop(0, "rgba(255,236,170,.16)");
+    lg.addColorStop(0.5, "rgba(255,236,170,.05)");
+    lg.addColorStop(1, "rgba(255,236,170,0)");
+    cx.fillStyle = lg;
+    cx.beginPath(); cx.arc(ptr.x, ptr.y, 150, 0, 6.2832); cx.fill();
+    cx.fillStyle = "rgba(255,244,200,.9)";
+    cx.beginPath(); cx.arc(ptr.x, ptr.y, 2.6, 0, 6.2832); cx.fill();
+  }
+
+  /* meadow: grass silhouettes bottom 20% */
+  cx.fillStyle = "#1a2a1e";
+  cx.fillRect(0, H*0.84, W, H*0.16);
+
+  /* blades as strokes above the base fill */
+  for(i=0;i<blades.length;i++){
+    var g = blades[i];
+    var sw2 = Math.sin(T*g.sway + g.ph + i*0.13)*g.h*0.16*(0.4+wAmt) + g.lean*g.h*0.3;
+    var tipX = g.x + sw2, tipY = H*0.82 - g.h;
+    cx.strokeStyle = g.deep ? "#14211a" : "#1a2a1e";
+    cx.lineWidth = g.w;
+    cx.lineCap = "round";
+    cx.beginPath();
+    cx.moveTo(g.x, H*0.84 + 6);
+    cx.quadraticCurveTo(g.x + sw2*0.4, H*0.84 - g.h*0.5, tipX, tipY);
+    cx.stroke();
+    /* seed heads */
+    if(g.deep){
+      cx.fillStyle = "#233a29";
+      cx.beginPath(); cx.arc(tipX, tipY, g.w*1.6, 0, 6.2832); cx.fill();
+    }
+  }
+  /* soft vignette at bottom */
+  var vg = cx.createLinearGradient(0, H*0.9, 0, H);
+  vg.addColorStop(0, "rgba(6,10,8,0)");
+  vg.addColorStop(1, "rgba(6,10,8,.8)");
+  cx.fillStyle = vg;
+  cx.fillRect(0, H*0.9, W, H*0.1);
+}
+requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

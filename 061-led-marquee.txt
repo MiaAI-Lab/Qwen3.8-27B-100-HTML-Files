@@ -1,0 +1,9 @@
+TITLE: LED Marquee - The Starlight Hotel
+
+PROMPT: LED MARQUEE - 'THE STARLIGHT HOTEL' dot-matrix sign. Black #0a0a0a; big rounded LED panel (canvas grid 104x24 dots, 8px spacing): on-dots = glow circles #ffb454, off-dots = faint #241a12 ghosts. Text scrolls left using a custom 5x7 pixel font (bit arrays for A-Z, 0-9, period, star). Mode chips: SCROLL / CHASE (running dot border) / RAIN (dots fall down the grid) / TEST (all on + random flicker). Color chips: amber / red #ff3b30 / blue #3a6fff. Occasional dead-dot flicker (1 dot off for 200ms). CSS metal bezel with corner screws. Caption 'MARQUEE 104x24 - EST 1978'.
+
+DESCRIPTION: A retro hotel sign rendered on a black canvas: a 104x24 dot matrix inside a brushed-metal bezel with four corner screws. Every dot is always visible - lit ones bloom as amber glow circles (additive compositing) over a soft halo pass, unlit ones sit as faint #241a12 ghosts. The marquee text "THE STARLIGHT HOTEL * EST 1978 * GRAND BALLROOM * LOUNGE BAR *" scrolls left, decoded through a hand-built 5x7 pixel font (bit arrays for A-Z, 0-9, period and star). Four modes: SCROLL, CHASE (a running-dot border chasing the panel perimeter), RAIN (short comet trails falling down the grid) and TEST (full panel with random flicker). A random dot dies for 200ms at a time to sell the aged hardware.
+
+TECHNIQUES: canvas dot-matrix rendering, custom 5x7 bitmap pixel font, additive glow via globalCompositeOperation lighter, perimeter-distance chase logic, falling-particle rain, random dead-dot flicker, CSS gradient metal bezel with screw details, DPR-aware canvas fitting
+
+INTERACTION: Four mode chips (SCROLL / CHASE / RAIN / TEST) switch the animation; three color chips (amber / red / blue) re-tint the lit dots; everything else runs autonomously.

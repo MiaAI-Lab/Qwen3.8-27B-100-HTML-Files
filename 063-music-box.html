@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>063 Glass Music Box - Cylinder 24</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background:
+      radial-gradient(900px 480px at 50% 18%, #2a1f16 0%, rgba(42,31,22,0) 70%),
+      #1c1510;
+    color: #c8a05a;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(12px, 2.2vh, 22px);
+    padding: clamp(12px, 3vw, 28px);
+    overflow: hidden;
+  }
+  .case {
+    position: relative;
+    width: min(92vw, 760px);
+    border-radius: clamp(20px, 3vw, 32px);
+    padding: clamp(14px, 2.4vw, 24px);
+    background:
+      linear-gradient(160deg, #33261a 0%, #241a12 40%, #180f0a 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,200,140,0.16),
+      inset 0 -3px 10px rgba(0,0,0,0.7),
+      0 22px 60px rgba(0,0,0,0.8);
+  }
+  .glass {
+    position: relative;
+    width: min(78vw, 560px);
+    aspect-ratio: 1.18;
+    margin: 0 auto;
+    border-radius: 50% / 46%;
+    background:
+      radial-gradient(120% 90% at 30% 18%, rgba(255,240,210,0.16) 0%, rgba(255,240,210,0.03) 34%, rgba(20,14,10,0.12) 62%, rgba(0,0,0,0.25) 100%),
+      linear-gradient(180deg, rgba(255,235,200,0.07), rgba(255,235,200,0.015));
+    border: 1px solid rgba(255,220,170,0.28);
+    box-shadow:
+      inset 0 2px 18px rgba(255,230,190,0.14),
+      inset 0 -8px 26px rgba(0,0,0,0.55),
+      0 4px 18px rgba(0,0,0,0.5);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rim {
+    position: absolute;
+    left: 14%; top: 6%;
+    width: 40%; height: 26%;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 40% 40%, rgba(255,245,225,0.5), rgba(255,245,225,0) 70%);
+    filter: blur(3px);
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+  canvas {
+    position: absolute;
+    left: 50%; top: 46%;
+    transform: translate(-50%, -50%);
+    width: min(62vw, 420px);
+    height: auto;
+  }
+  .lamprow {
+    display: flex;
+    gap: clamp(10px, 2.6vw, 20px);
+    justify-content: center;
+    margin-top: clamp(8px, 1.6vh, 14px);
+  }
+  .lamp {
+    width: clamp(22px, 3.4vw, 30px);
+    height: clamp(22px, 3.4vw, 30px);
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 32%, #6b5230 0%, #3a2b18 70%);
+    border: 1px solid #4a3620;
+    transition: all 0.09s ease-out;
+  }
+  .lamp.on {
+    background: radial-gradient(circle at 40% 36%, #fff3d0 0%, #ffc35a 52%, #a86a1c 90%);
+    border-color: #ffdf9e;
+    box-shadow: 0 0 14px 3px rgba(255,190,90,0.75), 0 0 34px 8px rgba(255,170,60,0.35);
+  }
+  .glint {
+    position: absolute;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 0%, #ffe9b0 40%, rgba(255,233,176,0) 72%);
+    pointer-events: none;
+    opacity: 0;
+    mix-blend-mode: screen;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    max-width: 92vw;
+  }
+  .ctl {
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #a8875a;
+    background: linear-gradient(180deg, #2b1f14 0%, #1a120b 100%);
+    border: 1px solid #4a3620;
+    border-radius: 10px;
+    padding: 11px 22px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: inset 0 1px 0 rgba(255,200,140,0.12), 0 3px 8px rgba(0,0,0,0.5);
+  }
+  .ctl:hover { color: #e8c88a; border-color: #6b4f2c; }
+  .ctl.on {
+    color: #ffd98a;
+    border-color: #ffb454;
+    box-shadow: inset 0 1px 0 rgba(255,220,160,0.25), 0 0 16px rgba(255,180,84,0.4), 0 3px 8px rgba(0,0,0,0.5);
+  }
+  .meter {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: #7a6240;
+    min-width: 92px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .meterbar {
+    width: 64px; height: 6px;
+    border-radius: 3px;
+    background: #140e09;
+    border: 1px solid #3a2b18;
+    overflow: hidden;
+  }
+  .meterfill {
+    height: 100%;
+    width: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #ffb454, #ff8a3a);
+    transition: width 0.2s linear;
+  }
+  .caption {
+    font-size: clamp(10px, 1.4vw, 12px);
+    letter-spacing: 0.44em;
+    text-transform: uppercase;
+    color: #7a6240;
+    text-align: center;
+  }
+  .caption b { color: #c8a05a; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="case">
+    <div class="glass" id="glass">
+      <i class="rim"></i>
+      <canvas id="cv" width="420" height="330" aria-label="Brass music box cylinder with pins"></canvas>
+      <span class="glint" id="glint"></span>
+    </div>
+    <div class="lamprow" id="lamps">
+      <span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>
+      <span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>
+    </div>
+  </div>
+  <div class="controls">
+    <button class="ctl on" id="playbtn">Play</button>
+    <button class="ctl" id="windbtn">Wind Spring</button>
+    <div class="meter"><span class="meterbar"><span class="meterfill" id="fill"></span></span><span id="meter">SPRING</span></div>
+  </div>
+  <div class="caption">Music Box &mdash; <b>Cylinder 24</b></div>
+<script>
+(function () {
+  "use strict";
+  var cv = document.getElementById("cv");
+  var ctx = cv.getContext("2d");
+  var glass = document.getElementById("glass");
+  var glint = document.getElementById("glint");
+  var lampEls = document.querySelectorAll("#lamps .lamp");
+  var fill = document.getElementById("fill");
+
+  var CW = 420, CH = 330;
+  var CX = CW / 2, CY = CH * 0.46;
+  var R_OUT = 150, R_IN = 58, R_MID = (R_OUT + R_IN) / 2;
+  var ROWS = 6;
+
+  /* 24-note loop in E major-ish, music box register */
+  var NOTES = [
+    "E6", "G#6", "B6", "E6", "G#6", "B6", "D#7", "B6",
+    "G#6", "E6", "B6", "G#6", "E6", "D#6", "E6", "B5",
+    "E6", "G#6", "B6", "D#7", "B6", "G#6", "E6", "G#5"
+  ];
+  var HZ = {
+    "B5": 987.77, "D#6": 1174.66, "E6": 1318.51, "G#6": 1555.64,
+    "B6": 1975.53, "D#7": 2349.32, "G#5": 777.83
+  };
+  function freqOf(n) { return HZ[n] || 1000; }
+
+  /* precomputed pin schedule: note index -> (angle deg, row) */
+  var PIN = [];
+  for (var p = 0; p < 24; p++) {
+    var ang = (p * 15 + 7.5) % 360;
+    PIN.push({ note: NOTES[p], a: ang, row: p % ROWS });
+  }
+
+  var state = {
+    angle: 0,
+    speed: 0,        /* deg per second, eases toward target */
+    target: 54,      /* playing speed */
+    playing: true,
+    wound: true,
+    wind: 1,
+    lastNote: -1,
+    last: 0
+  };
+
+  var ac = null, master = null;
+
+  function audio() {
+    if (ac) return ac;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ac = new AC();
+      master = ac.createGain();
+      master.gain.value = 0.5;
+      master.connect(ac.destination);
+    } catch (e) { ac = null; }
+    return ac;
+  }
+
+  function pluck(note, det) {
+    var a = audio();
+    if (!a || a.state !== "running") return;
+    var f = freqOf(note) * det;
+    var t0 = a.currentTime;
+    var g = a.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(0.34, t0 + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.15);
+    var o1 = a.createOscillator();
+    o1.type = "triangle";
+    o1.frequency.setValueAtTime(f, t0);
+    var w = a.createOscillator(); /* waver for slight detune */
+    w.type = "sine";
+    w.frequency.value = 5.2;
+    var wg = a.createGain();
+    wg.gain.value = f * 0.004;
+    w.connect(wg);
+    wg.connect(o1.frequency);
+    o1.connect(g);
+    g.connect(master);
+    var o2 = a.createOscillator();
+    o2.type = "triangle";
+    o2.frequency.value = f * 2.76; /* music-box chime overtone */
+    var g2 = a.createGain();
+    g2.gain.setValueAtTime(0.0001, t0);
+    g2.gain.linearRampToValueAtTime(0.07, t0 + 0.004);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+    o2.connect(g2);
+    g2.connect(master);
+    o1.start(t0); o2.start(t0); w.start(t0);
+    o1.stop(t0 + 1.3); o2.stop(t0 + 0.6); w.stop(t0 + 1.3);
+  }
+
+  function fit() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(CW * dpr);
+    cv.height = Math.round(CH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, CW, CH);
+    var a = state.angle;
+    /* crank axle shadow */
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.beginPath();
+    ctx.ellipse(CX + 4, CY + 16, R_OUT * 0.92, 30, 0, 0, 6.2832);
+    ctx.fill();
+    /* cylinder body */
+    var grd = ctx.createRadialGradient(CX - 40, CY - 50, 20, CX, CY, R_OUT + 14);
+    grd.addColorStop(0, "#e8c88a");
+    grd.addColorStop(0.45, "#c8a05a");
+    grd.addColorStop(0.8, "#8a6a34");
+    grd.addColorStop(1, "#57401f");
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(CX, CY, R_OUT, 0, 6.2832);
+    ctx.fill();
+    /* row rings */
+    for (var r = 0; r < ROWS; r++) {
+      var rr = R_IN + 10 + r * ((R_OUT - R_IN - 18) / (ROWS - 1));
+      ctx.strokeStyle = "rgba(60,40,14,0.55)";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(CX, CY, rr, 0, 6.2832);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(255,230,170,0.22)";
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(CX, CY, rr - 2, 0, 6.2832);
+      ctx.stroke();
+    }
+    /* pin dots - lit if in last 6 deg behind the comb */
+    for (var i = 0; i < PIN.length; i++) {
+      var pin = PIN[i];
+      var pa = (pin.a - a) % 360;
+      if (pa < 0) pa += 360;
+      var pr = R_IN + 10 + pin.row * ((R_OUT - R_IN - 18) / (ROWS - 1));
+      var px = CX + Math.cos(pa * 0.0174533) * pr;
+      var py = CY + Math.sin(pa * 0.0174533) * pr;
+      var hot = pa > 354;
+      ctx.fillStyle = hot ? "#fff3d0" : "#3a2810";
+      ctx.beginPath();
+      ctx.arc(px, py, hot ? 5.2 : 3.4, 0, 6.2832);
+      ctx.fill();
+      if (hot) {
+        ctx.fillStyle = "rgba(255,210,120,0.45)";
+        ctx.beginPath();
+        ctx.arc(px, py, 9, 0, 6.2832);
+        ctx.fill();
+      }
+    }
+    /* center hub */
+    var hg = ctx.createRadialGradient(CX - 12, CY - 14, 4, CX, CY, R_IN);
+    hg.addColorStop(0, "#f0d9a8");
+    hg.addColorStop(0.5, "#b08a48");
+    hg.addColorStop(1, "#4a3418");
+    ctx.fillStyle = hg;
+    ctx.beginPath();
+    ctx.arc(CX, CY, R_IN, 0, 6.2832);
+    ctx.fill();
+    ctx.fillStyle = "#2a1d0e";
+    ctx.beginPath();
+    ctx.arc(CX, CY, 10, 0, 6.2832);
+    ctx.fill();
+    /* comb (fixed) at bottom */
+    ctx.save();
+    ctx.translate(CX, CY + R_OUT + 6);
+    ctx.fillStyle = "#241a10";
+    ctx.fillRect(-110, -6, 220, 16);
+    for (var c = 0; c < 22; c++) {
+      ctx.fillStyle = c % 2 ? "#8a6a34" : "#c8a05a";
+      ctx.fillRect(-104 + c * 9.6, -18, 3.4, 13);
+    }
+    ctx.restore();
+  }
+
+  function glintFlash() {
+    var wr = glass.getBoundingClientRect();
+    if (!wr.width) return;
+    glint.style.left = (28 + Math.random() * 44) + "%";
+    glint.style.top = (14 + Math.random() * 22) + "%";
+    glint.style.opacity = "0.95";
+  }
+
+  function frame(now) {
+    try {
+      var dt = Math.min((now - state.last) / 1000, 0.05);
+      state.last = now;
+      var fast = windbtn.classList.contains("on");
+      var tgt = 0;
+      if (state.playing && state.wound && state.wind > 0.02) tgt = 54 * (fast ? 2 : 1);
+      state.speed += (tgt - state.speed) * Math.min(dt * 2.2, 1); /* inertia */
+      if (state.playing && Math.abs(state.speed) < 2 && tgt === 0) { state.speed = 0; }
+      var prevA = state.angle;
+      state.angle = (state.angle + state.speed * dt) % 360;
+      if (state.angle < 0) state.angle += 360;
+      var swept = state.angle - prevA;
+      if (swept < 0) swept += 360;
+      /* trigger pins crossed in [360-6, 0) + swept window at bottom comb */
+      for (var i = 0; i < PIN.length; i++) {
+        var pin = PIN[i];
+        var rel = (360 + pin.a - prevA) % 360;
+        if (rel <= swept && rel < 10) {
+          if (state.lastNote !== i) {
+            state.lastNote = i;
+            var lamp = lampEls[i % 6];
+            if (lamp && lamp.classList) {
+              lamp.classList.add("on");
+              setTimeout(function (el) { return function () { el.classList.remove("on"); }; }(lamp), 420);
+            }
+            glintFlash();
+            if (state.wound || state.wind > 0.02) {
+              pluck(pin.note, 1 + (Math.random() - 0.5) * 0.004);
+            }
+            if (state.playing && state.wound) state.wind = Math.max(0, state.wind - 1 / 240);
+          }
+        }
+      }
+      fill.style.width = Math.round(state.wind * 100) + "%";
+      draw();
+    } catch (e) { /* guard */ }
+    window.requestAnimationFrame(frame);
+  }
+
+  var playbtn = document.getElementById("playbtn");
+  var windbtn = document.getElementById("windbtn");
+  function ensureAudio() {
+    var a = audio();
+    if (a && a.state === "suspended") a.resume();
+  }
+  playbtn.addEventListener("click", function () {
+    state.playing = !state.playing;
+    playbtn.classList.toggle("on", state.playing);
+    playbtn.textContent = state.playing ? "Play" : "Pause";
+    ensureAudio();
+  });
+  windbtn.addEventListener("click", function () {
+    state.wound = !state.wound;
+    windbtn.classList.toggle("on", state.wound);
+    if (state.wound) state.wind = Math.max(state.wind, 0.6);
+    ensureAudio();
+  });
+  window.addEventListener("pointerdown", ensureAudio, { once: false });
+
+  var rsz = 0;
+  window.addEventListener("resize", function () {
+    if (rsz) window.clearTimeout(rsz);
+    rsz = window.setTimeout(fit, 120);
+  });
+
+  fit();
+  state.last = performance.now();
+  window.requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

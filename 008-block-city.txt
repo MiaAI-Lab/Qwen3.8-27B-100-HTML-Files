@@ -1,0 +1,9 @@
+TITLE: Block City — 100 Lots
+
+PROMPT: BLOCK CITY - isometric block-city toy, 10x10 grid of lots drawn as 2:1 iso tiles (canvas). Click a lot cycles empty -> grass -> house -> tower -> skyline, each an extruded iso prism with 3 shaded faces (top/left/right). Dusk sky #2b2450->#0f0c26; buildings get warm window lights #ffd27a that blink on/off randomly at tower stage. Bottom toolbar chips: BUILD, ERASE, RAIN - RAIN adds falling rain streaks on an overlay canvas and makes windows glow brighter; SUN/MOON toggle recolors faces. HUD: 'BLOCK CITY - 100 LOTS' + built count.
+
+DESCRIPTION: A full-viewport isometric city-builder on a 10x10 lot grid drawn as 2:1 diamonds. Each lot is an extruded prism with three shaded faces in a per-stage palette (flat empty lots, green grass tufts, brown houses, grey-blue towers, and skyline spires capped with a smaller second prism). The dusk sky runs #2b2450 to #0f0c26 with a faint star field and moon; the SUN/MOON chip swaps to a daylight palette. Windows on house/tower stages are warm #ffd27a quads mapped onto the left and right faces that blink randomly, and glow with a blur when rain is on. A HUD top-left tracks mood, tool, and live built count out of 100, and bottom toolbar chips control the play.
+
+TECHNIQUES: isometric 2:1 diamond projection, depth-sorted painter's-algorithm rendering, extruded prism shading (three faces per stage), procedurally mapped window quads on oblique faces, random blink scheduling, overlay-canvas rain streaks, DPR-aware resize with fit() at boot, pointer picking via inverse iso transform, keyboard shortcuts, pop-scale build animation.
+
+INTERACTION: Clicking a lot cycles it through empty, grass, house, tower, skyline (BUILD tool, default) or resets it to empty (ERASE tool). Toolbar chips toggle BUILD / ERASE, RAIN (rain streaks overlay plus brighter glowing windows), and SUN/MOON (recolors all faces and the sky). Keyboard: B, E, R, S do the same. HUD shows live built count.

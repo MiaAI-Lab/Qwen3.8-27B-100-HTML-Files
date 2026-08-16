@@ -1,0 +1,11 @@
+=== 019 ===
+019-lighthouse.html
+LIGHTHOUSE WATCH - night coast scene. Sky #0b1026 with stars + glowing low moon; sea #0a1626 with 3 parallax sine swell rows; headland silhouette; lighthouse tower (white/red stripes) with a rotating two-cone beam sweeping every 8s; when the beam crosses, a small fishing-boat silhouette's windows light up. Drifting fog band. Click the sea: lapping ripples at the point. Top: 'THE LIGHTHOUSE' serif + KEEPER'S LOG counting completed beam rotations (ticks each sweep). Painterly but crisp.
+
+=== 020 ===
+020-glass-vinyl.html
+GLASS VINYL - glassmorphism record player. Deep plum #191024 bg with soft glow blobs; central glass card (blur 20px, 1px rgba(255,255,255,.15)): spinning record (repeating-radial-gradient grooves + label), CSS tonearm that rotates onto the record when playing; dust motes drift in a light cone. Controls: PLAY/PAUSE - WebAudio synthesizes a ~40s ambient loop (detuned layered oscillators + slow LFO + fade in/out); volume knob; 5-bar EQ animated from an analyser (idle: gentle sine). Track line: 'Midnight Glass - 4:12' small caps. Audio context created in first gesture.
+
+=== 021 ===
+021-chladni-plate.html
+CHLADNI PLATE - square canvas plate with brass frame (#8a6a2f, 12px border) over #101114. ~9000 1px grains #cfd6dd start scattered; standing wave A(x,y)=|cos(n x)cos(m y)|; each grain migrates toward zero-amplitude lines (step opposite the amplitude gradient + jitter) until it settles into the classic Chladni figure. Sliders: n and m (1-12), grain count (2k-10k, re-seed on change). Settled figure reveals faint gold lines #d4af37 alpha .2 underneath. Readout 'PATTERN 5.7' serif italic. Update grains in chunks across frames if slow - never freeze the tab.

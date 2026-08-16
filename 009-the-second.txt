@@ -1,0 +1,9 @@
+TITLE: The Second
+
+PROMPT: THE SECOND - typographic clock, pure type page. Bone #efece4 on charcoal #141517; accent #ff4d2e. Center: huge (~18vw) tabular-numeral HH:MM:SS clock, each digit in its own column of stacked spans; on each second tick the new digit slides up from below while the old slides out (120ms clip reveal) - implement per-digit. Below: day-of-week in wide-tracked caps + a thin progress line for the day (ms elapsed / 86400000). The page IS the clock - no other chrome. Subtle film-grain overlay via low-opacity repeating radial dots. Seconds dot in accent color pulses each tick.
+
+DESCRIPTION: The entire page is a clock. A massive tabular-numeral HH:MM:SS sits center on charcoal #141517 in bone #efece4, set at ~18vw so the digits nearly span the viewport, with thin accent-free colon dots between the pairs. Each digit lives in its own overflow-clipped column holding two stacked spans; on every second tick the new glyph slides up from below in 120ms while the old glyph exits through the top clip, digit by digit. Below, a wide-tracked caps day-of-week sits beside a 1px progress line whose accent #ff4d2e fill equals milliseconds elapsed in the day divided by 86400000, and a small accent seconds dot pulses once per tick. A two-lattice radial-dot overlay at whisper opacity adds film grain. Nothing else is on the page.
+
+TECHNIQUES: pure typographic layout, tabular numerals with per-digit stacked-span roll animation, overflow-clipped 120ms cubic-bezier slide transitions, system font stack only, fixed full-viewport composition, two-offset radial-gradient dot film grain, ms-precision day progress line, accent pulse beat keyframes, 100dvh sizing.
+
+INTERACTION: Ambient by design - no controls. The clock reads system time and self-animates: each digit rolls on its second tick, the seconds dot pulses in accent orange-red, and the day progress line advances continuously. Fully pointer-free and keyboard-free.

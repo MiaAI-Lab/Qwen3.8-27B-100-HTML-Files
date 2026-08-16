@@ -1,0 +1,9 @@
+TITLE: Neon Drive — Synthwave Horizon
+
+PROMPT: SYNTHWAVE HORIZON - perspective neon grid floor: lines #ff2e88 converging to vanishing point, scrolling toward viewer; huge sun #ffd76f->#ff2e88 gradient with horizontal slice gaps sitting on the horizon; jagged mountain silhouette #1a0b2e mid-ground; fog band at horizon. Mouse: subtle parallax (mountains shift, sun scales slightly). SPEED slider drives grid scroll rate; optional WebAudio engine hum (gesture-created). Title 'NEON / DRIVE' italic gradient-text (background-clip), wide tracking, top center.
+
+DESCRIPTION: A full-viewport canvas synthwave scene: gradient dusk sky with twinkling stars, a huge banded sun clipped by horizontal slits sinking into the horizon, two layers of jagged mountain silhouettes, a horizon fog band, and a perspective neon-pink grid floor whose lines converge to the vanishing point and scroll toward the viewer. The HUD is monospace with a tracked-caps page caption; the title is an italic gradient-clipped wordmark.
+
+TECHNIQUES: canvas perspective projection with quadratic depth mapping for scrolling floor lines, radial + linear gradient sun with destination-out slice slits, multi-pass glow strokes, two-layer procedural mountain ridgelines with mouse parallax, horizon fog gradient band, star twinkle, CRT scanline and vignette overlay layers, WebAudio sawtooth stack through resonant lowpass for the engine hum, smoothed pointer input.
+
+INTERACTION: Mouse/touch position drives subtle parallax (mountains shift, sun scales slightly). SPEED slider drives grid scroll rate and engine filter cutoff. HUM button toggles a gesture-created WebAudio engine hum.

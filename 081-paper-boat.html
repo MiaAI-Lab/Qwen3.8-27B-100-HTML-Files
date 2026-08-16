@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Paper Boat on Waves</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    height: 100dvh;
+    background: #dfeaf2;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #sea {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  #boat {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: clamp(84px, 16vw, 132px);
+    pointer-events: none;
+    will-change: transform;
+    z-index: 2;
+  }
+  #boat svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    filter: drop-shadow(0 5px 7px rgba(18, 38, 58, 0.20));
+  }
+  .brand {
+    position: fixed;
+    top: 18px;
+    left: 20px;
+    z-index: 3;
+    color: rgba(22, 42, 60, 0.82);
+    user-select: none;
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: clamp(11px, 1.8vw, 14px);
+    font-weight: 650;
+    letter-spacing: 0.44em;
+    text-transform: uppercase;
+  }
+  .brand p {
+    margin: 5px 0 0;
+    font-size: clamp(9px, 1.4vw, 11px);
+    font-weight: 500;
+    letter-spacing: 0.30em;
+    text-transform: uppercase;
+    color: rgba(22, 42, 60, 0.48);
+  }
+  .caption {
+    position: fixed;
+    left: 20px;
+    bottom: 18px;
+    z-index: 3;
+    padding: 7px 12px 6px;
+    font-size: clamp(10px, 1.6vw, 13px);
+    font-weight: 600;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: rgba(18, 36, 54, 0.80);
+    background: rgba(255, 255, 255, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    border-radius: 3px;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .controls {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: calc(100vw - 32px);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.46);
+    border: 1px solid rgba(255, 255, 255, 0.60);
+    border-radius: 999px;
+    user-select: none;
+  }
+  .wind {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .wind span {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(20, 40, 58, 0.72);
+  }
+  #wind {
+    width: clamp(100px, 22vw, 170px);
+    accent-color: #2a5a7e;
+    cursor: pointer;
+  }
+  .chip {
+    appearance: none;
+    border: 1px solid rgba(42, 90, 126, 0.35);
+    background: rgba(244, 247, 248, 0.9);
+    color: rgba(24, 46, 66, 0.9);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    padding: 8px 14px 7px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  }
+  .chip:hover { background: rgba(42, 90, 126, 0.14); }
+  .chip[aria-pressed="true"] {
+    background: #5a6a7a;
+    color: #f2f6f8;
+    border-color: #46566a;
+  }
+  @media (max-width: 380px) {
+    .brand { top: 12px; left: 14px; }
+    .caption { left: 14px; bottom: 74px; }
+    .controls { right: 12px; bottom: 12px; gap: 10px; padding: 9px 12px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="sea"></canvas>
+
+<div id="boat" aria-hidden="true">
+  <svg viewBox="0 0 120 84" role="img" aria-label="origami paper boat">
+    <path d="M30 64 L90 64 L84 70 L36 70 Z" fill="rgba(35,55,75,0.14)"/>
+    <path d="M10 46 L60 46 L60 64 L30 64 Z" fill="#e3e3de"/>
+    <path d="M60 46 L110 46 L90 64 L60 64 Z" fill="#f4f4f2"/>
+    <path d="M60 12 L60 46 L14 46 Z" fill="#ecece7"/>
+    <path d="M60 12 L106 46 L60 46 Z" fill="#fafaf8"/>
+    <path d="M60 12 L60 64" stroke="#d2d2cb" stroke-width="1.4" fill="none"/>
+    <path d="M14 46 L60 12 L106 46 M10 46 L110 46" stroke="#dbdbd4" stroke-width="1" fill="none"/>
+  </svg>
+</div>
+
+<div class="brand">
+  <h1>Paper Boat</h1>
+  <p>Standalone Gallery · N°081</p>
+</div>
+
+<div class="caption" id="caption">BOAT / SEA - WIND 3 KN</div>
+
+<div class="controls">
+  <label class="wind">
+    <span>Wind</span>
+    <input id="wind" type="range" min="0" max="10" step="1" value="3">
+  </label>
+  <button id="sky" class="chip" aria-pressed="false">Sunny</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var canvas = document.getElementById("sea");
+  var ctx = canvas.getContext("2d");
+  var boatEl = document.getElementById("boat");
+  var caption = document.getElementById("caption");
+  var windInput = document.getElementById("wind");
+  var skyChip = document.getElementById("sky");
+
+  var W = 0, H = 0, DPR = 1;
+  var wind = 3;
+  var stormTarget = 0, storm = 0;
+  var tGlobal = 0, lastT = 0;
+  var boatX = 0, boatVx = 0, booted = false;
+  let ripples = [];
+  let impulses = [];
+  var duck = { active: false, x: 0, dir: 1, next: 5 };
+  var drops = [];
+
+  var bands = [
+    { yf: 0.500, col: [74, 122, 158], amp: 0.50, par: 0.45, k: 0.0050, sp: 0.42, ph: 1.7, hi: 0.05 },
+    { yf: 0.585, col: [58, 106, 142], amp: 0.75, par: 0.72, k: 0.0074, sp: 0.66, ph: 4.1, hi: 0.09 },
+    { yf: 0.675, col: [42, 90, 126],  amp: 1.00, par: 1.00, k: 0.0098, sp: 0.95, ph: 0.6, hi: 0.15 }
+  ];
+  var front = bands[2];
+
+  function fit() {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.max(1, Math.round(W * DPR));
+    canvas.height = Math.max(1, Math.round(H * DPR));
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (!booted && W > 0) {
+      boatX = W * 0.42;
+      booted = true;
+    }
+  }
+
+  function mixc(a, b, m) {
+    return [a[0] + (b[0] - a[0]) * m, a[1] + (b[1] - a[1]) * m, a[2] + (b[2] - a[2]) * m];
+  }
+  function rgba(c, a) {
+    return "rgba(" + Math.round(c[0]) + "," + Math.round(c[1]) + "," + Math.round(c[2]) + "," + a + ")";
+  }
+
+  function waveY(b, x, t) {
+    var A = (5 + wind * 2.8) * b.amp;
+    var k = b.k * (1 + wind * 0.09);
+    var s = b.sp * (0.5 + wind * 0.24);
+    var y = H * b.yf
+      + Math.sin(x * k - t * s + b.ph) * A
+      + Math.sin(x * k * 0.52 + t * s * 0.41 + b.ph * 2.3) * A * 0.42;
+    for (let i = 0; i < impulses.length; i++) {
+      var im = impulses[i];
+      var age = t - im.t0;
+      var d = x - (im.x + im.vx * age);
+      y += im.amp * b.par * Math.exp(-(d * d) / 18050) * Math.exp(-age / 2.6);
+    }
+    return y;
+  }
+
+  function drawSky() {
+    var top = mixc([223, 234, 242], [90, 106, 122], storm);
+    var bot = mixc([240, 247, 252], [118, 132, 144], storm);
+    var g = ctx.createLinearGradient(0, 0, 0, H * 0.72);
+    g.addColorStop(0, rgba(top, 1));
+    g.addColorStop(1, rgba(bot, 1));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    var sa = 0.9 * (1 - storm * 0.92);
+    if (sa > 0.02) {
+      var sx = W * 0.78, sy = H * 0.18;
+      var halo = ctx.createRadialGradient(sx, sy, 6, sx, sy, 110);
+      halo.addColorStop(0, "rgba(255,246,220," + sa + ")");
+      halo.addColorStop(1, "rgba(255,246,220,0)");
+      ctx.fillStyle = halo;
+      ctx.fillRect(sx - 120, sy - 120, 240, 240);
+      ctx.beginPath();
+      ctx.arc(sx, sy, 21, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,248,226," + Math.min(1, sa + 0.15) + ")";
+      ctx.fill();
+    }
+    if (storm > 0.08) {
+      var clouds = [
+        [W * 0.24, H * 0.11, W * 0.30],
+        [W * 0.55, H * 0.07, W * 0.26],
+        [W * 0.82, H * 0.14, W * 0.22]
+      ];
+      for (let i = 0; i < clouds.length; i++) {
+        var c = clouds[i];
+        var cg = ctx.createRadialGradient(c[0], c[1], 4, c[0], c[1], c[2]);
+        cg.addColorStop(0, "rgba(58,70,84," + (0.40 * storm) + ")");
+        cg.addColorStop(1, "rgba(58,70,84,0)");
+        ctx.fillStyle = cg;
+        ctx.fillRect(c[0] - c[2], c[1] - c[2], c[2] * 2, c[2] * 2);
+      }
+    }
+  }
+
+  function drawBand(b) {
+    ctx.beginPath();
+    ctx.moveTo(-6, H + 6);
+    for (let x = -6; x <= W + 6; x += 3) {
+      ctx.lineTo(x, waveY(b, x, tGlobal));
+    }
+    ctx.lineTo(W + 6, H + 6);
+    ctx.closePath();
+    ctx.fillStyle = "rgb(" + b.col[0] + "," + b.col[1] + "," + b.col[2] + ")";
+    ctx.fill();
+
+    ctx.beginPath();
+    for (let x = -6; x <= W + 6; x += 3) {
+      var y = waveY(b, x, tGlobal);
+      if (x === -6) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }
+    }
+    ctx.strokeStyle = "rgba(255,255,255," + b.hi + ")";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  function drawWhitecaps() {
+    var choppy = wind >= 4 || storm > 0.25;
+    if (!choppy) { return; }
+    var gate = wind > 6 || storm > 0.5 ? 0.35 : 0.62;
+    ctx.fillStyle = "rgba(255,255,255,0.60)";
+    for (let x = 8; x < W - 8; x += 16) {
+      var y = waveY(front, x, tGlobal);
+      var s = (waveY(front, x + 7, tGlobal) - waveY(front, x - 7, tGlobal)) / 14;
+      if (s > -0.45) { continue; }
+      var n = Math.sin(x * 12.9898 + tGlobal * 2.1) * 43758.5453;
+      var fr = n - Math.floor(n);
+      if (fr < gate) { continue; }
+      ctx.beginPath();
+      ctx.arc(x, y - 1.5, 1 + fr * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function updateDuck(dt) {
+    if (!duck.active) {
+      duck.next -= dt;
+      if (duck.next <= 0) {
+        duck.active = true;
+        duck.dir = Math.random() < 0.5 ? 1 : -1;
+        duck.x = duck.dir === 1 ? -24 : W + 24;
+      }
+      return;
+    }
+    duck.x += duck.dir * (30 + wind * 5) * dt;
+    if (duck.x < -44 || duck.x > W + 44) {
+      duck.active = false;
+      duck.next = 7 + Math.random() * 9;
+      return;
+    }
+    var y = waveY(front, duck.x, tGlobal) - 4 + Math.sin(tGlobal * 3.1 + duck.x * 0.03) * 1.3;
+    ctx.save();
+    ctx.translate(duck.x, y);
+    ctx.scale(duck.dir, 1);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 9, 5.2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#4a4642";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(7, -6.5, 3.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(10.4, -7.6);
+    ctx.lineTo(14.2, -5.8);
+    ctx.lineTo(10.4, -4.8);
+    ctx.closePath();
+    ctx.fillStyle = "#e8a13c";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(7.8, -7.2, 0.7, 0, Math.PI * 2);
+    ctx.fillStyle = "#f4f4f2";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(-4, 2.6, 12, 3.2, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.28)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawRain(dt) {
+    if (storm < 0.03) { return; }
+    if (drops.length === 0) {
+      for (let i = 0; i < 90; i++) {
+        drops.push({
+          x: Math.random() * (W + 80),
+          y: Math.random() * H,
+          len: 10 + Math.random() * 14,
+          sp: 520 + Math.random() * 380
+        });
+      }
+    }
+    ctx.strokeStyle = "rgba(212,228,240," + (0.32 * storm).toFixed(3) + ")";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < drops.length; i++) {
+      var d = drops[i];
+      d.y += d.sp * dt;
+      d.x -= d.sp * 0.18 * dt;
+      if (d.y > H + 24) {
+        d.y = -24 - Math.random() * 40;
+        d.x = Math.random() * (W + 90);
+      }
+      ctx.moveTo(d.x, d.y);
+      ctx.lineTo(d.x - 2.5, d.y + d.len);
+    }
+    ctx.stroke();
+  }
+
+  function updateRipples(dt) {
+    for (let i = ripples.length - 1; i >= 0; i--) {
+      var r = ripples[i];
+      r.r += (70 + r.r * 0.6) * dt;
+      r.a -= dt * 0.5;
+      if (r.a <= 0) { ripples.splice(i, 1); continue; }
+      ctx.beginPath();
+      ctx.ellipse(r.x, r.y, r.r, r.r * 0.30, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255,255,255," + (r.a * 0.65).toFixed(3) + ")";
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(r.x, r.y, r.r * 0.55, r.r * 0.30 * 0.55, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255,255,255," + (r.a * 0.35).toFixed(3) + ")";
+      ctx.stroke();
+    }
+  }
+
+  function updateBoat(dt) {
+    boatX += (2 + wind * 1.6) * dt + boatVx * dt;
+    boatVx *= Math.max(0, 1 - 1.5 * dt);
+    if (boatX > W + 90) { boatX = -90; }
+    var by = waveY(front, boatX, tGlobal);
+    var slope = (waveY(front, boatX + 4, tGlobal) - waveY(front, boatX - 4, tGlobal)) / 8;
+    var pitch = Math.atan(slope * 0.85);
+    pitch = Math.max(-0.5, Math.min(0.5, pitch));
+    var bw = boatEl.offsetWidth || 120;
+    var bh = boatEl.offsetHeight || 84;
+    boatEl.style.transform =
+      "translate(" + (boatX - bw / 2) + "px," + (by - bh * 0.76) + "px) rotate(" + pitch + "rad)";
+  }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var t = now * 0.001;
+    var dt = t - lastT;
+    lastT = t;
+    if (!(dt > 0) || dt > 0.1) { dt = 0.016; }
+    tGlobal += dt;
+    storm += (stormTarget - storm) * Math.min(1, dt * 1.6);
+    try {
+      impulses = impulses.filter(function (im) { return tGlobal - im.t0 < 4.5; });
+      drawSky();
+      for (let i = 0; i < bands.length; i++) { drawBand(bands[i]); }
+      drawWhitecaps();
+      updateDuck(dt);
+      drawRain(dt);
+      updateRipples(dt);
+      updateBoat(dt);
+    } catch (err) {
+      /* guarded frame: keep the loop alive on transient errors */
+    }
+  }
+
+  canvas.addEventListener("pointerdown", function (e) {
+    var x = e.clientX, y = e.clientY;
+    var wy = waveY(front, x, tGlobal);
+    var cy = y < wy + 4 ? wy + 6 : y;
+    ripples.push({ x: x, y: cy, r: 3, a: 0.95 });
+    var dir = boatX >= x ? 1 : -1;
+    impulses.push({ x: x, vx: dir * 150, amp: 20 + wind * 2, t0: tGlobal });
+    boatVx += dir * (24 + wind * 4);
+  });
+
+  windInput.addEventListener("input", function () {
+    wind = Number(windInput.value) || 0;
+    caption.textContent = "BOAT / SEA - WIND " + wind + " KN";
+  });
+
+  skyChip.addEventListener("click", function () {
+    stormTarget = stormTarget === 0 ? 1 : 0;
+    skyChip.textContent = stormTarget === 1 ? "Stormy" : "Sunny";
+    skyChip.setAttribute("aria-pressed", stormTarget === 1 ? "true" : "false");
+  });
+
+  window.addEventListener("resize", fit);
+
+  fit();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

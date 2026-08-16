@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>064 · SUMI BRUSH</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    background:#20242b;color:#3a382f;
+    display:flex;flex-direction:column;height:100dvh;overflow:hidden;
+    -webkit-user-select:none;user-select:none;
+  }
+  header{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+    gap:10px;padding:10px clamp(12px,2.5vw,28px);
+    background:#1b1e24;box-shadow:0 2px 10px rgba(0,0,0,.45);z-index:5;
+  }
+  .brand{letter-spacing:.34em;font-size:clamp(10px,1.4vw,13px);color:#9aa3b2;font-weight:600}
+  .brand b{color:#e8e2d4;font-weight:700}
+  .tools{display:flex;gap:8px;flex-wrap:wrap}
+  .tools button{
+    font-family:inherit;font-size:clamp(9px,1.3vw,11px);letter-spacing:.22em;font-weight:700;
+    padding:8px 13px;border:1px solid #3a4150;background:#242933;color:#aeb6c4;
+    cursor:pointer;transition:all .25s ease;border-radius:2px;
+  }
+  .tools button:hover{border-color:#5a6478;color:#e8e2d4;transform:translateY(-1px)}
+  .tools button.on{background:#14161b;border-color:#c23a2e;color:#f2ede2;box-shadow:inset 0 0 0 1px #c23a2e}
+  main.stage{
+    position:relative;flex:1 1 auto;background:#f2ede2;overflow:hidden;
+    perspective:900px;
+  }
+  canvas#ink{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none;z-index:2}
+  /* --- paper corner fold (top-right) --- */
+  .corner{position:absolute;top:0;right:0;width:clamp(72px,12vw,120px);aspect-ratio:1;z-index:4;pointer-events:none}
+  .corner .gap{
+    position:absolute;inset:0;opacity:0;transition:opacity .8s ease .15s;
+    clip-path:polygon(0 0,100% 0,100% 100%);
+    background:linear-gradient(225deg,#5c5748 0%,#403d33 60%,#2e2c25 100%);
+  }
+  .flap{
+    position:absolute;inset:0;transform-style:preserve-3d;transform-origin:0 0;
+    transition:transform 1.1s cubic-bezier(.6,.05,.28,1);
+  }
+  .flap .face{position:absolute;inset:0;backface-visibility:hidden}
+  .flap .front{
+    clip-path:polygon(0 0,100% 0,100% 100%);
+    background:linear-gradient(135deg,#f2ede2 40%,#eae4d6 100%);
+  }
+  .flap .back{
+    clip-path:polygon(0 0,0 100%,100% 100%);
+    transform:rotate3d(1,1,0,180deg);
+    background:
+      radial-gradient(58% 42% at 62% 58%, rgba(26,25,23,.14), transparent 70%),
+      radial-gradient(30% 24% at 38% 40%, rgba(26,25,23,.10), transparent 70%),
+      #e9e2d1;
+  }
+  .corner.folded .gap{opacity:1}
+  .corner.folded .flap{transform:rotate3d(1,1,0,179.4deg);filter:drop-shadow(-7px 9px 7px rgba(30,26,18,.4))}
+  .hint{
+    position:absolute;left:14px;top:12px;z-index:3;font-size:10px;letter-spacing:.18em;
+    color:#8a8272;opacity:.85;transition:opacity 1s;
+  }
+  footer{
+    flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;
+    padding:9px clamp(12px,2.5vw,28px);background:#1b1e24;z-index:5;
+  }
+  .caption{letter-spacing:.42em;font-size:clamp(10px,1.5vw,13px);color:#cfc7b4;font-weight:600}
+  .meta{letter-spacing:.18em;font-size:9px;color:#5f6878}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><b>SUMI</b> · 墨 · BRUSH ROOM</div>
+  <div class="tools">
+    <button id="bBrush" class="on">BRUSH</button>
+    <button id="bSeal">SEAL</button>
+    <button id="bWet">WET</button>
+    <button id="bFold">FOLD</button>
+    <button id="bClear">CLEAR</button>
+  </div>
+</header>
+<main class="stage" id="stage">
+  <canvas id="ink"></canvas>
+  <div class="hint" id="hint">draw with the pointer · slow = wide · hold = dense</div>
+  <div class="corner" id="corner">
+    <div class="gap"></div>
+    <div class="flap"><div class="face back"></div><div class="face front"></div></div>
+  </div>
+</main>
+<footer>
+  <div class="caption">SUMI - PRACTICE 03</div>
+  <div class="meta">WASHI · INK · SEAL</div>
+</footer>
+<script>
+(function(){
+"use strict";
+var stage=document.getElementById("stage"),cv=document.getElementById("ink"),
+    ctx=cv.getContext("2d"),
+    fiberC=document.createElement("canvas"),fctx=fiberC.getContext("2d"),
+    bakeC=document.createElement("canvas"),bctx=bakeC.getContext("2d");
+var W=0,H=0,DPR=1,tool="brush",wet=false,stroke=null,strokes=[];
+var hint=document.getElementById("hint");
+var INK="26,25,23";
+
+function fit(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=stage.clientWidth;H=stage.clientHeight;
+  if(W<10||H<10)return;
+  cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+  fiberC.width=W*DPR;fiberC.height=H*DPR;fctx.setTransform(DPR,0,0,DPR,0,0);
+  bakeC.width=W*DPR;bakeC.height=H*DPR;bctx.setTransform(DPR,0,0,DPR,0,0);
+  paintFiber();
+}
+function paintFiber(){
+  fctx.fillStyle="#f2ede2";fctx.fillRect(0,0,W,H);
+  var i,n,dots=Math.round(W*H/650);
+  for(i=0;i<dots;i++){
+    n=Math.random();
+    fctx.fillStyle="rgba("+ (n>.5?"138,130,114":"222,214,196") +","+(0.02+Math.random()*0.05).toFixed(3)+")";
+    fctx.beginPath();
+    fctx.arc(Math.random()*W,Math.random()*H,0.4+Math.random()*0.9,0,6.2832);
+    fctx.fill();
+  }
+  for(i=0;i<W/22;i++){ // sparse long fibers
+    var x=Math.random()*W,y=Math.random()*H,a=Math.random()*6.2832,l=6+Math.random()*22;
+    fctx.strokeStyle="rgba(120,110,90,0.045)";fctx.lineWidth=0.7;
+    fctx.beginPath();fctx.moveTo(x,y);
+    fctx.quadraticCurveTo(x+Math.cos(a)*l*0.5+3,y+Math.sin(a)*l*0.5-3,x+Math.cos(a)*l,y+Math.sin(a)*l);
+    fctx.stroke();
+  }
+  var vg=fctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.75);
+  vg.addColorStop(0,"rgba(0,0,0,0)");vg.addColorStop(1,"rgba(58,52,40,0.10)");
+  fctx.fillStyle=vg;fctx.fillRect(0,0,W,H);
+}
+function inkDot(c,x,y,r,a){
+  c.fillStyle="rgba("+INK+","+a.toFixed(3)+")";
+  c.beginPath();c.arc(x,y,Math.max(0.4,r),0,6.2832);c.fill();
+}
+function drawStroke(c,s,bloom,alphaMul){
+  var i,p,n=s.pts.length;
+  for(i=0;i<n;i++){
+    p=s.pts[i];
+    if(bloom>0){inkDot(c,p.x,p.y,p.r+bloom,p.a*0.16*alphaMul);}
+    inkDot(c,p.x,p.y,p.r*(bloom>0?1+bloom/22:1),p.a*alphaMul);
+    if(i>0){ // midpoint fill keeps the path continuous
+      inkDot(c,(p.x+s.pts[i-1].x)/2,(p.y+s.pts[i-1].y)/2,p.r*0.9*(bloom>0?1+bloom/22:1),p.a*alphaMul*0.9);
+    }
+  }
+}
+function bakeStroke(s){
+  drawStroke(bctx,s,3.2,0.88);
+  s.baked=true;
+}
+function drySpray(s){
+  var e=s.pts[s.pts.length-1],i,k;
+  for(i=0;i<12;i++){
+    k=3+Math.random()*15;
+    var a=Math.random()*6.2832;
+    inkDot(bctx,e.x+Math.cos(a)*k,e.y+Math.sin(a)*k*0.8,0.5+Math.random()*1.1,0.06+Math.random()*0.16);
+  }
+}
+function stampSeal(x,y){
+  var c=bctx,s=44;
+  c.save();c.translate(x,y);c.rotate(-0.09+Math.random()*0.04);
+  c.fillStyle="rgba(194,58,46,0.92)";
+  c.fillRect(-s/2,-s/2,s,s);
+  c.fillStyle="rgba(194,58,46,0.28)"; // rough ink edges
+  c.fillRect(-s/2-1.5,-s/2+3,s+3,s-6);
+  c.strokeStyle="rgba(194,58,46,0.55)";c.lineWidth=1;
+  c.strokeRect(-s/2+4,-s/2+4,s-8,s-8);
+  c.fillStyle="#f2ede2";
+  c.font="700 "+(s*0.5)+"px system-ui";c.textAlign="center";c.textBaseline="middle";
+  c.fillText("印",0,1);
+  c.restore();
+}
+var lastT=0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  try{
+    var dt=lastT?Math.min(50,ts-lastT):16;lastT=ts;
+    if(stroke){stroke.hold+=dt*0.00075;}
+    var i,s;
+    for(i=0;i<strokes.length;i++){
+      s=strokes[i];
+      if(!s.baked&&s.wet){
+        s.age=(s.age||0)+dt;
+        if(s.age>3200){bakeStroke(s);}
+      }
+    }
+    ctx.clearRect(0,0,W,H);
+    ctx.drawImage(fiberC,0,0,W,H);
+    ctx.drawImage(bakeC,0,0,W,H);
+    for(i=0;i<strokes.length;i++){
+      s=strokes[i];
+      if(s.baked)continue;
+      var t=Math.min(1,(s.age||0)/3200);
+      var bloom=s.wet?Math.sin(t*Math.PI)*6:0;
+      drawStroke(ctx,s,bloom,1);
+    }
+  }catch(err){ /* keep the loop alive */ }
+}
+function pos(e){
+  var r=cv.getBoundingClientRect();
+  return {x:e.clientX-r.left,y:e.clientY-r.top};
+}
+cv.addEventListener("pointerdown",function(e){
+  e.preventDefault();
+  var p=pos(e);
+  if(hint)hint.style.opacity="0";
+  if(tool==="seal"){stampSeal(p.x,p.y);stroke=null;return;}
+  cv.setPointerCapture(e.pointerId);
+  stroke={pts:[],hold:0,wet:wet,age:0,baked:false};
+  strokes.push(stroke);
+  addPoint(p.x,p.y,0.8,8.5,0.5);
+  stroke.last=p;stroke.lastT=performance.now();
+});
+function addPoint(x,y,speed,rBase,aBase){
+  if(!stroke)return;
+  var p=stroke.last;if(!p){stroke.last={x:x,y:y};return;}
+  var dx=x-p.x,dy=y-p.y,d=Math.sqrt(dx*dx+dy*dy);
+  if(d<1.2)return;
+  var r=Math.max(2.2,Math.min(16,rBase*(1-Math.min(1,speed/0.9))));
+  var a=Math.max(0.16,Math.min(0.94,aBase+stroke.hold*0.5));
+  var steps=Math.max(1,Math.round(d/(r*0.45)));
+  for(var i=1;i<=steps;i++){
+    stroke.pts.push({x:p.x+dx*i/steps,y:p.y+dy*i/steps,r:r,a:a});
+  }
+  if(stroke.pts.length>2400)stroke.pts.splice(0,400);
+  stroke.last={x:x,y:y};
+}
+cv.addEventListener("pointermove",function(e){
+  if(!stroke)return;
+  var p=pos(e),now=performance.now();
+  var dt=Math.max(1,now-(stroke.lastT||now));
+  var dist=Math.hypot(p.x-stroke.last.x,p.y-stroke.last.y);
+  addPoint(p.x,p.y,dist/dt,9.5,0.34);
+  stroke.lastT=now;
+});
+function endStroke(e){
+  if(!stroke)return;
+  if(stroke.pts.length>2){drySpray(stroke);}
+  stroke=null;
+}
+cv.addEventListener("pointerup",endStroke);
+cv.addEventListener("pointercancel",endStroke);
+
+var bB=document.getElementById("bBrush"),bS=document.getElementById("bSeal"),
+    bW=document.getElementById("bWet"),bF=document.getElementById("bFold"),
+    bC=document.getElementById("bClear"),corner=document.getElementById("corner");
+function setTool(t){
+  tool=t;
+  bB.classList.toggle("on",t==="brush");
+  bS.classList.toggle("on",t==="seal");
+  cv.style.cursor=t==="seal"?"copy":"crosshair";
+}
+bB.addEventListener("click",function(){setTool("brush");});
+bS.addEventListener("click",function(){setTool("seal");});
+bW.addEventListener("click",function(){
+  wet=!wet;bW.classList.toggle("on",wet);
+});
+bF.addEventListener("click",function(){corner.classList.toggle("folded");});
+bC.addEventListener("click",function(){
+  strokes=[];stroke=null;
+  bctx.clearRect(0,0,W,H);
+});
+window.addEventListener("resize",function(){
+  var keep=bctx; // re-bake nothing: strokes lost on resize is acceptable? No - keep.
+  var old=bctx.getImageData(0,0,bakeC.width,bakeC.height);
+  fit();
+  bctx.putImageData(old,0,0);
+  if(strokes.length)for(var i=0;i<strokes.length;i++){if(!strokes[i].baked)bakeStroke(strokes[i]);}
+});
+fit();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

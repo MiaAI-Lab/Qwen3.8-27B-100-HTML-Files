@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Metro Lines</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:#f5f2ea;color:#2a2622;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    overflow:hidden;
+  }
+  #board{position:fixed;inset:0}
+  #board svg{width:100%;height:100%;display:block}
+  .ln{transition:opacity .35s ease}
+  .ln .lnpath{fill:none;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;transition:stroke-width .25s ease}
+  .ln .lnhit{fill:none;stroke:transparent;stroke-width:22;pointer-events:stroke;cursor:pointer}
+  .ln.hot .lnpath{stroke-width:9}
+  svg.dimmed .ln{opacity:.25}
+  svg.dimmed .ln.hot{opacity:1}
+  .st{cursor:pointer}
+  .st .core{fill:#fff;stroke-width:3}
+  .st .inner{fill:#fff}
+  .st .halo{fill:none;stroke-width:1.5;opacity:0}
+  .st.pulse .halo{animation:pulse 1.1s ease-in-out infinite}
+  .st.pulse .core{animation:corepulse 1.1s ease-in-out infinite}
+  @keyframes pulse{
+    0%,100%{opacity:0;stroke-width:1.5}
+    50%{opacity:.9;stroke-width:5}
+  }
+  @keyframes corepulse{
+    0%,100%{r:13}
+    50%{r:15}
+  }
+  .lbl{
+    font-size:13px;font-variant:small-caps;letter-spacing:.08em;
+    fill:#2a2622;font-weight:600;paint-order:stroke;stroke:#f5f2ea;stroke-width:5;stroke-linejoin:round;
+  }
+  .dot{fill-opacity:.95;stroke:#fff;stroke-width:2}
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:4}
+  #page{
+    position:absolute;top:calc(16px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+    font-size:clamp(9px,1.3vmin,11px);letter-spacing:.42em;text-transform:uppercase;
+    color:rgba(42,38,34,.5);white-space:nowrap;
+  }
+  #tip{
+    position:absolute;display:none;pointer-events:none;
+    transform:translate(-50%,-100%);
+    background:#2a2622;color:#f5f2ea;
+    font-size:12px;font-weight:600;font-variant:small-caps;letter-spacing:.06em;
+    padding:6px 12px 5px;border-radius:3px;white-space:nowrap;
+    box-shadow:0 4px 14px rgba(42,38,34,.25);
+  }
+  #tip .tcount{color:#cbb87a;font-weight:400;margin-left:8px;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+  #tip::after{
+    content:"";position:absolute;left:50%;top:100%;transform:translateX(-50%);
+    border:5px solid transparent;border-top-color:#2a2622;
+  }
+  #card{
+    position:absolute;left:calc(18px + env(safe-area-inset-left));bottom:calc(18px + env(safe-area-inset-bottom));
+    width:min(280px,72vw);
+    background:#fff;border:2px solid #2a2622;border-radius:6px;
+    padding:14px 16px 12px;
+    box-shadow:6px 6px 0 rgba(42,38,34,.16);
+    display:none;pointer-events:auto;
+  }
+  #card.on{display:block}
+  #card h2{
+    font-size:clamp(17px,2.6vmin,21px);font-weight:700;font-variant:small-caps;letter-spacing:.04em;
+    margin-bottom:2px;
+  }
+  #card .sub{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#8a8272;margin-bottom:10px}
+  #card ul{list-style:none}
+  #card li{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;padding:4px 0}
+  #card .sw{width:22px;height:8px;border-radius:4px;flex:0 0 auto}
+  #card .swx{width:12px;height:12px;border-radius:50%;border:3px solid;background:#fff;flex:0 0 auto}
+  #legend{
+    position:absolute;right:calc(18px + env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom));
+    background:#fff;border:2px solid #2a2622;border-radius:6px;
+    padding:12px 14px 10px;width:min(200px,60vw);
+    box-shadow:6px 6px 0 rgba(42,38,34,.16);
+    pointer-events:auto;
+  }
+  #legend h3{font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:#8a8272;margin-bottom:8px}
+  #legend .row{display:flex;align-items:center;gap:9px;padding:3px 0;font-size:12px;font-weight:600;font-variant:small-caps;letter-spacing:.05em}
+  #legend .bar{width:26px;height:6px;border-radius:3px;flex:0 0 auto}
+  @media (max-width:560px){
+    #card{width:calc(100vw - 180px)}
+    #legend{right:calc(18px + env(safe-area-inset-right));bottom:auto;top:calc(48px + env(safe-area-inset-top));width:158px;padding:10px 12px 8px}
+    #legend .row{font-size:11px}
+  }
+</style>
+</head>
+<body>
+<div id="board"></div>
+<div id="hud">
+  <div id="page">Metro Lines - 032</div>
+  <div id="tip"></div>
+  <div id="card">
+    <h2 id="cardName"></h2>
+    <div class="sub">Route card</div>
+    <ul id="cardList"></ul>
+  </div>
+  <div id="legend">
+    <h3>Lines</h3>
+    <div class="row" data-line="cardinal"><span class="bar" style="background:#d63a3a"></span>Cardinal</div>
+    <div class="row" data-line="azur"><span class="bar" style="background:#2f5fd8"></span>Azur</div>
+    <div class="row" data-line="vine"><span class="bar" style="background:#2f9e6f"></span>Vine</div>
+    <div class="row" data-line="amber"><span class="bar" style="background:#e08a2e"></span>Amber</div>
+    <div class="row" data-line="iris"><span class="bar" style="background:#7a4fd8"></span>Iris</div>
+  </div>
+</div>
+<script>
+(function(){
+"use strict";
+var LINES=[
+  {id:"cardinal",name:"Cardinal",color:"#d63a3a",
+   d:"M 150 150 H 1050 L 1150 250 V 550 L 1050 650 H 150 L 50 550 V 250 Z"},
+  {id:"azur",name:"Azur",color:"#2f5fd8",
+   d:"M 600 200 L 750 350 V 450 L 600 600 L 450 450 V 350 Z"},
+  {id:"vine",name:"Vine",color:"#2f9e6f",
+   d:"M 200 400 H 1000 L 950 450 H 250 Z"},
+  {id:"amber",name:"Amber",color:"#e08a2e",
+   d:"M 500 150 L 540 190 V 610 L 500 650 L 460 610 V 190 Z"},
+  {id:"iris",name:"Iris",color:"#7a4fd8",
+   d:"M 300 300 L 400 200 H 900 L 1000 300 V 500 L 900 600 H 400 L 300 500 Z"}
+];
+var STATIONS=[
+  {x:300,y:150,name:"Maple Terrace",lines:["cardinal"]},
+  {x:760,y:150,name:"Norwood Heights",lines:["cardinal"]},
+  {x:1150,y:300,name:"Old Quay",lines:["cardinal"]},
+  {x:760,y:650,name:"Priory Bank",lines:["cardinal"]},
+  {x:240,y:650,name:"Quarry Gate",lines:["cardinal"]},
+  {x:500,y:150,name:"Dover Square",lines:["cardinal","amber"]},
+  {x:500,y:650,name:"Elmbridge Junction",lines:["cardinal","amber"]},
+  {x:460,y:400,name:"Foundry Row",lines:["amber","vine"]},
+  {x:540,y:400,name:"Garnet Terminal",lines:["amber","vine"]},
+  {x:450,y:450,name:"Hollow Park",lines:["azur","vine"]},
+  {x:750,y:450,name:"Ironbridge Cross",lines:["azur","vine"]},
+  {x:600,y:200,name:"Juniper Oval",lines:["azur","iris"]},
+  {x:600,y:600,name:"Keelgate",lines:["azur","iris"]},
+  {x:300,y:400,name:"Linden Crossing",lines:["vine","iris"]},
+  {x:525,y:275,name:"Rosewood Court",lines:["azur"]},
+  {x:675,y:275,name:"Silverpine",lines:["azur"]},
+  {x:450,y:350,name:"Thornbury East",lines:["azur"]},
+  {x:750,y:350,name:"Union Square North",lines:["azur"]},
+  {x:525,y:525,name:"Willow Vale",lines:["azur"]},
+  {x:880,y:400,name:"Westgate",lines:["vine"]},
+  {x:600,y:450,name:"Yardley",lines:["vine"]},
+  {x:1000,y:400,name:"Zentner Loop",lines:["iris"]},
+  {x:550,y:600,name:"Bramble Court",lines:["iris"]},
+  {x:540,y:240,name:"Cliffside",lines:["amber"]}
+];
+var LMAP={};
+for(var li=0;li<LINES.length;li++){LMAP[LINES[li].id]=LINES[li];}
+
+function stGlyph(s,si){
+  var inter=s.lines.length>1;
+  var out='<g class="st" data-st="'+si+'" transform="translate('+s.x+' '+s.y+')">';
+  out+='<circle class="halo" r="17" stroke="'+LMAP[s.lines[0]].color+'"/>';
+  if(inter){
+    out+='<circle class="core" r="13" stroke="'+LMAP[s.lines[0]].color+'"/>';
+    out+='<circle class="inner" r="6.5" stroke="none"/>';
+    out+='<circle class="core2" r="6.5" fill="none" stroke="'+LMAP[s.lines[1]].color+'" stroke-width="3"/>';
+  }else{
+    out+='<circle class="core" r="13" stroke="'+LMAP[s.lines[0]].color+'"/>';
+  }
+  var dx=s.x<130?26:(s.x>1070?-26:22);
+  var dy=s.y<190?34:(s.y>610?-24:26);
+  var anchor=s.x>1070?"end":(s.x<130?"start":"start");
+  out+='<text class="lbl" x="'+dx+'" y="'+(dy+4)+'" text-anchor="'+anchor+'">'+s.name+'</text>';
+  out+='</g>';
+  return out;
+}
+
+var svg='<svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet" id="metro" role="img" aria-label="Metro lines diagram">';
+svg+='<rect x="0" y="0" width="1200" height="800" fill="#f5f2ea"/>';
+for(var gx=0;gx<=1200;gx+=100){
+  svg+='<line x1="'+gx+'" y1="0" x2="'+gx+'" y2="800" stroke="#e7e1d2" stroke-width="1"/>';
+}
+for(var gy=0;gy<=800;gy+=100){
+  svg+='<line x1="0" y1="'+gy+'" x2="1200" y2="'+gy+'" stroke="#e7e1d2" stroke-width="1"/>';
+}
+for(var i=0;i<LINES.length;i++){
+  var L=LINES[i];
+  svg+='<g class="ln" data-line="'+L.id+'">';
+  svg+='<path class="lnhit" d="'+L.d+'"/>';
+  svg+='<path class="lnpath" d="'+L.d+'" stroke="'+L.color+'"/>';
+  svg+='</g>';
+}
+for(var j=0;j<STATIONS.length;j++){svg+=stGlyph(STATIONS[j],j);}
+svg+='<g id="dots"></g>';
+svg+='</svg>';
+
+document.getElementById("board").innerHTML=svg;
+var svgEl=document.getElementById("metro");
+var dotsG=svgEl.querySelector("#dots");
+var dots=[];
+
+for(var d=0;d<LINES.length;d++){
+  dotsG.innerHTML+='<circle class="dot" r="4.5" fill="'+LINES[d].color+'" data-d="'+d+'"/>';
+}
+dots=dotsG.querySelectorAll(".dot");
+
+var paths=[],lens=[];
+for(var p=0;p<LINES.length;p++){
+  var pe=svgEl.querySelector('.ln[data-line="'+LINES[p].id+'"] .lnpath');
+  paths.push(pe);
+  try{lens.push(pe.getTotalLength());}catch(e){lens.push(1000);}
+}
+var pos=[];
+for(var r0=0;r0<LINES.length;r0++){pos.push(Math.random()*lens[r0]);}
+var SPEED=58;
+
+function tick(){
+  requestAnimationFrame(tick);
+  try{
+    for(var k=0;k<LINES.length;k++){
+      pos[k]+=SPEED*0.016;
+      if(pos[k]>=lens[k]){pos[k]-=lens[k];}
+      var pt=paths[k].getPointAtLength(pos[k]);
+      var el=dots[k];
+      if(el&&pt){
+        el.setAttribute("cx",pt.x.toFixed(1));
+        el.setAttribute("cy",pt.y.toFixed(1));
+        el.setAttribute("r",el.getAttribute("data-boost")==="1"?"7":"4.5");
+      }
+    }
+  }catch(e){}
+}
+
+var tip=document.getElementById("tip");
+var card=document.getElementById("card");
+var cardName=document.getElementById("cardName");
+var cardList=document.getElementById("cardList");
+var activeSt=null;
+
+svgEl.addEventListener("mouseover",function(e){
+  var stg=e.target.closest?e.target.closest(".st"):null;
+  if(stg){
+    var si=parseInt(stg.getAttribute("data-st"),10);
+    var s=STATIONS[si];
+    if(s){
+      stg.classList.add("pulse");
+      for(var b=0;b<LINES.length;b++){
+        if(s.lines.indexOf(LINES[b].id)>-1&&dots[b]){dots[b].setAttribute("data-boost","1");}
+      }
+      tip.innerHTML=s.name+'<span class="tcount">'+(s.lines.length>1? "interchange - "+s.lines.length+" lines": "station - 1 line")+'</span>';
+      var rect=stg.getBoundingClientRect();
+      var svgRect=svgEl.getBoundingClientRect();
+      var scale=svgRect.width/1200;
+      var left=rect.left-svgRect.left+rect.width/2;
+      var top=rect.top-svgRect.top-14;
+      tip.style.left=left+"px";
+      tip.style.top=top+"px";
+      tip.style.display="block";
+    }
+    return;
+  }
+  var lnd=e.target.closest?e.target.closest(".ln"):null;
+  if(lnd){
+    svgEl.classList.add("dimmed");
+    var allLn=svgEl.querySelectorAll(".ln");
+    for(var g2=0;g2<allLn.length;g2++){allLn[g2].classList.remove("hot");}
+    lnd.classList.add("hot");
+  }
+});
+svgEl.addEventListener("mouseout",function(e){
+  var stg=e.target.closest?e.target.closest(".st"):null;
+  if(stg){
+    stg.classList.remove("pulse");
+    for(var b=0;b<LINES.length;b++){if(dots[b]){dots[b].setAttribute("data-boost","0");}}
+    tip.style.display="none";
+    return;
+  }
+  var lnd=e.target.closest?e.target.closest(".ln"):null;
+  if(lnd){
+    lnd.classList.remove("hot");
+    svgEl.classList.remove("dimmed");
+  }
+});
+svgEl.addEventListener("click",function(e){
+  var stg=e.target.closest?e.target.closest(".st"):null;
+  if(!stg){card.classList.remove("on");activeSt=null;return;}
+  var si=parseInt(stg.getAttribute("data-st"),10);
+  var s=STATIONS[si];
+  if(!s){return;}
+  if(activeSt===si){card.classList.remove("on");activeSt=null;return;}
+  activeSt=si;
+  cardName.textContent=s.name;
+  var html="";
+  for(var m=0;m<s.lines.length;m++){
+    var L=LMAP[s.lines[m]];
+    if(m===0&&s.lines.length>1){
+      html+='<li><span class="swx" style="border-color:'+L.color+'"></span>'+L.name+'</li>';
+    }else{
+      html+='<li><span class="sw" style="background:'+L.color+'"></span>'+L.name+'</li>';
+    }
+  }
+  cardList.innerHTML=html;
+  card.classList.add("on");
+});
+
+tick();
+})();
+</script>
+</body>
+</html>

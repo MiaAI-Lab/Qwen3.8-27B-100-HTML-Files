@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flight Deck - 38,000 FT</title>
+<style>
+:root{
+  --panel:#1a1c22; --brass:#c8a05a; --brass-dim:#8a6f3e; --ink:#d8d2c4;
+  --sky-hi:#0a1026; --sky-lo:#141c3a; --ground:#2a2620; --line:#3a3e48;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--panel); color:var(--ink);
+  font-family:ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+}
+#deck{
+  position:fixed; inset:0; display:flex; flex-direction:column;
+  height:100dvh; width:100vw;
+}
+/* ---------- windshield (top 60%) ---------- */
+#windshield{
+  position:relative; flex:0 0 60%; overflow:hidden;
+  background:linear-gradient(180deg, var(--sky-hi) 0%, var(--sky-lo) 78%, #1c2440 100%);
+  border-bottom:3px solid #0c0d11;
+}
+#windshield::before{ /* faint glass sheen */
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(120% 90% at 50% -20%, rgba(180,200,255,.10), rgba(0,0,0,0) 55%),
+             radial-gradient(80% 60% at 85% 110%, rgba(0,0,0,.35), rgba(0,0,0,0) 60%);
+}
+#windshield::after{ /* cockpit frame pillars */
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:
+    linear-gradient(105deg, rgba(8,9,12,.9) 0%, rgba(8,9,12,.9) 4.5%, rgba(8,9,12,0) 9%),
+    linear-gradient(-105deg, rgba(8,9,12,.9) 0%, rgba(8,9,12,.9) 4.5%, rgba(8,9,12,0) 9%),
+    linear-gradient(180deg, rgba(8,9,12,.95) 0%, rgba(8,9,12,0) 7%);
+}
+#tunnel{position:absolute; inset:0; width:100%; height:100%; display:block}
+#hudball{
+  position:absolute; left:50%; top:52%;
+  width:clamp(120px, 17vmin, 220px); aspect-ratio:1;
+  transform:translate(-50%,-50%);
+}
+#hudball svg{width:100%; height:100%; display:block; overflow:visible}
+.hud-cap{
+  position:absolute; left:50%; bottom:8px; transform:translateX(-50%);
+  font-size:10px; letter-spacing:.32em; color:rgba(200,160,90,.85);
+  text-shadow:0 0 8px rgba(200,160,90,.35); white-space:nowrap;
+}
+/* ---------- instrument panel (bottom 40%) ---------- */
+#panel{
+  position:relative; flex:0 0 40%;
+  background:
+    radial-gradient(140% 120% at 50% -30%, #23252d 0%, var(--panel) 45%, #141519 100%);
+  box-shadow:0 -12px 30px rgba(0,0,0,.55) inset, 0 2px 0 rgba(255,255,255,.04);
+  padding:clamp(10px,1.6vmin,18px) clamp(12px,2.4vmin,28px);
+  display:flex; flex-direction:column; gap:clamp(6px,1vmin,12px);
+}
+#panel::before{ /* brushed metal seam */
+  content:""; position:absolute; left:0; right:0; top:0; height:1px;
+  background:linear-gradient(90deg, transparent, rgba(200,160,90,.35) 20%, rgba(200,160,90,.35) 80%, transparent);
+}
+#gaugewrap{
+  flex:1; display:grid;
+  grid-template-columns:repeat(4, minmax(0,1fr));
+  gap:clamp(8px,1.4vmin,18px); align-items:stretch;
+  min-height:0;
+}
+.gauge{
+  position:relative; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; min-width:0;
+}
+.gauge svg{width:100%; max-width:100%; height:auto; aspect-ratio:1; display:block; overflow:visible}
+.gname{
+  font-size:clamp(8px,1vmin,11px); letter-spacing:.34em; color:var(--brass);
+  text-transform:uppercase; margin-bottom:4px;
+  text-shadow:0 0 6px rgba(200,160,90,.25);
+}
+.gval{
+  position:absolute; bottom:14%; left:0; right:0; text-align:center;
+  font-size:clamp(11px,1.5vmin,16px); color:var(--brass);
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 0 8px rgba(200,160,90,.35);
+}
+#lowerrow{
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  padding:4px 2px;
+}
+#switches{display:flex; gap:clamp(14px,2.6vmin,30px)}
+.switch{display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; user-select:none}
+.switch .plaque{font-size:9px; letter-spacing:.3em; color:#9aa0ae; text-transform:uppercase}
+.switch .boot{
+  width:34px; height:64px; border-radius:8px; position:relative;
+  background:linear-gradient(180deg,#0d0e11,#1c1e24);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.05);
+  border:1px solid #2c2f38;
+}
+.switch .knob{
+  position:absolute; left:50%; top:50%;
+  width:24px; height:18px; transform:translate(-50%,-50%);
+  border-radius:4px;
+  background:linear-gradient(180deg,#3a3e48,#20232a);
+  box-shadow:0 2px 4px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.12);
+  transition:transform .18s cubic-bezier(.5,1.8,.4,1);
+}
+.switch.on .knob{transform:translate(-50%,-50%) translateY(-15px); background:linear-gradient(180deg,#d8b46a,#9a7b3e)}
+.switch.on .plaque{color:var(--brass); text-shadow:0 0 6px rgba(200,160,90,.4)}
+.switch .led{
+  width:5px; height:5px; border-radius:50%; background:#3a3f4a;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.6); transition:background .2s, box-shadow .2s;
+}
+.switch.on .led{background:#ffd27a; box-shadow:0 0 8px 2px rgba(255,190,90,.55)}
+/* throttle column */
+#throttle{display:flex; flex-direction:column; align-items:center; gap:6px}
+#throttle .plaque{font-size:9px; letter-spacing:.3em; color:#9aa0ae; text-transform:uppercase}
+#lever{
+  position:relative; width:56px; height:118px; border-radius:10px;
+  background:linear-gradient(180deg,#0c0d10,#181a20);
+  box-shadow:inset 0 3px 8px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.05);
+  border:1px solid #2c2f38; overflow:hidden;
+}
+#lever .slot{
+  position:absolute; left:50%; top:9px; bottom:9px; width:10px;
+  transform:translateX(-50%); border-radius:6px;
+  background:linear-gradient(180deg,#000,#0a0b0e);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.9);
+}
+#lever .marks{position:absolute; left:8px; top:0; bottom:0; display:flex; flex-direction:column; justify-content:space-between; padding:8px 0}
+#lever .marks i{font-size:7px; color:#5a5f6e; font-style:normal}
+#lever .handle{
+  position:absolute; left:50%; width:44px; height:22px;
+  transform:translateX(-50%); border-radius:6px;
+  background:linear-gradient(180deg,#464a55,#23252c);
+  box-shadow:0 3px 6px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.15);
+  cursor:grab;
+}
+#lever .handle::after{
+  content:""; position:absolute; left:6px; right:6px; top:50%; height:3px;
+  transform:translateY(-50%); border-radius:2px;
+  background:var(--brass); box-shadow:0 0 6px rgba(200,160,90,.5);
+}
+#throttle input[type=range]{
+  position:absolute; inset:0; width:100%; height:100%;
+  opacity:0; cursor:grab;
+}
+#soundbtn{
+  background:none; border:1px solid #343741; color:#9aa0ae;
+  font:inherit; font-size:9px; letter-spacing:.28em; text-transform:uppercase;
+  padding:7px 12px; border-radius:6px; cursor:pointer; transition:all .2s;
+}
+#soundbtn:hover{border-color:var(--brass); color:var(--brass)}
+#soundbtn.on{color:var(--brass); border-color:var(--brass); box-shadow:0 0 10px rgba(200,160,90,.25) inset}
+#caption{
+  position:absolute; left:50%; bottom:6px; transform:translateX(-50%);
+  font-size:clamp(8px,1vmin,10px); letter-spacing:.38em; color:#767c8a;
+  white-space:nowrap; text-transform:uppercase;
+}
+@media (max-width:560px){
+  #gaugewrap{grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-rows:1fr}
+  #lowerrow{flex-wrap:wrap; justify-content:center}
+  #lever{height:88px}
+}
+</style>
+</head>
+<body>
+<div id="deck">
+  <section id="windshield" aria-label="windshield view">
+    <canvas id="tunnel"></canvas>
+    <div id="hudball" aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(200,160,90,.55)" stroke-width="1.5"/>
+        <circle cx="50" cy="50" r="34" fill="none" stroke="rgba(200,160,90,.28)" stroke-width="1"/>
+        <line x1="6" y1="50" x2="16" y2="50" stroke="#ff9d3c" stroke-width="2"/>
+        <line x1="84" y1="50" x2="94" y2="50" stroke="#7ec8ff" stroke-width="2"/>
+        <g id="attRing">
+          <line x1="50" y1="16" x2="50" y2="22" stroke="rgba(255,255,255,.6)" stroke-width="1.4"/>
+          <line x1="50" y1="78" x2="50" y2="84" stroke="rgba(255,255,255,.6)" stroke-width="1.4"/>
+          <line x1="30" y1="30" x2="35" y2="35" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+          <line x1="70" y1="30" x2="65" y2="35" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+          <line x1="30" y1="70" x2="35" y2="65" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+          <line x1="70" y1="70" x2="65" y2="65" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+        </g>
+        <circle cx="50" cy="50" r="3" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="1.2"/>
+      </svg>
+    </div>
+    <div class="hud-cap">ATT · PITCH / ROLL</div>
+  </section>
+
+  <section id="panel" aria-label="instrument panel">
+    <div id="gaugewrap"></div>
+    <div id="lowerrow">
+      <div id="switches">
+        <div class="switch on" id="sw-apc" role="button" tabindex="0" aria-pressed="true">
+          <div class="led"></div>
+          <div class="boot"><div class="knob"></div></div>
+          <div class="plaque">APC · Smoothing</div>
+        </div>
+        <div class="switch" id="sw-jitter" role="button" tabindex="0" aria-pressed="false">
+          <div class="led"></div>
+          <div class="boot"><div class="knob"></div></div>
+          <div class="plaque">SHT · Jitter</div>
+        </div>
+      </div>
+      <div id="throttle">
+        <div class="plaque">THR</div>
+        <div id="lever">
+          <div class="marks"><i>MAX</i><i>CRZ</i><i>IDL</i></div>
+          <div class="slot"></div>
+          <div class="handle" id="handle"></div>
+          <input id="thr" type="range" min="0" max="100" value="72" aria-label="throttle lever">
+        </div>
+        <button id="soundbtn" type="button">Engine Hum</button>
+      </div>
+    </div>
+    <div id="caption">Flight Deck · 38,000 FT</div>
+  </section>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* ---------------- state ---------------- */
+var state = {
+  alt: 38000, spd: 462, hdg: 118, thr: 72,
+  altT: 38000, spdT: 462, hdgT: 118, thrT: 72,
+  apc: true, jitter: false,
+  pitch: 0, roll: 0, t: 0
+};
+function clamp(v,a,b){return v<a?a:(v>b?b:v);}
+function rnd(a,b){return a+Math.random()*(b-a);}
+
+/* ---------------- SVG gauges (built as strings) ---------------- */
+function gaugeSVG(id, ticks, min, max){
+  var svg = '<svg viewBox="0 0 120 120" id="g-'+id+'" aria-hidden="true">'
+    + '<circle cx="60" cy="60" r="56" fill="#0e0f13" stroke="#2c2f38" stroke-width="2"/>'
+    + '<circle cx="60" cy="60" r="50" fill="none" stroke="rgba(200,160,90,.18)" stroke-width="1"/>'
+    + '<circle cx="60" cy="60" r="56" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="5"/>';
+  var n = ticks;
+  for(var i=0;i<n;i++){
+    var a = (-225 + (450*(i/(n-1)))) * Math.PI/180;
+    var maj = (i % Math.max(1, Math.round(n/12)) === 0);
+    var r1 = maj ? 42 : 46, r2 = 50;
+    var x1 = 60 + r1*Math.sin(a), y1 = 60 - r1*Math.cos(a);
+    var x2 = 60 + r2*Math.sin(a), y2 = 60 - r2*Math.cos(a);
+    svg += '<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="'+(maj?'#c8a05a':'#4a4e59')+'" stroke-width="'+(maj?2:1)+'"/>';
+    if(maj){
+      var tr = 34;
+      var tx = 60 + tr*Math.sin(a), ty = 60 - tr*Math.cos(a);
+      var label = Math.round(min + (max-min)*(i/(n-1)));
+      svg += '<text x="'+tx.toFixed(1)+'" y="'+ty.toFixed(1)+'" font-size="8" fill="#8a6f3e" text-anchor="middle" dominant-baseline="middle">'+label+'</text>';
+    }
+  }
+  svg += '<circle cx="60" cy="60" r="4" fill="#3a3e48"/>'
+    + '<g id="needle-'+id+'"><line x1="60" y1="66" x2="60" y2="16" stroke="#d8b46a" stroke-width="3" stroke-linecap="round"/><line x1="60" y1="66" x2="60" y2="20" stroke="#ffe9b8" stroke-width="1"/></g>'
+    + '<circle cx="60" cy="60" r="3" fill="#d8b46a"/>'
+    + '</svg>';
+  return svg;
+}
+var gauges = [
+  {id:"alt", name:"ALT · ft", ticks:24, min:30000, max:46000},
+  {id:"spd", name:"SPD · kt", ticks:20, min:300, max:600},
+  {id:"hdg", name:"HDG · °", ticks:24, min:0, max:360},
+  {id:"thr", name:"THR · %", ticks:18, min:0, max:100}
+];
+var gw = document.getElementById("gaugewrap");
+gw.innerHTML = gauges.map(function(g){
+  return '<div class="gauge"><div class="gname">'+g.name+'</div>'+gaugeSVG(g.id,g.ticks,g.min,g.max)+
+         '<div class="gval" id="val-'+g.id+'">–</div></div>';
+}).join("");
+
+function setNeedle(id, frac){
+  var deg = -225 + clamp(frac,0,1)*450;
+  var el = document.getElementById("needle-"+id);
+  if(el) el.setAttribute("transform","rotate("+deg.toFixed(2)+" 60 60)");
+}
+function fmtAlt(v){return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g,",");}
+
+/* ---------------- tunnel canvas ---------------- */
+var cv = document.getElementById("tunnel"), cx = cv.getContext("2d");
+var W=0,H=0,DPR=1, fit;
+var stars = [], gnd = [];
+function seed(){
+  stars = [];
+  for(var i=0;i<240;i++) stars.push({x:rnd(-1,1),y:rnd(-1,1),z:rnd(0.05,1),s:rnd(0.6,2.2)});
+  gnd = [];
+  for(var j=0;j<40;j++) gnd.push({x:rnd(-1.6,1.6),z:rnd(0.1,1),r:rnd(0.8,2.4)});
+}
+seed();
+fit = function(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  var r = cv.getBoundingClientRect();
+  W = Math.max(2, Math.round(r.width)); H = Math.max(2, Math.round(r.height));
+  cv.width = W*DPR; cv.height = H*DPR;
+  cx.setTransform(DPR,0,0,DPR,0,0);
+};
+window.addEventListener("resize", fit);
+fit();
+
+function drawTunnel(){
+  var i, x, y, z, sc, s;
+  cx.clearRect(0,0,W,H);
+  var hor = H*0.56;
+  /* stars: slow 3D projection into a tunnel */
+  for(i=0;i<stars.length;i++){
+    var st = stars[i];
+    st.z -= 0.0032;
+    if(st.z<=0.02){st.z=1;st.x=rnd(-1,1);st.y=rnd(-1,1);}
+    sc = 1/st.z;
+    x = W/2 + st.x*W*0.55*sc;
+    y = H*0.46 + st.y*H*0.55*sc;
+    if(x<-4||x>W+4||y<-4||y>H+4) continue;
+    s = clamp(st.s*sc*0.35, 0.4, 4);
+    var a = clamp((1-st.z)*0.9, 0.08, 0.95);
+    cx.globalAlpha = a;
+    cx.fillStyle = (st.s>1.8) ? "#cfd8ff" : "#8fa8e8";
+    cx.beginPath(); cx.arc(x,y,s,0,6.2832); cx.fill();
+    /* faint tail for speed feel */
+    if(sc>1.4){
+      cx.globalAlpha = a*0.25;
+      cx.beginPath();
+      cx.moveTo(x,y);
+      cx.lineTo(W/2 + st.x*W*0.55*(1/(st.z+0.06)), H*0.46 + st.y*H*0.55*(1/(st.z+0.06)));
+      cx.lineWidth = s*0.5; cx.strokeStyle = cx.fillStyle; cx.stroke();
+    }
+  }
+  cx.globalAlpha = 1;
+  /* ground */
+  cx.fillStyle = "#2a2620";
+  cx.beginPath(); cx.rect(0,hor,W,H-hor); cx.fill();
+  /* horizon line */
+  cx.strokeStyle = "rgba(255,210,140,.55)"; cx.lineWidth = 1.5;
+  cx.beginPath(); cx.moveTo(0,hor); cx.lineTo(W,hor); cx.stroke();
+  /* ground lights */
+  for(i=0;i<gnd.length;i++){
+    var g = gnd[i];
+    g.z -= 0.010;
+    if(g.z<=0.06){g.z=1;g.x=rnd(-1.6,1.6);}
+    var gsc = 1/g.z;
+    x = W/2 + g.x*W*0.4*gsc;
+    y = hor + (H-hor)*0.92*gsc*0.5;
+    if(x<-6||x>W+6) continue;
+    s = clamp(g.r*gsc*0.4, 0.5, 5);
+    cx.globalAlpha = clamp((1-g.z)*0.8,0.05,0.85);
+    cx.fillStyle = "#ffca7a";
+    cx.beginPath(); cx.arc(x,y,s,0,6.2832); cx.fill();
+    cx.globalAlpha = clamp((1-g.z)*0.2,0,0.25);
+    cx.beginPath(); cx.arc(x,y,s*2.6,0,6.2832); cx.fill();
+  }
+  cx.globalAlpha = 1;
+  /* horizon glow */
+  var hg = cx.createLinearGradient(0,hor-30,0,hor+30);
+  hg.addColorStop(0,"rgba(255,200,130,0)");
+  hg.addColorStop(0.5,"rgba(255,200,130,.10)");
+  hg.addColorStop(1,"rgba(255,200,130,0)");
+  cx.fillStyle = hg; cx.fillRect(0,hor-30,W,60);
+}
+
+/* ---------------- attitude ball ---------------- */
+var attRing = document.getElementById("attRing");
+
+/* ---------------- main loop ---------------- */
+var last = 0;
+function tick(now){
+  var dt = Math.min(0.05, (now-last)/1000 || 0); last = now;
+  state.t += dt;
+  /* live targets: alt wanders, spd follows thr, hdg creeps */
+  state.altT = 38000 + Math.sin(state.t*0.11)*900 + Math.sin(state.t*0.043)*500;
+  state.spdT = 462 + (state.thrT-72)*1.1 + Math.sin(state.t*0.7)*4;
+  state.hdgT = (118 + state.t*1.4) % 360;
+  state.thrT = state.thr;
+  /* easing */
+  var k = state.apc ? 0.085 : 0.028;
+  state.alt += (state.altT-state.alt)*k;
+  state.spd += (state.spdT-state.spd)*k;
+  state.hdg += ((state.hdgT-state.hdg+540)%360 - 180)*k*1.6;
+  state.thr += (state.thrT-state.thr)*0.18;
+  /* jitter */
+  var jA = state.jitter ? 1 : (state.apc ? 0.12 : 0.6);
+  var jAlt = (Math.random()-0.5)*40*jA + (state.apc?0:(Math.random()-0.5)*160);
+  var jSpd = (Math.random()-0.5)*2.4*jA + (state.apc?0:(Math.random()-0.5)*10);
+  var jHdg = (Math.random()-0.5)*0.8*jA + (state.apc?0:(Math.random()-0.5)*3);
+  var vAlt = clamp(state.alt+jAlt, 30000, 46000);
+  var vSpd = clamp(state.spd+jSpd, 300, 600);
+  var vHdg = ((state.hdg+jHdg)%360+360)%360;
+  var vThr = clamp(state.thr, 0, 100);
+  setNeedle("alt", (vAlt-30000)/16000);
+  setNeedle("spd", (vSpd-300)/300);
+  setNeedle("hdg", vHdg/360);
+  setNeedle("thr", vThr/100);
+  document.getElementById("val-alt").textContent = fmtAlt(vAlt);
+  document.getElementById("val-spd").textContent = Math.round(vSpd)+" kt";
+  document.getElementById("val-hdg").textContent = String(Math.round(vHdg)).padStart(3,"0")+"°";
+  document.getElementById("val-thr").textContent = Math.round(vThr)+"%";
+  /* pitch/roll from spd vs cruise */
+  state.pitch += (clamp((vSpd-462)/8, -4, 4) - state.pitch)*0.05;
+  state.roll  += (Math.sin(state.t*0.3)*1.2 - state.roll)*0.04;
+  attRing.setAttribute("transform","rotate("+(state.roll*4).toFixed(2)+" 50 50) translate(0 "+(-state.pitch*1.6).toFixed(2)+")");
+  drawTunnel();
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* ---------------- controls ---------------- */
+function toggle(el){
+  var on = !el.classList.contains("on");
+  el.classList.toggle("on", on);
+  el.setAttribute("aria-pressed", String(on));
+  return on;
+}
+var swApc = document.getElementById("sw-apc");
+function apcClick(){ state.apc = toggle(swApc); }
+swApc.addEventListener("click", apcClick);
+swApc.addEventListener("keydown", function(e){ if(e.key==="Enter"||e.key===" "){e.preventDefault();apcClick();} });
+var swJit = document.getElementById("sw-jitter");
+function jitClick(){ state.jitter = toggle(swJit); }
+swJit.addEventListener("click", jitClick);
+swJit.addEventListener("keydown", function(e){ if(e.key==="Enter"||e.key===" "){e.preventDefault();jitClick();} });
+
+var thrIn = document.getElementById("thr");
+var handle = document.getElementById("handle");
+function placeHandle(){
+  var p = thrIn.value/100;
+  var top = 8 + (1-p)*(118-22-16);
+  handle.style.top = top+"px";
+  state.thr = p*100;
+}
+thrIn.addEventListener("input", placeHandle);
+placeHandle();
+
+/* ---------------- optional engine hum (WebAudio, gesture) ---------------- */
+var soundOn = false, actx = null, o1=null, o2=null, gain=null;
+var sbtn = document.getElementById("soundbtn");
+function hum(){
+  try{
+    if(!actx){
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return;
+      actx = new AC();
+      o1 = actx.createOscillator(); o2 = actx.createOscillator();
+      var f = actx.createBiquadFilter(); f.type="lowpass"; f.frequency.value=220;
+      gain = actx.createGain(); gain.gain.value=0;
+      o1.type="sawtooth"; o2.type="triangle";
+      o1.connect(f); o2.connect(f); f.connect(gain); gain.connect(actx.destination);
+      o1.start(); o2.start();
+    }
+    if(actx.state==="suspended") actx.resume();
+    o1.frequency.value = 55 + state.thr*1.1;
+    o2.frequency.value = 110 + state.thr*2.1;
+    gain.gain.linearRampToValueAtTime(0.05 + state.thr*0.0006, actx.currentTime+0.25);
+  }catch(e){}
+}
+function humOff(){
+  try{ if(gain) gain.gain.linearRampToValueAtTime(0.0, (actx?actx.currentTime:0)+0.3); }catch(e){}
+}
+sbtn.addEventListener("click", function(){
+  soundOn = !soundOn;
+  sbtn.classList.toggle("on", soundOn);
+  sbtn.textContent = soundOn ? "Hum: On" : "Engine Hum";
+  if(soundOn) hum(); else humOff();
+});
+})();
+</script>
+</body>
+</html>

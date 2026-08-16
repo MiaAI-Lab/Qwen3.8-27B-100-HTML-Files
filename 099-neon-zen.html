@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>099 Neon Zen</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #14161c;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #aeb6c4;
+  }
+  #wrap { position: fixed; inset: 0; }
+  canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    display: block; touch-action: none;
+  }
+  #hud {
+    position: fixed; top: 18px; left: 20px; pointer-events: none;
+    text-transform: uppercase; letter-spacing: 0.22em;
+    font-size: clamp(10px, 1.6vw, 13px); color: #8f99a8;
+  }
+  #hud b { color: #e8edf4; font-weight: 600; }
+  #hud .sub {
+    display: block; margin-top: 5px; letter-spacing: 0.3em;
+    font-size: 0.82em; color: #565e6d; font-family: ui-monospace, monospace;
+  }
+  #bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: linear-gradient(transparent, rgba(8,10,14,0.92) 42%);
+  }
+  .chip {
+    font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.08em; color: #aeb6c4;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.14);
+    padding: 9px 15px; border-radius: 999px; cursor: pointer;
+    transition: background 0.3s, border-color 0.3s, color 0.3s, box-shadow 0.3s;
+    user-select: none;
+  }
+  .chip:hover { background: rgba(255,255,255,0.1); }
+  .chip.on {
+    color: #06131a; background: #27e0ff; border-color: #27e0ff;
+    box-shadow: 0 0 14px rgba(39,224,255,0.55);
+  }
+  .chip.hint {
+    color: #6b7382; border-style: dashed; cursor: default;
+  }
+  #tip {
+    position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%);
+    pointer-events: none;
+    font: 500 11px ui-monospace, monospace; letter-spacing: 0.18em;
+    color: #4d5565; text-transform: uppercase;
+    transition: opacity 1.2s;
+  }
+  @media (max-width: 560px) {
+    #hud { top: 12px; left: 14px; }
+    .chip { padding: 8px 12px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<div id="hud">
+  <b>ZEN / NEON - 3 STONES, LIVE</b>
+  <span class="sub">raked garden · drag a stone · 099</span>
+</div>
+<div id="tip">drag a stone to disturb the sand</div>
+<div id="bar">
+  <span class="chip on" id="glow">GLOW</span>
+  <span class="chip" id="rike">RIKE</span>
+  <span class="chip hint">3 STONES · 1 MOON · 1 LEAF</span>
+</div>
+<script>
+(function () {
+  'use strict';
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var tip = document.getElementById('tip');
+  var glowBtn = document.getElementById('glow');
+  var rikeBtn = document.getElementById('rike');
+  var W = 0, H = 0, DPR = 1;
+  var glow = true;
+  var rakeT = 0;
+  var stones = [];
+  var trails = [];
+  var leaf = null;
+  var last = 0;
+  var hintFade = false;
+
+  function fit() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    cv.width = Math.round(W * DPR);
+    cv.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+
+  function seedStones() {
+    stones = [
+      { x: W * 0.32, y: H * 0.42, w: 54, h: 34, hx: 0, hy: 0 },
+      { x: W * 0.60, y: H * 0.62, w: 74, h: 46, hx: 0, hy: 0 },
+      { x: W * 0.72, y: H * 0.30, w: 44, h: 30, hx: 0, hy: 0 }
+    ];
+  }
+
+  function seedLeaf() {
+    leaf = {
+      x: W * (0.2 + Math.random() * 0.6),
+      y: -20,
+      vy: 12 + Math.random() * 8,
+      sw: 18 + Math.random() * 22,
+      ph: Math.random() * 6.28,
+      rot: Math.random() * 6.28,
+      vr: (Math.random() - 0.5) * 0.8
+    };
+  }
+
+  function grooves() {
+    var g = [];
+    var line = '#1c1f28';
+    var i, x, y, cx, cy;
+    for (y = 18; y < H; y += 26) {
+      g.push({ kind: 'hline', y: y });
+    }
+    for (i = 0; i < stones.length; i++) {
+      cx = stones[i].x; cy = stones[i].y;
+      var bw = stones[i].w, bh = stones[i].h;
+      var maxR = Math.max(bw, bh) * 0.75;
+      for (var r = maxR + 14; r < maxR + 150; r += 13) {
+        g.push({ kind: 'ring', cx: cx, cy: cy, r: r, w: bw, h: bh });
+      }
+    }
+    return g;
+  }
+
+  function drawGrooveRing(cx, cy, r, bw, bh, col, alpha, sw) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, r * (bw / (bw + bh) + 0.4), r * 0.62, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawStone(s) {
+    ctx.save();
+    var grd = ctx.createLinearGradient(s.x, s.y - s.h, s.x, s.y + s.h);
+    grd.addColorStop(0, '#4a4e57');
+    grd.addColorStop(0.35, '#3d4048');
+    grd.addColorStop(1, '#22242b');
+    ctx.fillStyle = grd;
+    ctx.shadowColor = 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 8;
+    roundRect(s.x - s.w / 2, s.y - s.h / 2, s.w, s.h, Math.min(s.w, s.h) * 0.42);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    var hl = ctx.createLinearGradient(s.x, s.y - s.h / 2, s.x, s.y);
+    hl.addColorStop(0, 'rgba(255,255,255,0.28)');
+    hl.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = hl;
+    roundRect(s.x - s.w * 0.38, s.y - s.h / 2 + 3, s.w * 0.76, s.h * 0.42, s.h * 0.2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawTrail(t, now) {
+    var age = now - t.born;
+    var fade = 1 - age / 10000;
+    if (fade <= 0) return false;
+    ctx.save();
+    ctx.strokeStyle = glow ? 'rgba(39,224,255,' + (0.5 * fade).toFixed(3) + ')' : 'rgba(160,168,182,' + (0.55 * fade).toFixed(3) + ')';
+    if (glow) { ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(39,224,255,' + (0.6 * fade).toFixed(3) + ')'; }
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    var n = t.pts.length;
+    ctx.moveTo(t.pts[0].x, t.pts[0].y);
+    for (var i = 1; i < n; i++) ctx.lineTo(t.pts[i].x, t.pts[i].y);
+    ctx.stroke();
+    ctx.restore();
+    return fade > 0;
+  }
+
+  function drawMoon(now) {
+    var mx = W * 0.86, my = H * 0.16, r = Math.min(34, W * 0.05);
+    var g = ctx.createRadialGradient(mx, my, r * 0.2, mx, my, r * 3.2);
+    g.addColorStop(0, 'rgba(230,236,246,0.5)');
+    g.addColorStop(0.25, 'rgba(214,222,236,0.14)');
+    g.addColorStop(1, 'rgba(214,222,236,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(mx, my, r * 3.2, 0, 6.2832);
+    ctx.fill();
+    ctx.fillStyle = glow ? '#3fe6ff' : '#dfe4ee';
+    if (glow) { ctx.shadowBlur = 26; ctx.shadowColor = 'rgba(39,224,255,0.8)'; }
+    ctx.beginPath();
+    ctx.arc(mx, my, r, 0, 6.2832);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  function drawLeaf(now) {
+    var t = now * 0.001;
+    leaf.x += Math.sin(t * 0.9 + leaf.ph) * 0.5;
+    leaf.y += leaf.vy * 0.016;
+    leaf.rot += leaf.vr * 0.016;
+    if (leaf.y > H + 30) {
+      leaf.y = -24;
+      leaf.x = W * (0.15 + Math.random() * 0.7);
+    }
+    ctx.save();
+    ctx.translate(leaf.x, leaf.y);
+    ctx.rotate(leaf.rot);
+    ctx.fillStyle = 'rgba(122,150,122,0.85)';
+    if (glow) { ctx.shadowBlur = 6; ctx.shadowColor = 'rgba(39,224,255,0.35)'; }
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 7, 3.4, 0.5, 0, 6.2832);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function frame(now) {
+    window.requestAnimationFrame(frame);
+    try {
+      var dt = now - last;
+      last = now;
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#14161c';
+      ctx.fillRect(0, 0, W, H);
+      drawMoon(now);
+      var cols = glow ? '#27e0ff' : '#262a35';
+      var ringA = glow ? 0.5 : 0.75;
+      if (rakeT < 1) {
+        rakeT = Math.min(1, rakeT + dt / 1500);
+        var e = rakeT * rakeT * (3 - 2 * rakeT);
+        for (var y = 18; y < H; y += 26) {
+          ctx.strokeStyle = cols;
+          ctx.globalAlpha = 0.16 + 0.14 * e;
+          if (glow) { ctx.shadowBlur = 8; ctx.shadowColor = 'rgba(39,224,255,0.5)'; }
+          ctx.lineWidth = 1.3;
+          ctx.beginPath();
+          var lim = W * e;
+          ctx.moveTo(0, y + Math.sin(y * 0.05) * 1.2);
+          ctx.lineTo(lim, y + Math.sin(y * 0.05) * 1.2);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+      } else {
+        for (var yi = 18; yi < H; yi += 26) {
+          ctx.strokeStyle = glow ? 'rgba(39,224,255,0.16)' : '#1c1f28';
+          if (glow) { ctx.shadowBlur = 7; ctx.shadowColor = 'rgba(39,224,255,0.35)'; }
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(0, yi + Math.sin(yi * 0.05) * 1.2);
+          ctx.lineTo(W, yi + Math.sin(yi * 0.05) * 1.2);
+          ctx.stroke();
+        }
+        ctx.shadowBlur = 0;
+      }
+      if (rakeT >= 1) {
+        for (var si = 0; si < stones.length; si++) {
+          var s = stones[si];
+          var bw = s.w, bh = s.h;
+          var maxR = Math.max(bw, bh) * 0.75;
+          for (var r = maxR + 14; r < maxR + 150; r += 13) {
+            drawGrooveRing(s.x, s.y, r, bw, bh, cols, ringA * 0.5, 0);
+          }
+        }
+      }
+      for (var ti = trails.length - 1; ti >= 0; ti--) {
+        if (!drawTrail(trails[ti], now)) trails.splice(ti, 1);
+      }
+      for (var st = 0; st < stones.length; st++) drawStone(stones[st]);
+      drawLeaf(now);
+    } catch (err) {
+      /* keep loop alive */
+    }
+  }
+
+  var drag = null;
+  cv.addEventListener('pointerdown', function (ev) {
+    for (var i = 0; i < stones.length; i++) {
+      var s = stones[i];
+      var dx = ev.clientX - s.x, dy = ev.clientY - s.y;
+      if (Math.abs(dx) < s.w * 0.7 && Math.abs(dy) < s.h * 0.9) {
+        drag = s;
+        s.hx = dx; s.hy = dy;
+        trails.push({ pts: [{ x: ev.clientX, y: ev.clientY }], born: ev.timeStamp || performance.now() });
+        if (!hintFade) { hintFade = true; tip.style.opacity = '0'; }
+        try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
+        break;
+      }
+    }
+  });
+  cv.addEventListener('pointermove', function (ev) {
+    if (!drag) return;
+    var tr = trails[trails.length - 1];
+    if (tr) {
+      var p = { x: ev.clientX, y: ev.clientY };
+      var lp = tr.pts[tr.pts.length - 1];
+      if (!lp || Math.abs(lp.x - p.x) + Math.abs(lp.y - p.y) > 4) tr.pts.push(p);
+      if (tr.pts.length > 400) tr.pts.shift();
+    }
+    drag.x = ev.clientX - drag.hx;
+    drag.y = ev.clientY - drag.hy;
+  });
+  function endDrag() {
+    if (!drag) return;
+    drag = null;
+    rakeT = 0;
+  }
+  cv.addEventListener('pointerup', endDrag);
+  cv.addEventListener('pointercancel', endDrag);
+
+  glowBtn.addEventListener('click', function () {
+    glow = !glow;
+    glowBtn.classList.toggle('on', glow);
+  });
+  rikeBtn.addEventListener('click', function () {
+    rakeT = 0;
+    trails = [];
+    seedStones();
+  });
+
+  window.addEventListener('resize', function () {
+    fit();
+    seedStones();
+  });
+
+  fit();
+  seedStones();
+  seedLeaf();
+  last = performance.now();
+  frame(last);
+})();
+</script>
+</body>
+</html>

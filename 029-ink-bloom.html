@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ink Bloom</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body { overflow:hidden; background:#0b0d12; font-family:Georgia, "Times New Roman", serif; }
+  #pool { position:fixed; inset:0; display:block; width:100vw; height:100dvh; cursor:crosshair; }
+  .hud {
+    position:fixed; left:0; right:0; bottom:0; z-index:5; pointer-events:none;
+    display:flex; justify-content:space-between; align-items:flex-end; gap:16px;
+    padding:0 clamp(14px,3vw,28px) clamp(14px,2.6vh,26px);
+    font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .cap { font-size:10px; letter-spacing:.34em; color:rgba(224,177,63,0.75); }
+  .cap-name { display:block; margin-top:5px; font-size:11px; letter-spacing:.46em; color:rgba(233,236,244,0.6); }
+  .hint { font-size:10px; letter-spacing:.26em; color:rgba(233,236,244,0.4); text-align:right; }
+  .dot { display:inline-block; width:5px; height:5px; border-radius:50%; background:#3b4fd8; margin:0 7px 1px 0; vertical-align:middle; }
+</style>
+</head>
+<body>
+<canvas id="pool"></canvas>
+<div class="hud">
+  <div class="hud-left">
+    <span class="cap">GALLERY 100 · 029</span>
+    <span class="cap-name">INK BLOOM</span>
+  </div>
+  <div class="hint">
+    <span class="dot"></span>click the water to drop ink
+    <span class="dot" style="background:#e0b13f"></span>auto-drops until you touch it
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+  var cvs = document.getElementById("pool");
+  var ctx = cvs.getContext("2d");
+  var W = 0, H = 0, DPR = 1;
+  var palette = [
+    { r: 59, g: 79, b: 216, name: "#3b4fd8" },
+    { r: 224, g: 177, b: 63, name: "#e0b13f" },
+    { r: 194, g: 46, b: 58, name: "#c22e3a" },
+    { r: 47, g: 163, b: 163, name: "#2fa3a3" }
+  ];
+  var pts = [], drops = 0, cap = 0, tPrev = 0, autoNext = 0.9, userTouched = false;
+  var t = 0, noise = null, grain = null;
+
+  function fit() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cvs.width = Math.max(1, Math.round(W * DPR));
+    cvs.height = Math.max(1, Math.round(H * DPR));
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    cap = Math.round(W * H / 260);
+    if (cap > 3800) cap = 3800;
+    if (!noise) {
+      noise = makeNoise(14, 14);
+      grain = makeGrain(128);
+    }
+    ctx.fillStyle = "#0b0d12";
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function makeNoise(w, h) {
+    var base = new Float32Array(w * h), p1 = new Float32Array(w * h),
+        p2 = new Float32Array(w * h), p3 = new Float32Array(w * h), i;
+    for (i = 0; i < w * h; i++) {
+      base[i] = Math.random() * 2 - 1;
+      p1[i] = Math.random() * 2 - 1;
+      p2[i] = Math.random() * 2 - 1;
+      p3[i] = Math.random() * 2 - 1;
+    }
+    return {
+      w: w, h: h, base: base, p1: p1, p2: p2, p3: p3,
+      sample: function (x, y, tt) {
+        var a = x * w, b = y * h;
+        var ax0 = a % 1, ay0 = b % 1;
+        var ix = Math.floor(a), iy = Math.floor(b);
+        function at(p, ix, iy) {
+          return p[((iy % h + h) % h) * w + ((ix % w + w) % w)];
+        }
+        var u = ax0 * ax0 * (3 - 2 * ax0), v = ay0 * ay0 * (3 - 2 * ay0);
+        var n1 = at(base, ix, iy) * (1 - u) * (1 - v)
+               + at(base, ix + 1, iy) * u * (1 - v)
+               + at(base, ix, iy + 1) * (1 - u) * v
+               + at(base, ix + 1, iy + 1) * u * v;
+        var n2 = at(p1, ix, iy) * (1 - u) * (1 - v)
+               + at(p1, ix + 1, iy) * u * (1 - v)
+               + at(p1, ix, iy + 1) * (1 - u) * v
+               + at(p1, ix + 1, iy + 1) * u * v;
+        var f = tt * 0.055;
+        var m2 = (1 + Math.sin(f)) * 0.5, m3 = (1 + Math.sin(f * 1.7 + 1.3)) * 0.5;
+        var oct = n1 * 0.68 + n2 * m2 * 0.32;
+        var n3 = at(p2, ix, iy) * (1 - u) * (1 - v)
+               + at(p2, ix + 1, iy) * u * (1 - v)
+               + at(p2, ix, iy + 1) * (1 - u) * v
+               + at(p2, ix + 1, iy + 1) * u * v;
+        oct = oct * 0.72 + n3 * m3 * 0.28;
+        return { x: oct, y: oct * 0.84 - n1 * 0.12 };
+      }
+    };
+  }
+
+  function makeGrain(sz) {
+    var c = document.createElement("canvas");
+    c.width = c.height = sz;
+    var g = c.getContext("2d");
+    var id = g.createImageData(sz, sz), d = id.data, i;
+    for (i = 0; i < d.length; i += 4) {
+      var v = 200 + Math.random() * 55;
+      d[i] = d[i + 1] = d[i + 2] = v;
+      d[i + 3] = Math.random() * 26;
+    }
+    g.putImageData(id, 0, 0);
+    return g.createPattern(c, "repeat");
+  }
+
+  function curl(x, y, tt) {
+    var e = 0.0016;
+    var a = noise.sample(x, y + e, tt), b = noise.sample(x, y - e, tt);
+    var c = noise.sample(x + e, y, tt), d = noise.sample(x - e, y, tt);
+    return { x: (a.y - b.y) / (2 * e) - 0.06, y: -(c.x - d.x) / (2 * e) };
+  }
+
+  function drop(x, y) {
+    var n = 300 + Math.floor(Math.random() * 300);
+    var col = palette[drops % 4];
+    drops++;
+    var ring = 20 + Math.random() * 46;
+    var baseAng = Math.random() * 6.283;
+    var t0now = t;
+    for (var i = 0; i < n; i++) {
+      if (pts.length >= 3600) { pts.splice(0, 200); }
+      var ang = baseAng + (i / n) * 6.283 + (Math.random() - 0.5) * 0.5;
+      var rr = ring * (0.7 + Math.random() * 0.9);
+      var speed = 0.35 + Math.random() * 1.35;
+      pts.push({
+        x: x + Math.cos(ang) * rr, y: y + Math.sin(ang) * rr,
+        px: x, py: y,
+        vx: Math.cos(ang) * speed * 0.5, vy: Math.sin(ang) * speed * 0.5,
+        life: 0, max: 8 + Math.random() * 6,
+        sz: 0.8 + Math.random() * 1.7,
+        r: col.r, g: col.g, b: col.b,
+        born: t0now
+      });
+    }
+  }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var dt = Math.min(0.05, (now - tPrev) / 1000);
+    if (!(dt > 0)) { dt = 0.016; }
+    tPrev = now; t += dt;
+    try {
+      if (!userTouched && t > autoNext) {
+        drop(W * (0.25 + Math.random() * 0.5), H * (0.25 + Math.random() * 0.5));
+        autoNext = t + 4;
+      }
+      ctx.fillStyle = "rgba(11,13,18,0.055)";
+      ctx.fillRect(0, 0, W, H);
+      var i, p, sp, a, c;
+      var ns = 0.0011;
+      for (i = 0; i < pts.length; i++) {
+        p = pts[i];
+        p.life += dt;
+        if (p.life >= p.max) {
+          p.x = -9999;
+          continue;
+        }
+        c = curl(p.x * ns, p.y * ns, t * 0.25);
+        p.vx = p.vx * 0.94 + c.x * 26 * dt;
+        p.vy = p.vy * 0.94 + c.y * 26 * dt;
+        p.px = p.x; p.py = p.y;
+        p.x += p.vx * dt * 60 * 0.14 + c.x * 2.1;
+        p.y += p.vy * dt * 60 * 0.14 + c.y * 2.1;
+        sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        a = 0.16 * (1 - p.life / p.max);
+        ctx.strokeStyle = "rgba(" + p.r + "," + p.g + "," + p.b + "," + a.toFixed(3) + ")";
+        ctx.lineWidth = p.sz * 0.75;
+        ctx.beginPath();
+        ctx.moveTo(p.px, p.py);
+        ctx.lineTo(p.x + (Math.random() - 0.5) * sp, p.y + (Math.random() - 0.5) * sp);
+        ctx.stroke();
+      }
+      for (i = pts.length - 1; i >= 0; i--) {
+        if (pts[i].life >= pts[i].max || pts[i].x < -100 || pts[i].x > W + 100 ||
+            pts[i].y < -100 || pts[i].y > H + 100) pts.splice(i, 1);
+      }
+      ctx.globalAlpha = 0.05;
+      ctx.fillStyle = grain;
+      ctx.save(); ctx.translate(Math.floor(Math.random() * 12), 0); ctx.fillRect(-12, 0, W + 24, H); ctx.restore();
+      ctx.globalAlpha = 1;
+      var vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.36, W / 2, H / 2, Math.max(W, H) * 0.74);
+      vg.addColorStop(0, "rgba(5,6,10,0)");
+      vg.addColorStop(1, "rgba(5,6,10,0.5)");
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+    } catch (e) { /* keep alive */ }
+  }
+
+  function userDrop(e) {
+    userTouched = true;
+    var cx = W / 2, cy = H / 2;
+    var x = e.clientX || cx, y = e.clientY || cy;
+    if (pts.length + 600 > cap) {
+      var excess = pts.length + 600 - cap;
+      for (var i = 0; i < excess; i++) {
+        if (pts[i]) pts[i].max = Math.min(pts[i].max, 0.6 + Math.random());
+      }
+    }
+    drop(x, y);
+  }
+  cvs.addEventListener("pointerdown", userDrop);
+
+  window.addEventListener("resize", fit);
+  fit();
+  tPrev = performance.now();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

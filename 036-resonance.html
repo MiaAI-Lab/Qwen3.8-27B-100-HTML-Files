@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RESONANCE / CHAMBER</title>
+<style>
+  :root{
+    --bg:#0c0e14;
+    --ink:rgba(214,220,236,.92);
+    --dim:rgba(148,156,178,.6);
+    --line:rgba(148,156,178,.22);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(ellipse 80% 70% at 50% 45%, #11141d 0%, var(--bg) 70%);
+    font-family:system-ui,-apple-system,Segoe UI,sans-serif;
+    color:var(--ink);overflow:hidden;-webkit-user-select:none;user-select:none;
+  }
+  #stage{position:fixed;inset:0;display:block;touch-action:none}
+  .hud{position:fixed;letter-spacing:.3em;text-transform:uppercase;pointer-events:none;
+       font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
+  #title{top:26px;left:50%;transform:translateX(-50%);text-align:center;white-space:nowrap}
+  #title .a{font-weight:200;font-size:clamp(15px,2.2vw,21px);letter-spacing:.72em;color:var(--ink);text-indent:.72em}
+  #title .b{font-weight:100;font-size:clamp(15px,2.2vw,21px);letter-spacing:.72em;color:var(--dim);text-indent:.72em}
+  #title .sl{color:rgba(148,156,178,.35);font-weight:100}
+  #title .pg{margin-top:7px;font-size:9px;letter-spacing:.44em;color:var(--dim)}
+  #hud-tl{top:26px;left:24px;color:var(--dim)}
+  #hud-tr{top:26px;right:24px;text-align:right;color:var(--dim)}
+  .hud .v{color:rgba(226,230,244,.88)}
+  .hud .hot{color:#ffb86b}
+
+  #panel{
+    position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;
+    padding:12px 18px;border:1px solid var(--line);border-radius:14px;
+    background:rgba(16,18,26,.72);backdrop-filter:blur(6px);max-width:min(94vw,620px);
+    pointer-events:auto;
+  }
+  #bpmwrap{display:flex;align-items:center;gap:10px}
+  #bpm{width:170px;accent-color:#ffb86b;height:3px;cursor:pointer}
+  .lbl{font-size:10px;letter-spacing:.26em;color:var(--dim);text-transform:uppercase;
+       font-family:ui-monospace,Menlo,monospace}
+  .val{font-size:12px;letter-spacing:.14em;color:var(--ink);min-width:44px;text-align:right;
+       font-family:ui-monospace,Menlo,monospace}
+  button{
+    font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.26em;text-transform:uppercase;
+    color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:8px;
+    padding:8px 14px;cursor:pointer;transition:all .25s ease;
+  }
+  button:hover{border-color:rgba(255,184,107,.5);color:#ffd9a8}
+  button.on{background:rgba(255,184,107,.14);border-color:rgba(255,184,107,.65);color:#ffcf98}
+  #beat-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,184,107,.25);
+            transition:transform .12s ease, background .12s ease}
+  #beat-dot.hit{transform:scale(1.7);background:#ffb86b}
+  .sep{width:1px;height:22px;background:var(--line)}
+  @media (max-width:560px){
+    #hud-tl,#hud-tr{display:none}
+    #panel{gap:10px;padding:10px 12px}
+    #bpm{width:130px}
+  }
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div class="hud" id="title">
+  <div><span class="a">RESONANCE</span> <span class="sl">/</span> <span class="b">CHAMBER</span></div>
+  <div class="pg">PAGE 036 &#183; CHROMATIC PULSE MATRIX</div>
+</div>
+<div class="hud" id="hud-tl">
+  <div><span>TEMPO</span> <span class="v hot" id="v-bpm">120</span></div>
+  <div><span>INTERVAL</span> <span class="v" id="v-int">500&#8201;ms</span></div>
+  <div><span>CHORD</span> <span class="v" id="v-chord">OFF</span></div>
+</div>
+<div class="hud" id="hud-tr">
+  <div><span>PULSE</span> <span class="v" id="v-pulse">000</span></div>
+  <div><span>NOTE</span> <span class="v" id="v-note">&mdash;</span></div>
+  <div><span>AUDIO</span> <span class="v" id="v-audio">IDLE</span></div>
+</div>
+
+<div id="panel">
+  <div id="bpmwrap">
+    <span class="lbl">BPM</span>
+    <input type="range" id="bpm" min="40" max="200" step="1" value="120">
+    <span class="val" id="bpmv">120</span>
+  </div>
+  <div class="sep"></div>
+  <button id="btn-harm">HARMONIC</button>
+  <div class="sep"></div>
+  <span id="beat-dot"></span>
+  <span class="lbl">CLICK AN ORB TO TUNE ITS PITCH CLASS</span>
+</div>
+<script>
+(function(){
+  "use strict";
+  var cv = document.getElementById("stage");
+  var ctx = cv.getContext("2d");
+  if(!ctx) return;
+
+  // 12-tone chromatic palette
+  var PAL = [
+    [255,214,122],[255,184,107],[255,154,110],[255,124,114],
+    [252,98,132],[236,84,164],[196,92,214],[154,106,246],
+    [106,130,255],[74,178,240],[88,214,224],[140,224,160]
+  ];
+  var NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  var FREQ = [261.63,277.18,293.66,311.13,329.63,349.23,369.99,392.00,415.30,440.00,466.16,493.88];
+
+  var W=0,H=0,CX=0,CY=0,DPR=1,SCALE=1;
+  var N = 12;
+  var orbs = [];
+  for (let i = 0; i < N; i++) {
+    orbs.push({ note: i, phase: 0, pulse: 0 });
+  }
+
+  var bpm = 120;
+  var harmonic = false;
+  var beatMs = 60000 / bpm;
+  var beatAcc = 0;
+  var beat = -1;           // 0..3 step within the 4-beat bar
+  var pulseCount = 0;
+  var rings = [];
+  var t = 0, last = performance.now();
+  var running = true;
+
+  // ---- audio ----
+  var AC = null;
+  var master = null;
+  var audioOn = false;
+  function initAudio(){
+    if (AC) { if (AC.state === "suspended") AC.resume(); return; }
+    try {
+      var A = window.AudioContext || window.webkitAudioContext;
+      if (!A) return;
+      AC = new A();
+      master = AC.createGain();
+      master.gain.value = 0.5;
+      master.connect(AC.destination);
+    } catch(e){ AC = null; }
+    audioOn = !!AC;
+  }
+  function kick(){
+    if (!AC || !master) return;
+    try{
+      var n = AC.currentTime;
+      var o = AC.createOscillator();
+      var g = AC.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(120, n);
+      o.frequency.exponentialRampToValueAtTime(40, n + 0.16);
+      g.gain.setValueAtTime(0.9, n);
+      g.gain.exponentialRampToValueAtTime(0.001, n + 0.28);
+      o.connect(g); g.connect(master);
+      o.start(n); o.stop(n + 0.3);
+      // hat: short filtered noise burst
+      var len = Math.floor(AC.sampleRate * 0.05);
+      var buf = AC.createBuffer(1, len, AC.sampleRate);
+      var d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.2);
+      var src = AC.createBufferSource();
+      src.buffer = buf;
+      var hp = AC.createBiquadFilter();
+      hp.type = "highpass"; hp.frequency.value = 7000;
+      var hg = AC.createGain();
+      hg.gain.setValueAtTime(0.25, n);
+      hg.gain.exponentialRampToValueAtTime(0.001, n + 0.05);
+      src.connect(hp); hp.connect(hg); hg.connect(master);
+      src.start(n);
+    }catch(e){}
+  }
+  function blip(freq, vol){
+    if (!AC || !master) return;
+    try{
+      var n = AC.currentTime;
+      var o = AC.createOscillator();
+      var g = AC.createGain();
+      o.type = "triangle";
+      o.frequency.setValueAtTime(freq, n);
+      g.gain.setValueAtTime(vol, n);
+      g.gain.exponentialRampToValueAtTime(0.001, n + 0.4);
+      o.connect(g); g.connect(master);
+      o.start(n); o.stop(n + 0.42);
+    }catch(e){}
+  }
+
+  function fit(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.max(1, Math.floor(W * DPR));
+    cv.height = Math.max(1, Math.floor(H * DPR));
+    cv.style.width = W + "px"; cv.style.height = H + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    CX = W / 2; CY = H * 0.46;
+    SCALE = Math.min(W, H) * 0.27;
+  }
+  fit();
+  window.addEventListener("resize", fit);
+
+  var elBpm = document.getElementById("bpm");
+  var elBpmv = document.getElementById("bpmv");
+  var elInt = document.getElementById("v-int");
+  var elChord = document.getElementById("v-chord");
+  var elPulse = document.getElementById("v-pulse");
+  var elNote = document.getElementById("v-note");
+  var elAudio = document.getElementById("v-audio");
+  var elDot = document.getElementById("beat-dot");
+  var elHarm = document.getElementById("btn-harm");
+
+  function syncHud(){
+    if (elBpmv) elBpmv.textContent = String(bpm);
+    if (elInt) elInt.textContent = Math.round(beatMs) + "\u2009ms";
+    if (elChord) elChord.textContent = harmonic ? "ON \u00b7 +4" : "OFF";
+    if (elPulse) elPulse.textContent = String(pulseCount).padStart(3, "0");
+  }
+
+  elBpm.addEventListener("input", function(){
+    bpm = parseInt(elBpm.value, 10) || 120;
+    beatMs = 60000 / bpm;
+    syncHud();
+  });
+  elHarm.addEventListener("click", function(){
+    initAudio();
+    harmonic = !harmonic;
+    elHarm.classList.toggle("on", harmonic);
+    syncHud();
+    if (elAudio) elAudio.textContent = audioOn ? "LIVE" : "MUTED";
+  });
+
+  cv.addEventListener("pointerdown", function(e){
+    initAudio();
+    if (elAudio) elAudio.textContent = audioOn ? "LIVE" : "MUTED";
+    var x = e.clientX, y = e.clientY;
+    var best = -1, bd = 1e9;
+    for (let i = 0; i < N; i++) {
+      var ang = (i / N) * Math.PI * 2 - Math.PI / 2;
+      var ox = CX + Math.cos(ang) * SCALE;
+      var oy = CY + Math.sin(ang) * SCALE * 0.92;
+      var d = (ox - x) * (ox - x) + (oy - y) * (oy - y);
+      if (d < bd) { bd = d; best = i; }
+    }
+    if (best >= 0 && Math.sqrt(bd) < Math.max(30, SCALE * 0.22)) {
+      orbs[best].note = (orbs[best].note + 1) % 12;
+      orbs[best].pulse = 1;
+      blip(FREQ[orbs[best].note], 0.35);
+      if (elNote) elNote.textContent = NAMES[orbs[best].note];
+    } else {
+      rings.push({ r: 6, life: 1 });
+    }
+  });
+
+  function firePulse(){
+    pulseCount++;
+    beat = (beat + 1) % 4;
+    var idx = pulseCount % N;
+    orbs[idx].pulse = 1;
+    rings.push({ r: 4, life: 1 });
+    kick();
+    blip(FREQ[orbs[idx].note], 0.18);
+    if (elNote) elNote.textContent = NAMES[orbs[idx].note];
+    if (harmonic && beat === 3) {
+      blip(FREQ[orbs[idx].note] * 1.5, 0.12);
+      blip(FREQ[orbs[idx].note] * 2, 0.09);
+      blip(FREQ[(orbs[idx].note + 4) % 12] * 2, 0.07);
+    }
+    syncHud();
+    elDot.classList.add("hit");
+    setTimeout(function(){ elDot.classList.remove("hit"); }, 130);
+  }
+
+  function draw(){
+    if(!ctx) return;
+    var now = performance.now();
+    var dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    t += dt;
+
+    beatAcc += dt * 1000;
+    while (beatAcc >= beatMs) {
+      beatAcc -= beatMs;
+      firePulse();
+    }
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#0c0e14";
+    ctx.fillRect(0, 0, W, H);
+
+    // central orb
+    var beatF = 1 - (beatAcc / beatMs);
+    var cr = 1 + Math.max(0, beatF) * 0.28;
+    var cg = ctx.createRadialGradient(CX, CY, 0, CX, CY, 34 * cr);
+    cg.addColorStop(0, "rgba(255,236,204,0.95)");
+    cg.addColorStop(0.35, "rgba(255,184,107,0.55)");
+    cg.addColorStop(1, "rgba(255,150,80,0)");
+    ctx.fillStyle = cg;
+    ctx.beginPath();
+    ctx.arc(CX, CY, 34 * cr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,244,224,0.95)";
+    ctx.beginPath();
+    ctx.arc(CX, CY, 5.5 * cr, 0, Math.PI * 2);
+    ctx.fill();
+
+    // concentric sound rings (center)
+    for (let r = rings.length - 1; r >= 0; r--) {
+      var ring = rings[r];
+      ring.r += dt * (SCALE * 1.5 + beatMs * 0.6);
+      ring.life -= dt * 1.15;
+      if (ring.life <= 0) { rings.splice(r, 1); continue; }
+      ctx.strokeStyle = "rgba(255,196,138," + (ring.life * 0.5).toFixed(3) + ")";
+      ctx.lineWidth = 1.2 + ring.life * 2.2;
+      ctx.beginPath();
+      ctx.arc(CX, CY, ring.r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 12 orbiting orbs, chase pulse
+    for (let i = 0; i < N; i++) {
+      var ang = (i / N) * Math.PI * 2 - Math.PI / 2;
+      var wob = 1 + 0.02 * Math.sin(t * 0.6 + i);
+      var ox = CX + Math.cos(ang) * SCALE * 0.92 * wob;
+      var oy = CY + Math.sin(ang) * SCALE * 0.92 * wob;
+      var o = orbs[i];
+      var glow = 0.35 + o.pulse * 0.65;
+      var rad = (7 + o.pulse * 9) * SCALE / 240;
+      var c = PAL[o.note];
+      var og = ctx.createRadialGradient(ox, oy, 0, ox, oy, rad * 3.2);
+      og.addColorStop(0, "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + (glow * 0.9).toFixed(3) + ")");
+      og.addColorStop(1, "rgba(" + c[0] + "," + c[1] + "," + c[2] + ",0)");
+      ctx.fillStyle = og;
+      ctx.beginPath();
+      ctx.arc(ox, oy, rad * 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")";
+      ctx.beginPath();
+      ctx.arc(ox, oy, rad, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255," + (0.35 + o.pulse * 0.55).toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.arc(ox, oy, rad * 0.38, 0, Math.PI * 2);
+      ctx.fill();
+      o.pulse = Math.max(0, o.pulse - dt * 3.2);
+    }
+  }
+
+  function frame(){
+    if (!running) return;
+    try {
+      draw();
+      requestAnimationFrame(frame);
+    } catch (err) {
+      running = false;
+    }
+  }
+  syncHud();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

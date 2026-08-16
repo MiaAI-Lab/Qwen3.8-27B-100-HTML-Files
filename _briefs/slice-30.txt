@@ -1,0 +1,11 @@
+=== 088 ===
+088-spiral-galaxy.html
+SPIRAL GALAXY - full-bleed canvas, 6000 stars in two logarithmic spiral arms: r from center, angle = arm offset + log-spiral + scatter; sizes 0.5-2px; colors core-warm #ffd9a0 -> arm-blue #7fa8ff, plus 80 hot pink #ff8ad4 young stars and ~40 dark dust puffs (radial destination-out softening). Differential rotation: angular speed proportional to r^-0.5, so arms slowly shear (re-seed scatter every ~20s to keep structure). Scroll zooms 0.5-3 eased; click spawns a 30-star cluster flash. Faint milky-way noise bg. Caption 'GALAXY / NGC 0142 - 6,000 STARS'.
+
+=== 089 ===
+089-line-portrait.html
+LINE PORTRAIT - generative face, 'PORTRAIT NO. 7'. SVG built as string: ~80 single-weight strokes on #f4efe4 forming a stylized abstract face - jaw arc, cheek lines, eye (two arcs + lash ticks), brow, lips (two curves), hair (12 flowing strokes), all #1c1a17. On load each stroke draws itself via stroke-dashoffset, staggered over 12s (the face is being sketched). Controls: VARIATION (new seed: control points jitter +/-12%, re-draw), INK chips (sumi black / sepia #7a5a3a / indigo #2f3f8f), GRID toggle (faint construction circles - art-school style). Thin double frame + caption 'LINE STUDY 07 - 80 STROKES'.
+
+=== 090 ===
+090-arcade-attract.html
+ARCADE ATTRACT - the page is an arcade CRT (bezel frame, scanlines, curvature vignette). Content: 'HIGH SCORES' table (2L4 99990 / KZ8 87450 / M1X 76200 / DQ2 61350 / YOU 48900 - the YOU row blinks); a classic bouncing pixel ball in a box with motion trail; every 4s the game title 'NEON DUNKER' flashes in chunky stroked type with RGB-split shadow, alternating colors. 'PUSH TO START' blinks at the bottom. Keys 1/2/3 cycle title colors; SPACE: kicks the ball (speed x2 for 3s) and the score ticker randomly +100s. Caption inside bezel: '(C) 1987 STARLIGHT AMUSEMENTS'.

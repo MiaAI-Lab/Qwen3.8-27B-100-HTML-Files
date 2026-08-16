@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CONSTELLATION / DRIFT</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: #070b18;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+#sky {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+}
+.hud {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 22px;
+  pointer-events: none;
+  color: #93a9cf;
+}
+.hud .ttl {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.46em;
+  text-transform: uppercase;
+  color: #cfe0ff;
+  text-shadow: 0 0 14px rgba(120, 160, 255, 0.45);
+}
+.hud .ttl em {
+  font-style: normal;
+  color: #5f7699;
+}
+.hud .cnt {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+}
+.hud .cnt b {
+  color: #eaf2ff;
+  font-weight: 700;
+  display: inline-block;
+  min-width: 3ch;
+  text-align: right;
+}
+.hud .dot {
+  display: inline-block;
+  width: 4px; height: 4px;
+  background: #cfe0ff;
+  margin-right: 10px;
+  box-shadow: 0 0 8px 2px rgba(150, 190, 255, 0.6);
+  vertical-align: 1px;
+}
+@media (max-width: 560px) {
+  .hud { padding: 12px 14px; }
+  .hud .ttl { font-size: 8px; letter-spacing: 0.34em; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="sky"></canvas>
+
+<div class="hud">
+  <div class="ttl"><span class="dot"></span>CONSTELLATION <em>/</em> DRIFT</div>
+  <div class="cnt">LINKS <b id="lcount">000</b></div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById("sky");
+  const ctx = canvas.getContext("2d");
+  const lcount = document.getElementById("lcount");
+
+  const LINK_DIST = 90;
+  const LINK_PERIOD = 0.09;
+  const WELL_R = 175;
+  const EXTRA_CAP = 36;
+
+  let W = 0;
+  let H = 0;
+  let stars = [];
+  let extraQueue = [];
+  let links = new Map();
+  let linkClock = 0;
+  let t = 0;
+  let last = performance.now();
+  let spawnClock = 0;
+  const pointer = { x: -9999, y: -9999, active: false };
+  const par = { x: 0, y: 0 };
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function makeStar(x, y, z, named, name, spawned) {
+    const ang = rand(0, Math.PI * 2);
+    const spd = named ? rand(0.8, 1.5) : rand(1.1, 2.6) + z * 5.5;
+    return {
+      x: x, y: y,
+      ang: ang, spd: spd,
+      gx: 0, gy: 0,
+      z: z,
+      r: 0.55 + z * 1.85 + (named ? 1.9 : 0),
+      ph: rand(0, Math.PI * 2),
+      tw: rand(0.35, 1.25),
+      named: named, name: name,
+      spawned: spawned
+    };
+  }
+
+  function seed() {
+    stars = [];
+    extraQueue = [];
+    links = new Map();
+    const layers = [
+      { z0: 0.10, z1: 0.32, n: 55 },
+      { z0: 0.46, z1: 0.70, n: 47 },
+      { z0: 0.82, z1: 1.00, n: 34 }
+    ];
+    for (let li = 0; li < layers.length; li++) {
+      const L = layers[li];
+      for (let i = 0; i < L.n; i++) {
+        stars.push(makeStar(rand(0, W), rand(0, H), rand(L.z0, L.z1), false, "", false));
+      }
+    }
+    const names = ["VEGA", "RIGEL", "DENEB", "POLARIS"];
+    const spots = [[0.16, 0.20], [0.82, 0.28], [0.32, 0.74], [0.68, 0.58]];
+    for (let i = 0; i < names.length; i++) {
+      stars.push(makeStar(spots[i][0] * W, spots[i][1] * H, 1, true, names[i], false));
+    }
+  }
+
+  function fit() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const nw = Math.max(320, window.innerWidth);
+    const nh = Math.max(240, window.innerHeight);
+    if (W > 0 && H > 0 && (W !== nw || H !== nh)) {
+      const fx = nw / W;
+      const fy = nh / H;
+      for (let i = 0; i < stars.length; i++) {
+        stars[i].x *= fx;
+        stars[i].y *= fy;
+      }
+    }
+    W = nw;
+    H = nh;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (ctx.letterSpacing !== undefined) ctx.letterSpacing = "2px";
+    if (stars.length === 0) seed();
+  }
+
+  function spawnAt(x, y) {
+    const z = rand(0.3, 0.95);
+    const s = makeStar(
+      x + rand(-9, 9), y + rand(-9, 9),
+      z, false, "", true
+    );
+    s.spd = rand(0.4, 1.1);
+    s.gx = rand(-0.6, 0.6);
+    s.gy = rand(-0.6, 0.6);
+    stars.push(s);
+    extraQueue.push(s);
+    if (extraQueue.length > EXTRA_CAP) {
+      const old = extraQueue.shift();
+      const idx = stars.indexOf(old);
+      if (idx !== -1) stars.splice(idx, 1);
+    }
+  }
+
+  function step(dt) {
+    const tx = pointer.active ? (pointer.x - W * 0.5) * 0.022 : 0;
+    const ty = pointer.active ? (pointer.y - H * 0.5) * 0.016 : 0;
+    par.x += (tx - par.x) * Math.min(1, dt * 2.2);
+    par.y += (ty - par.y) * Math.min(1, dt * 2.2);
+
+    if (pointer.active) {
+      spawnClock += dt;
+      if (spawnClock > 0.11) {
+        spawnClock = 0;
+        spawnAt(pointer.x, pointer.y);
+      }
+    }
+
+    for (let i = 0; i < stars.length; i++) {
+      const s = stars[i];
+      s.ang += Math.sin(t * 0.11 + s.ph) * 0.05 * dt;
+      let vx = Math.cos(s.ang) * s.spd;
+      let vy = Math.sin(s.ang) * s.spd;
+      if (pointer.active) {
+        const dx = pointer.x - s.x;
+        const dy = pointer.y - s.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < WELL_R && d > 0.001) {
+          const f = (1 - d / WELL_R) * 30 * s.z;
+          s.gx += (dx / d) * f * dt;
+          s.gy += (dy / d) * f * dt;
+        }
+      }
+      s.gx *= Math.max(0, 1 - dt * 0.8);
+      s.gy *= Math.max(0, 1 - dt * 0.8);
+      vx += s.gx;
+      vy += s.gy;
+      s.x += vx * dt;
+      s.y += vy * dt;
+      if (s.x < -24) s.x = W + 22;
+      if (s.x > W + 24) s.x = -22;
+      if (s.y < -24) s.y = H + 22;
+      if (s.y > H + 24) s.y = -22;
+    }
+
+    linkClock += dt;
+    if (linkClock >= LINK_PERIOD) {
+      linkClock = 0;
+      const n = stars.length;
+      const target = new Map();
+      for (let i = 0; i < n; i++) {
+        const a = stars[i];
+        for (let j = i + 1; j < n; j++) {
+          const b = stars[j];
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < LINK_DIST * LINK_DIST) {
+            const d = Math.sqrt(d2);
+            let al = 1 - d / LINK_DIST;
+            al = al * al * 0.55;
+            if (a.named || b.named) al = Math.min(0.9, al * 1.6);
+            target.set(i * 2000 + j, al);
+          }
+        }
+      }
+      for (const e of target) {
+        const key = e[0];
+        let cur = links.get(key);
+        if (cur === undefined) cur = e[1] * 0.35;
+        links.set(key, cur + (e[1] - cur) * 0.6);
+      }
+      const stale = [];
+      for (const e of links) {
+        if (!target.has(e[0])) stale.push(e[0]);
+      }
+      for (let i = 0; i < stale.length; i++) {
+        const key = stale[i];
+        const v = links.get(key);
+        const nv = v + (0 - v) * 0.45;
+        if (nv < 0.012) links.delete(key);
+        else links.set(key, nv);
+      }
+      let count = 0;
+      for (const e of links) { if (e[1] > 0.04) count++; }
+      lcount.textContent = String(count).padStart(3, "0");
+    }
+  }
+
+  function render() {
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "#070b18";
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.lineWidth = 0.6;
+    for (const e of links) {
+      const key = e[0];
+      const a = e[1];
+      if (a < 0.01) continue;
+      const i = Math.floor(key / 2000);
+      const j = key % 2000;
+      if (i >= stars.length || j >= stars.length) continue;
+      const sa = stars[i];
+      const sb = stars[j];
+      ctx.strokeStyle = "rgba(146,182,255," + a.toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.moveTo(sa.x + par.x * (sa.z - 0.5), sa.y + par.y * (sa.z - 0.5));
+      ctx.lineTo(sb.x + par.x * (sb.z - 0.5), sb.y + par.y * (sb.z - 0.5));
+      ctx.stroke();
+    }
+
+    for (let i = 0; i < stars.length; i++) {
+      const s = stars[i];
+      const twinkle = 0.72 + 0.28 * Math.sin(t * s.tw + s.ph);
+      let a = (0.35 + s.z * 0.65) * twinkle;
+      if (s.named) a = 0.9 + 0.1 * Math.sin(t * s.tw + s.ph);
+      const px = s.x + par.x * (s.z - 0.5);
+      const py = s.y + par.y * (s.z - 0.5);
+      const cr = s.named ? 214 : 190;
+      const cg = s.named ? 226 : 204;
+      const cb = s.named ? 255 : 232;
+      ctx.fillStyle = "rgba(" + cr + "," + cg + "," + cb + "," + a.toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.arc(px, py, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < stars.length; i++) {
+      const s = stars[i];
+      if (!s.named && s.z < 0.9) continue;
+      const px = s.x + par.x * (s.z - 0.5);
+      const py = s.y + par.y * (s.z - 0.5);
+      const pulse = s.named ? 0.75 + 0.25 * Math.sin(t * s.tw + s.ph) : 0.5;
+      ctx.shadowBlur = s.named ? 16 : 8;
+      ctx.shadowColor = "rgba(180,210,255," + (0.7 * pulse).toFixed(3) + ")";
+      ctx.fillStyle = s.named
+        ? "rgba(235,244,255," + (0.85 * pulse).toFixed(3) + ")"
+        : "rgba(200,216,255," + (0.35 * pulse).toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.arc(px, py, s.r * (s.named ? 1.05 : 0.8), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      if (s.named) {
+        ctx.font = "600 8.5px system-ui, sans-serif";
+        ctx.fillStyle = "rgba(199,216,245," + (0.55 + 0.3 * pulse).toFixed(3) + ")";
+        ctx.textAlign = "center";
+        ctx.fillText(s.name, px, py - s.r - 7);
+      }
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    try {
+      let dt = (now - last) / 1000;
+      last = now;
+      if (dt > 0.06) dt = 0.06;
+      if (dt <= 0) dt = 0.016;
+      t += dt;
+      step(dt);
+      render();
+    } catch (err) {
+      /* keep the loop alive */
+    }
+  }
+
+  canvas.addEventListener("pointermove", (e) => {
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+    pointer.active = true;
+  });
+  canvas.addEventListener("pointerdown", (e) => {
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+    pointer.active = true;
+    spawnAt(pointer.x, pointer.y);
+  });
+  canvas.addEventListener("pointerleave", () => { pointer.active = false; });
+  canvas.addEventListener("pointercancel", () => { pointer.active = false; });
+  window.addEventListener("blur", () => { pointer.active = false; });
+  window.addEventListener("resize", fit);
+
+  fit();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

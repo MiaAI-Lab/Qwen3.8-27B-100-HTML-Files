@@ -1,0 +1,9 @@
+TITLE: Ink Bloom
+
+PROMPT: INK BLOOM - ink drops in water. Dark #0b0d12; each click drops ink: 300-600 particles burst in a ring, advected by a slowly time-evolving 2-octave curl-noise field, fading over 8-14s with long soft trails (translucent bg fade rect, no full clear). Ink color cycles a palette (indigo #3b4fd8, gold #e0b13f, crimson #c22e3a, teal #2fa3a3) per drop. Auto-drops one every 4s until first user interaction. Vignette + faint grain overlay. Meditative, fluid, premium. Keep particle budget under 4000 live.
+
+DESCRIPTION: A meditative full-screen water pool on near-black. Every click (or the automatic 4-second heartbeat) blooms a ring of 300-600 particles whose ink color cycles indigo, gold, crimson and teal. Particles drift through a slowly evolving 2-octave curl-noise field, each drawn as a short soft stroke from its previous position so the canvas accumulates long translucent trails — the background only ever fades, never clears. A radial vignette and a faint animated film-grain pattern overlay give it a premium, quiet finish.
+
+TECHNIQUES: particle system with capped live budget (~3600, hard cap logic), ring burst emission, divergence-free curl-noise advection built from bilinear-interpolated value noise with time-evolving octave blends, additive-feel soft stroke trails via translucent fade rect instead of clear, per-particle life fade over 8-14s, procedural grain pattern tile, radial vignette gradient, pointer-driven spawning.
+
+INTERACTION: Click/tap anywhere drops a ring of ink (palette cycles per drop). The scene auto-drops every 4 seconds until the first user interaction. No other controls.

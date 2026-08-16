@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Glass Parlor</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background-color: #f7e8ec;
+    background-image: radial-gradient(circle, rgba(214, 143, 158, 0.18) 2.6px, transparent 3.4px);
+    background-size: 38px 38px;
+    color: #5c2f3c;
+    overflow-x: hidden;
+  }
+  header {
+    text-align: center;
+    padding: clamp(1.2rem, 4vh, 2.6rem) 1rem .4rem;
+  }
+  h1 {
+    font-size: clamp(2rem, 6.5vw, 3.6rem);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #a3405c;
+    display: inline-flex;
+    align-items: center;
+    gap: .45em;
+  }
+  .cherry {
+    position: relative;
+    width: .52em;
+    height: .52em;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 30%, #ef6d8b, #c22b4e 62%, #8f1734);
+    flex: none;
+  }
+  .cherry::before {
+    content: "";
+    position: absolute;
+    left: 46%;
+    bottom: 78%;
+    width: .08em;
+    height: .6em;
+    background: #4a7c3f;
+    border-radius: 4px;
+    transform: rotate(24deg);
+  }
+  .tagline {
+    margin-top: .5rem;
+    font-size: clamp(.7rem, 1.8vw, .85rem);
+    letter-spacing: .32em;
+    text-transform: uppercase;
+    color: #c98ba0;
+    font-weight: 600;
+  }
+  .stage {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(1.1rem, 3.5vw, 2.6rem);
+    padding: clamp(1.4rem, 4vh, 2.4rem) 1rem 2rem;
+  }
+  .cup {
+    position: relative;
+    width: 150px;
+    cursor: pointer;
+    transition: transform .45s cubic-bezier(.2, .9, .3, 1.35);
+  }
+  .cup:hover { transform: translateY(-13px); }
+  .glass {
+    position: relative;
+    width: 150px;
+    height: 184px;
+    border-radius: 18px 18px 52px 52px;
+    background: rgba(255, 255, 255, .12);
+    border: 2px solid rgba(255, 255, 255, .6);
+    box-shadow: inset 0 0 22px rgba(255, 255, 255, .35),
+                inset 6px 0 12px rgba(163, 64, 92, .07),
+                0 14px 22px rgba(163, 64, 92, .14);
+    overflow: hidden;
+  }
+  .streak {
+    position: absolute;
+    top: 10px;
+    width: 9px;
+    height: 120px;
+    background: linear-gradient(rgba(255,255,255,.85), rgba(255,255,255,0));
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .streak-a { left: 22px; transform: rotate(7deg); opacity: .8; }
+  .streak-b { left: 38px; width: 4px; height: 84px; transform: rotate(5deg); opacity: .55; }
+  .scoop {
+    position: absolute;
+    width: 82px;
+    height: 82px;
+    border-radius: 50%;
+    background: linear-gradient(150deg, var(--lite) 47%, var(--main) 47%);
+    box-shadow: inset -8px -10px 14px rgba(90, 40, 60, .18),
+                inset 6px 8px 10px rgba(255, 255, 255, .5),
+                0 4px 8px rgba(90, 40, 60, .12);
+    transform-origin: 50% 92%;
+    z-index: 2;
+  }
+  .scoop-bottom { bottom: 62px; left: 32px; }
+  .scoop-top    { bottom: 98px; left: 37px; z-index: 3; }
+  .cup:hover .scoop-top { animation: wobble .9s ease-in-out infinite; }
+  .cup:hover .scoop-bottom { animation: wobble .9s ease-in-out infinite .14s; }
+  @keyframes wobble {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-4.5deg); }
+    75% { transform: rotate(4.5deg); }
+  }
+  .drip {
+    position: absolute;
+    top: 132px;
+    width: 7px;
+    height: 9px;
+    border-radius: 4px;
+    background: var(--drip);
+    z-index: 4;
+    pointer-events: none;
+  }
+  .drip-l { left: 42%; }
+  .drip-r { left: 63%; }
+  .drizzle {
+    position: absolute;
+    top: 4px;
+    left: 0;
+    width: 100%;
+    height: 74px;
+    z-index: 6;
+    pointer-events: none;
+  }
+  .drizzle path {
+    fill: none;
+    stroke: #5a3a22;
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+  }
+  .cherry-slot {
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    width: 48px;
+    height: 48px;
+    transform: translateX(-50%) scale(.3);
+    opacity: 0;
+    transition: transform .5s cubic-bezier(.2, .9, .3, 1.5), opacity .3s;
+    z-index: 7;
+    pointer-events: none;
+  }
+  .stage.sundae .cherry-slot { transform: translateX(-50%) scale(1); opacity: 1; }
+  .cherry-slot svg { display: block; }
+  .burst-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    pointer-events: none;
+  }
+  .burst-dot {
+    position: absolute;
+    top: 118px;
+    width: 7px;
+    height: 9px;
+    border-radius: 4px;
+    opacity: .95;
+    animation: burst .8s ease-in forwards;
+  }
+  @keyframes burst {
+    to { transform: translateY(var(--fall, 44px)); opacity: 0; }
+  }
+  .chip {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%) translateY(6px) scale(.4);
+    background: #fff;
+    border: 2px solid var(--main);
+    color: var(--ink, #5c2f3c);
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    padding: .35em .8em;
+    border-radius: 999px;
+    box-shadow: 0 6px 12px rgba(163, 64, 92, .22);
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 9;
+  }
+  .chip.pop { animation: chipPop 1.35s cubic-bezier(.2, .9, .3, 1.2) forwards; }
+  @keyframes chipPop {
+    0%   { opacity: 0; transform: translateX(-50%) translateY(10px) scale(.35); }
+    18%  { opacity: 1; transform: translateX(-50%) translateY(-14px) scale(1.12); }
+    32%  { transform: translateX(-50%) translateY(-18px) scale(1); }
+    78%  { opacity: 1; transform: translateX(-50%) translateY(-18px) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-30px) scale(.85); }
+  }
+  .actions {
+    display: flex;
+    justify-content: center;
+    padding: .2rem 1rem 1rem;
+  }
+  #sundae {
+    font: 800 .85rem/1 system-ui, sans-serif;
+    letter-spacing: .28em;
+    text-transform: uppercase;
+    color: #a3405c;
+    background: #fff;
+    border: 2px solid #a3405c;
+    border-radius: 999px;
+    padding: .85em 2.1em;
+    cursor: pointer;
+    box-shadow: 0 6px 14px rgba(163, 64, 92, .18);
+    transition: transform .2s, box-shadow .2s, background .2s, color .2s;
+  }
+  #sundae:hover { transform: translateY(-2px); box-shadow: 0 10px 18px rgba(163, 64, 92, .26); }
+  #sundae:active { transform: translateY(1px); }
+  .stage.sundae-active #sundae { background: #a3405c; color: #fff; }
+  footer {
+    text-align: center;
+    padding: 0 1rem clamp(1rem, 3vh, 1.8rem);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .42em;
+    text-transform: uppercase;
+    color: #b76c7d;
+  }
+  @media (max-width: 420px) {
+    .cup { width: 132px; }
+    .glass { width: 132px; height: 168px; }
+    .scoop { width: 72px; height: 72px; }
+    .scoop-bottom { left: 28px; bottom: 56px; }
+    .scoop-top { left: 32px; bottom: 88px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>The Glass <span class="cherry" aria-hidden="true"></span> Parlor</h1>
+  <p class="tagline">Hand-poured &middot; small batch &middot; glassware</p>
+</header>
+
+<main class="stage" id="stage">
+  <article class="cup" data-name="Vanilla" data-drip="#e4d9be" tabindex="0"
+           style="--main:#f4efe4; --lite:#fffaf0; --ink:#8a7b55; --drip:#e4d9be;">
+    <div class="glass">
+      <div class="scoop scoop-bottom"></div>
+      <div class="scoop scoop-top"></div>
+      <div class="drip drip-l"></div>
+      <div class="drip drip-r"></div>
+      <div class="streak streak-a"></div>
+      <div class="streak streak-b"></div>
+      <div class="drizzle"><svg viewBox="0 0 150 74" width="150" height="74"><path pathLength="100" d="M8 16 L30 40 L52 14 L74 44 L96 16 L118 42 L142 18"/></svg></div>
+      <div class="cherry-slot"></div>
+      <div class="burst-layer"></div>
+    </div>
+    <div class="chip"></div>
+  </article>
+
+  <article class="cup" data-name="Strawberry" data-drip="#e27f90" tabindex="0"
+           style="--main:#f2a4b0; --lite:#f9d3da; --ink:#a13a52; --drip:#e27f90;">
+    <div class="glass">
+      <div class="scoop scoop-bottom"></div>
+      <div class="scoop scoop-top"></div>
+      <div class="drip drip-l"></div>
+      <div class="drip drip-r"></div>
+      <div class="streak streak-a"></div>
+      <div class="streak streak-b"></div>
+      <div class="drizzle"><svg viewBox="0 0 150 74" width="150" height="74"><path pathLength="100" d="M8 16 L30 40 L52 14 L74 44 L96 16 L118 42 L142 18"/></svg></div>
+      <div class="cherry-slot"></div>
+      <div class="burst-layer"></div>
+    </div>
+    <div class="chip"></div>
+  </article>
+
+  <article class="cup" data-name="Mint" data-drip="#6cbf94" tabindex="0"
+           style="--main:#a8e0c0; --lite:#d4f2e0; --ink:#2f7a55; --drip:#6cbf94;">
+    <div class="glass">
+      <div class="scoop scoop-bottom"></div>
+      <div class="scoop scoop-top"></div>
+      <div class="drip drip-l"></div>
+      <div class="drip drip-r"></div>
+      <div class="streak streak-a"></div>
+      <div class="streak streak-b"></div>
+      <div class="drizzle"><svg viewBox="0 0 150 74" width="150" height="74"><path pathLength="100" d="M8 16 L30 40 L52 14 L74 44 L96 16 L118 42 L142 18"/></svg></div>
+      <div class="cherry-slot"></div>
+      <div class="burst-layer"></div>
+    </div>
+    <div class="chip"></div>
+  </article>
+
+  <article class="cup" data-name="Chocolate" data-drip="#5f3b25" tabindex="0"
+           style="--main:#8a5a3a; --lite:#a97a55; --ink:#4a2d1a; --drip:#5f3b25;">
+    <div class="glass">
+      <div class="scoop scoop-bottom"></div>
+      <div class="scoop scoop-top"></div>
+      <div class="drip drip-l"></div>
+      <div class="drip drip-r"></div>
+      <div class="streak streak-a"></div>
+      <div class="streak streak-b"></div>
+      <div class="drizzle"><svg viewBox="0 0 150 74" width="150" height="74"><path pathLength="100" d="M8 16 L30 40 L52 14 L74 44 L96 16 L118 42 L142 18"/></svg></div>
+      <div class="cherry-slot"></div>
+      <div class="burst-layer"></div>
+    </div>
+    <div class="chip"></div>
+  </article>
+</main>
+
+<div class="actions">
+  <button id="sundae" type="button">Sundae</button>
+</div>
+<footer>Est. 1962 &ndash; 4 Flavors</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var stage = document.getElementById("stage");
+  var cups = Array.prototype.slice.call(stage.querySelectorAll(".cup"));
+  var paths = Array.prototype.slice.call(stage.querySelectorAll(".drizzle path"));
+
+  var CHERRY_SVG =
+    '<svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true">' +
+    '<path d="M24 20 C 26 10 33 5 41 3" stroke="#4a7c3f" stroke-width="2.6" fill="none" stroke-linecap="round"/>' +
+    '<circle cx="19" cy="28" r="12" fill="#c22b4e"/>' +
+    '<circle cx="15" cy="24" r="3.6" fill="#f291a8" opacity="0.85"/>' +
+    '</svg>';
+
+  cups.forEach(function (cup) {
+    cup.querySelector(".cherry-slot").innerHTML = CHERRY_SVG;
+  });
+
+  var drips = [];
+  cups.forEach(function (cup) {
+    var list = cup.querySelectorAll(".drip");
+    for (let j = 0; j < list.length; j++) {
+      drips.push({
+        el: list[j],
+        phase: Math.random(),
+        speed: 0.00013 + Math.random() * 0.00009
+      });
+    }
+  });
+
+  function setDrizzle(offset) {
+    for (let k = 0; k < paths.length; k++) {
+      paths[k].style.strokeDashoffset = String(offset * 100);
+    }
+  }
+
+  let drizzling = false;
+  let drizzleStart = 0;
+  let t0 = performance.now();
+  let last = t0;
+
+  function frame(now) {
+    try {
+      let t = now - t0;
+      for (let j = 0; j < drips.length; j++) {
+        let d = drips[j];
+        let p = ((t * d.speed) + d.phase) % 1;
+        let e = p * p;
+        let top = 132 - e * 84;
+        d.el.style.top = top + "px";
+        d.el.style.height = (8 + e * 13) + "px";
+        d.el.style.opacity = p > 0.94 ? String(Math.max(0, (1 - p) / 0.06)) : "0.95";
+      }
+      if (drizzling) {
+        let q = Math.min(1, (now - drizzleStart) / 1400);
+        let ease = 1 - Math.pow(1 - q, 2);
+        setDrizzle(1 - ease);
+        if (q >= 1) drizzling = false;
+      }
+    } catch (err) {
+      last = now;
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  function burst(cup) {
+    let layer = cup.querySelector(".burst-layer");
+    let color = cup.getAttribute("data-drip");
+    for (let k = 0; k < 7; k++) {
+      let dot = document.createElement("span");
+      dot.className = "burst-dot";
+      dot.style.left = (20 + Math.random() * 100) + "px";
+      dot.style.background = color;
+      dot.style.setProperty("--fall", (30 + Math.random() * 46) + "px");
+      dot.style.animationDelay = (Math.random() * 0.12) + "s";
+      layer.appendChild(dot);
+      dot.addEventListener("animationend", function () { dot.remove(); });
+    }
+  }
+
+  cups.forEach(function (cup) {
+    cup.addEventListener("click", function () {
+      let chip = cup.querySelector(".chip");
+      chip.textContent = cup.getAttribute("data-name");
+      chip.classList.remove("pop");
+      void chip.offsetWidth;
+      chip.classList.add("pop");
+      burst(cup);
+    });
+    cup.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        cup.dispatchEvent(new Event("click"));
+      }
+    });
+  });
+
+  let sundaeOn = false;
+  let btn = document.getElementById("sundae");
+  btn.addEventListener("click", function () {
+    sundaeOn = !sundaeOn;
+    stage.classList.toggle("sundae", sundaeOn);
+    stage.classList.toggle("sundae-active", sundaeOn);
+    if (sundaeOn) {
+      drizzling = true;
+      drizzleStart = performance.now();
+      btn.textContent = "No Sundae";
+    } else {
+      setDrizzle(1);
+      btn.textContent = "Sundae";
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<title>017 · Rose Window</title>
+<style>
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;overflow:hidden;background:var(--bg);color:var(--hudInk);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;transition:background-color 1.2s ease}
+.preset-noon{--bg:#ece2cd;--l1:#fff8e0;--l2:#ffd98a;--l3:#a8d8ff;--winF:brightness(1.08) saturate(1.05);--hudInk:#17181a;--vigO:.38}
+.preset-dusk{--bg:#241a2e;--l1:#ff9e5e;--l2:#c86bff;--l3:#4f74e3;--winF:brightness(.92) saturate(1.18);--hudInk:#efe4ff;--vigO:.62}
+.preset-storm{--bg:#0d1216;--l1:#6f95b5;--l2:#3e5a6e;--l3:#9fb4c2;--winF:brightness(.7) saturate(.88);--hudInk:#c9d8e2;--vigO:.8}
+.leak{position:fixed;border-radius:50%;filter:blur(70px);pointer-events:none;transition:background 1.2s ease;animation:lp 16s ease-in-out infinite}
+.leak-a{width:62vmax;height:62vmax;left:-16vmax;top:-18vmax;background:radial-gradient(closest-side,var(--l1),transparent 72%);animation-duration:14s}
+.leak-b{width:54vmax;height:54vmax;right:-14vmax;top:16vh;background:radial-gradient(closest-side,var(--l2),transparent 70%);animation-duration:19s;animation-delay:-6s}
+.leak-c{width:58vmax;height:58vmax;left:6vw;bottom:-22vmax;background:radial-gradient(closest-side,var(--l3),transparent 70%);animation-duration:23s;animation-delay:-11s}
+@keyframes lp{0%{opacity:.3;transform:scale(1)}50%{opacity:.64;transform:scale(1.15)}100%{opacity:.34;transform:scale(.95)}}
+.stage{position:fixed;inset:0;display:grid;place-items:center;touch-action:none;cursor:grab}
+.stage.grab{cursor:grabbing}
+.win{width:min(88vmin,880px);filter:var(--winF) drop-shadow(0 28px 70px rgba(0,0,0,.45));transition:filter 1.2s ease}
+.win svg{display:block;width:100%;height:auto}
+.shine{animation:shineP 6.5s ease-in-out infinite alternate}
+@keyframes shineP{from{opacity:.15}to{opacity:.5}}
+.motto{font-family:Georgia,'Times New Roman',serif;font-weight:600}
+.vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(120% 120% at 50% 42%,transparent 52%,rgba(0,0,0,.5) 100%);opacity:var(--vigO);transition:opacity 1.2s ease}
+.hud{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding:20px 24px;pointer-events:none}
+.cap{pointer-events:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10px;font-weight:600;letter-spacing:.34em;text-transform:uppercase;line-height:1.9}
+.cap .idx{font-size:14px;letter-spacing:.3em}
+.cap .sub{display:block;opacity:.55;letter-spacing:.24em;font-size:9px}
+.hint{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);font-family:ui-monospace,monospace;font-size:9px;letter-spacing:.4em;opacity:.45;pointer-events:none;white-space:nowrap}
+.chips{pointer-events:auto;display:flex;gap:8px}
+.chip{background:transparent;border:1px solid currentColor;color:var(--hudInk);letter-spacing:.28em;font-family:ui-monospace,monospace;font-size:10px;font-weight:600;padding:10px 16px;border-radius:2px;cursor:pointer;transition:background .5s ease,color .5s ease,border-color .5s ease}
+.chip:hover{opacity:.75}
+.chip.is-on{color:var(--bg);background:var(--hudInk);border-color:var(--hudInk)}
+@media (max-width:520px){
+.cap .sub{display:none}
+.hint{display:none}
+.hud{flex-direction:column;align-items:stretch;padding:14px}
+.cap{font-size:9px}
+.chips{justify-content:flex-start}
+.win{width:94vmin}
+}
+</style>
+</head>
+<body class="preset-noon">
+<div class="leak leak-a"></div>
+<div class="leak leak-b"></div>
+<div class="leak leak-c"></div>
+<div class="stage" id="stage"><div class="win" id="win"></div></div>
+<div class="vig"></div>
+<div class="hud">
+<div class="cap"><span class="idx">017</span> · <span class="name">Rose Window</span><span class="sub">Generative Stained Glass · Drag to rotate</span></div>
+<div class="chips" role="group" aria-label="Lighting preset">
+<button class="chip is-on" data-p="noon" type="button">NOON</button>
+<button class="chip" data-p="dusk" type="button">DUSK</button>
+<button class="chip" data-p="storm" type="button">STORM</button>
+</div>
+</div>
+<div class="hint">LUX ET VERITAS</div>
+<script>
+(function(){
+"use strict";
+var stage=document.getElementById('stage');
+var win=document.getElementById('win');
+var C=['#b3122e','#1d3a8f','#1f7a5c','#e0a422','#cfd8dc'];
+var MULL='#17181a';
+function flecks(r0,r1,count,seed){
+var f='',i,a,rr;
+for(i=0;i<count;i++){
+a=(i*137.508+seed)%360;
+rr=r0+((i*29.3+seed)%1)* (r1-r0)*0.9;
+f+='<circle cx="'+(500+rr*Math.sin(a*Math.PI/180)).toFixed(1)+'" cy="'+(500-rr*Math.cos(a*Math.PI/180)).toFixed(1)+'" r="'+(1.4+(i%3)*0.9)+'" fill="rgba(255,255,255,0.28)"/>';
+}
+return f;
+}
+function P(r,deg){
+var a=deg*Math.PI/180;
+return (500+r*Math.sin(a)).toFixed(1)+' '+(500-r*Math.cos(a)).toFixed(1);
+}
+function sector(r1,r2,a1,a2){
+return 'M '+P(r2,a1)+' A '+r2+' '+r2+' 0 0 1 '+P(r2,a2)+' L '+P(r1,a2)+' A '+r1+' '+r1+' 0 0 0 '+P(r1,a1)+' Z';
+}
+function lancet(rb,rt,hb,hs,a){
+return 'M '+P(rb,a-hb)+' L '+P(rt-8,a-hs)+' L '+P(rt,a)+' L '+P(rt-8,a+hs)+' L '+P(rb,a+hb)+' A '+rb+' '+rb+' 0 0 0 '+P(rb,a-hb)+' Z';
+}
+var s='<svg viewBox="0 0 1000 1000" role="img"><defs><radialGradient id="shine" cx="50%" cy="38%" r="68%"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/><stop offset="55%" stop-color="#fff8e0" stop-opacity="0.12"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></radialGradient></defs><g id="rot">';
+s+='<circle cx="500" cy="500" r="499" fill="'+MULL+'"/>';
+s+='<circle cx="500" cy="500" r="487" fill="none" stroke="#2c2e33" stroke-width="3"/>';
+s+='<circle cx="500" cy="500" r="478" fill="'+MULL+'"/>';
+for(let i=0;i<12;i++){
+var a=i*30;
+s+='<path d="'+sector(404,472,a-13.4,a+13.4)+'" fill="'+C[(i*2)%5]+'" stroke="'+MULL+'" stroke-width="5" stroke-linejoin="round"/>';
+}
+s+='<circle cx="500" cy="500" r="400" fill="'+MULL+'"/>';
+s+=flecks(404,470,26,7);
+for(let j=0;j<8;j++){
+var b=j*45+22.5;
+s+='<path d="'+lancet(292,390,18,11.5,b)+'" fill="'+C[(j*2+1)%5]+'" stroke="'+MULL+'" stroke-width="5" stroke-linejoin="round"/>';
+}
+s+='<circle cx="500" cy="500" r="286" fill="'+MULL+'"/>';
+s+=flecks(296,386,18,41);
+for(let k=0;k<8;k++){
+var c=k*45;
+s+='<path d="'+lancet(196,276,17,10.5,c)+'" fill="'+C[(k*2+3)%5]+'" stroke="'+MULL+'" stroke-width="5" stroke-linejoin="round"/>';
+}
+s+='<circle cx="500" cy="500" r="190" fill="'+MULL+'"/>';
+s+='<circle cx="500" cy="500" r="184" fill="#cfd8dc"/>';
+s+='<circle cx="500" cy="500" r="184" fill="none" stroke="'+MULL+'" stroke-width="4"/>';
+s+='<path id="tp" d="M 351 500 A 149 149 0 1 1 649 500 A 149 149 0 1 1 351 500" fill="none"/>';
+s+='<text class="motto" fill="'+MULL+'" text-anchor="middle" font-size="30" letter-spacing="9"><textPath href="#tp" startOffset="25%">LUX ET VERITAS</textPath></text>';
+s+='<circle cx="500" cy="500" r="118" fill="'+MULL+'"/>';
+s+='<circle cx="500" cy="500" r="112" fill="#e0a422" stroke="'+MULL+'" stroke-width="3"/>';
+s+='<circle cx="500" cy="500" r="84" fill="#b3122e" stroke="'+MULL+'" stroke-width="3"/>';
+s+='<circle cx="500" cy="500" r="56" fill="#cfd8dc" stroke="'+MULL+'" stroke-width="3"/>';
+s+='<circle cx="500" cy="500" r="30" fill="#1d3a8f" stroke="'+MULL+'" stroke-width="3"/>';
+s+='<circle cx="500" cy="500" r="14" fill="#e0a422"/>';
+s+='<circle cx="500" cy="500" r="478" fill="url(#shine)" class="shine"/>';
+s+='</g></svg>';
+win.innerHTML=s;
+var rot=win.querySelector('#rot');
+var cur=0,vel=0,target=0,dragging=false,lastX=0;
+function endDrag(){dragging=false;stage.classList.remove('grab');}
+stage.addEventListener('pointerdown',function(e){
+dragging=true;lastX=e.clientX;stage.classList.add('grab');
+try{stage.setPointerCapture(e.pointerId);}catch(err){}
+});
+stage.addEventListener('pointermove',function(e){
+if(!dragging)return;
+var dx=e.clientX-lastX;lastX=e.clientX;
+target+=dx*0.35;
+});
+stage.addEventListener('pointerup',endDrag);
+stage.addEventListener('pointercancel',endDrag);
+function frame(){
+try{
+if(!dragging){target+=0.0045;}
+var acc=(target-cur)*0.085;
+vel=(vel+acc)*0.9;
+cur+=vel;
+rot.setAttribute('transform','rotate('+cur.toFixed(3)+' 500 500)');
+}catch(err){}
+requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+var chips=document.querySelectorAll('.chip');
+function setP(p){
+document.body.className='preset-'+p;
+for(let i=0;i<chips.length;i++){
+chips[i].classList.toggle('is-on',chips[i].getAttribute('data-p')===p);
+}
+}
+for(let i=0;i<chips.length;i++){
+chips[i].addEventListener('click',function(){setP(this.getAttribute('data-p'));});
+}
+})();
+</script>
+</body>
+</html>

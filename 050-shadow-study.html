@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>050 — Shadow Study</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    color:#3a3128;background:#f2e8d8;
+    background:radial-gradient(120% 90% at 50% 36%,#f8f0e1 0%,#f2e8d8 52%,#e4d6bd 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:100dvh;overflow:hidden;
+  }
+  .board{
+    position:relative;width:min(76vmin,620px);aspect-ratio:1;cursor:pointer;
+  }
+  .board svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #ghost{opacity:0;transition:opacity .45s ease}
+  #ghost.show{opacity:1}
+  #piece{transition:opacity .45s ease}
+  #piece.fade{opacity:0}
+  .controls{
+    display:flex;align-items:center;gap:clamp(14px,3vw,30px);flex-wrap:wrap;justify-content:center;
+    margin-top:clamp(14px,3vh,30px);max-width:92vw;
+  }
+  .lightblock{display:flex;align-items:center;gap:10px}
+  .lab{font-size:10px;letter-spacing:.28em;color:rgba(58,49,40,.55)}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:clamp(150px,26vw,240px);height:3px;
+    background:rgba(58,49,40,.25);border-radius:2px;outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;
+    background:#3a3128;border:3px solid #f2e8d8;box-shadow:0 1px 5px rgba(0,0,0,.35);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:13px;height:13px;border-radius:50%;background:#3a3128;border:3px solid #f2e8d8;
+  }
+  .deg{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;min-width:40px}
+  .chips{display:flex;gap:8px}
+  .chip{
+    font-size:10px;letter-spacing:.24em;padding:9px 15px;border-radius:999px;
+    border:1px solid rgba(58,49,40,.3);background:transparent;color:#3a3128;
+    cursor:pointer;transition:background .25s,color .25s,border-color .25s;font-family:inherit;
+  }
+  .chip:hover{border-color:#3a3128}
+  .chip.on{background:#3a3128;color:#f6efe2;border-color:#3a3128}
+  .caption{
+    margin-top:clamp(16px,3vh,30px);text-align:center;
+    font-family:Georgia,'Times New Roman',serif;font-style:italic;
+    font-size:clamp(16px,2.6vw,23px);color:rgba(58,49,40,.85);letter-spacing:.03em;
+  }
+  .caption small{
+    display:block;margin-top:8px;font-style:normal;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:10px;letter-spacing:.32em;color:rgba(58,49,40,.42);
+  }
+</style>
+</head>
+<body>
+  <div class="board" id="board" role="img" aria-label="Study of a chess king under a single moving light">
+    <svg id="piece" viewBox="0 0 600 600" aria-hidden="true"></svg>
+    <svg id="ghost" viewBox="0 0 600 600" aria-hidden="true"></svg>
+  </div>
+
+  <div class="controls">
+    <div class="lightblock">
+      <span class="lab">LIGHT</span>
+      <input type="range" id="light" min="0" max="360" value="135" step="1" aria-label="light angle">
+      <span class="deg" id="deg">135&#176;</span>
+    </div>
+    <div class="chips" role="group" aria-label="material">
+      <button class="chip" data-m="bone">BONE</button>
+      <button class="chip" data-m="bronze">BRONZE</button>
+      <button class="chip" data-m="ebony">EBONY</button>
+    </div>
+  </div>
+
+  <div class="caption">STUDY I &#8212; THE KING, ONE LIGHT
+    <small>050 &#183; shadow study</small>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  var piece=document.getElementById("piece");
+  var ghost=document.getElementById("ghost");
+  var board=document.getElementById("board");
+  var lightEl=document.getElementById("light");
+  var degEl=document.getElementById("deg");
+
+  // ---- palettes: [silhouette, bandA, bandB, bandC]
+  var STUDY=["#17181a","#2a2c33","#3d4080","#6b7080"];
+  var PALS={
+    bone:  ["#d8cfc0","#f4efe4","#e9e1d1","#c7bba8"],
+    bronze:["#8a6a2f","#c8a05a","#e0be77","#a8843e"],
+    ebony: ["#1c1d22","#3a3d47","#52565f","#2a2c33"]
+  };
+  var pal=STUDY;
+
+  // ---- king silhouette path (symmetric about x=300, base at y=518)
+  var KING="M292,116 L308,116 L308,140 L332,140 L332,160 L308,160 L308,198 "
+    + "C334,204 350,218 354,240 C356,254 350,264 346,270 L346,282 "
+    + "C346,292 338,296 330,298 L324,304 C322,368 322,424 320,448 "
+    + "L354,470 L370,502 L374,518 L226,518 L230,502 L246,470 L280,448 "
+    + "C278,424 278,368 276,304 L270,298 C262,296 254,292 254,282 L254,270 "
+    + "C250,264 244,254 246,240 C250,218 266,204 292,198 Z";
+
+  // ---- precomputed facet bands & shadow per sampled light angle
+  // boundaries (y) of three horizontal facet slices; tone order rotates by quadrant.
+  var PRE=[];
+  (function precompute(){
+    for(let a=0;a<360;a+=5){
+      var r=a*Math.PI/180;
+      var b1=232+42*Math.sin(r)+10*Math.cos(2*r);
+      var b2=330+34*Math.sin(r+1.1);
+      var b3=436+26*Math.sin(r+2.2);
+      // which tone lands on which slice: rotate by light quadrant
+      var q=Math.round(((a+45)%360)/90)%3;
+      var assign=[(q)%3,(q+1)%3,(q+2)%3];
+      // shadow: direction away from light, length grows as light gets low
+      var elev=Math.abs(Math.sin(r));
+      var len=95+170*(1-elev);
+      var dx=-Math.cos(r), dy=(Math.sin(r)*0.35+0.22);
+      var ang=Math.atan2(dy,dx);
+      var cx=300+dx*len*0.55, cy=516+dy*len*0.55;
+      var rx=len*0.62, ry=34+len*0.14;
+      var ca=Math.cos(ang),sa=Math.sin(ang);
+      var pts=[];
+      for(let i=0;i<18;i++){
+        var u=i/18*Math.PI*2;
+        var ex=Math.cos(u)*rx, ey=Math.sin(u)*ry;
+        pts.push([cx+ex*ca-ey*sa, cy+ex*sa+ey*ca]);
+      }
+      PRE.push({b:[b1,b2,b3],a:assign,len:len,cx:cx,cy:cy,pts:pts});
+    }
+  })();
+
+  function sample(a){
+    var i=Math.round(((a%360)+360)%360/5)%72;
+    return PRE[i];
+  }
+  function ptsStr(p){
+    var s="";
+    for(let i=0;i<p.length;i++){s+=p[i][0].toFixed(1)+","+p[i][1].toFixed(1)+" ";}
+    return s;
+  }
+
+  // build full SVG document: shadow + king + faceted slices
+  function build(a,stretch,wob){
+    var s=sample(a);
+    var stretchMul=stretch||1;
+    var wobY=wob||0;
+    var out=[];
+    out.push('<defs>');
+    out.push('<radialGradient id="shg" cx="50%" cy="42%" r="62%">');
+    out.push('<stop offset="0%" stop-color="rgba(30,23,15,0.50)"/>');
+    out.push('<stop offset="55%" stop-color="rgba(30,23,15,0.20)"/>');
+    out.push('<stop offset="100%" stop-color="rgba(30,23,15,0)"/>');
+    out.push('</radialGradient>');
+    out.push('<clipPath id="kc"><path d="'+KING+'"/></clipPath>');
+    out.push('</defs>');
+    // cast shadow (precomputed polygon, stretched on spin)
+    if(stretchMul!==1){
+      var sp=[];
+      for(let i=0;i<s.pts.length;i++){
+        sp.push([s.cx+(s.pts[i][0]-s.cx)*stretchMul, s.cy+(s.pts[i][1]-s.cy)*stretchMul]);
+      }
+      out.push('<polygon points="'+ptsStr(sp)+'" fill="url(#shg)"/>');
+    }else{
+      out.push('<polygon points="'+ptsStr(s.pts)+'" fill="url(#shg)"/>');
+    }
+    // contact shadow
+    out.push('<ellipse cx="300" cy="519" rx="118" ry="12" fill="rgba(30,23,15,0.30)"/>');
+    // king with wobble scale
+    var sx=(stretch&&stretch<1)?Math.max(0.12,stretch):1;
+    var sy=1-wobY;
+    out.push('<g transform="translate(300 318) scale('+sx.toFixed(3)+' '+sy.toFixed(3)+') translate(-300 -318)">');
+    out.push('<path d="'+KING+'" fill="'+pal[0]+'"/>');
+    // faceted highlight bands, positions precomputed from light angle
+    var b0=150,b1=s.b[0],b2=s.b[1],b3=s.b[2];
+    out.push('<rect x="190" y="'+b0+'" width="220" height="'+(b1-b0).toFixed(1)+'" fill="'+pal[s.a[0]]+'" clip-path="url(#kc)"/>');
+    out.push('<rect x="190" y="'+b1.toFixed(1)+'" width="220" height="'+(b2-b1).toFixed(1)+'" fill="'+pal[s.a[1]]+'" clip-path="url(#kc)"/>');
+    out.push('<rect x="190" y="'+b2.toFixed(1)+'" width="220" height="'+(b3-b2).toFixed(1)+'" fill="'+pal[s.a[2]]+'" clip-path="url(#kc)"/>');
+    out.push('</g>');
+    return out.join("");
+  }
+
+  var angle=135;
+  function render(){
+    var st=null,wob=0;
+    if(spinState.on){
+      var p=spinState.p;
+      st=Math.abs(Math.cos(p*Math.PI*2));
+      wob=0.07*Math.sin(p*Math.PI);
+    }
+    piece.innerHTML=build(angle,spinState.on?st:null,spinState.on?wob:0);
+    degEl.innerHTML=Math.round(angle)+"&#176;";
+  }
+
+  // ---- spin interaction
+  var spinState={on:false,p:0,t0:0};
+  var SPIN_MS=950;
+  board.addEventListener("click",function(){
+    if(spinState.on)return;
+    spinState.on=true;spinState.p=0;spinState.t0=performance.now();
+  });
+  function tick(now){
+    if(spinState.on){
+      spinState.p=Math.min(1,(now-spinState.t0)/SPIN_MS);
+      // ease
+      var e=spinState.p<0.5?2*spinState.p*spinState.p:1-Math.pow(-2*spinState.p+2,2)/2;
+      spinState._e=e;
+      render();
+      if(spinState.p>=1){spinState.on=false;render();}
+    }
+    requestAnimationFrame(tick);
+  }
+  // apply eased progress inside build via hook
+  var origBuild=build;
+  build=function(a,stretch,wob){
+    if(spinState.on){
+      var e=spinState._e||0;
+      stretch=Math.abs(Math.cos(e*Math.PI*2));
+      wob=0.07*Math.sin(e*Math.PI);
+    }
+    return origBuild(a,stretch,wob);
+  };
+
+  lightEl.addEventListener("input",function(){
+    angle=parseFloat(lightEl.value);
+    render();
+  });
+
+  // ---- material chips with crossfade
+  var chips=document.querySelectorAll(".chip");
+  var fading=false;
+  function setChips(mm){
+    for(let i=0;i<chips.length;i++){
+      chips[i].classList.toggle("on",chips[i].getAttribute("data-m")===mm);
+    }
+  }
+  for(let i=0;i<chips.length;i++){
+    chips[i].addEventListener("click",function(){
+      var mm=this.getAttribute("data-m");
+      var next=(mm==="bone")?PALS.bone:(mm==="bronze")?PALS.bronze:PALS.ebony;
+      var cur=pal;
+      var wasOn=this.classList.contains("on");
+      var newPal=wasOn?STUDY:next;
+      if(newPal===cur)return;
+      if(fading)return;
+      fading=true;
+      setChips(wasOn?null:mm);
+      ghost.innerHTML=origBuild(angle,null,0);
+      ghost.style.display="block";
+      // ghost uses new palette: temporarily swap
+      var keep=pal;
+      pal=newPal;
+      ghost.innerHTML=origBuild(angle,null,0);
+      pal=keep;
+      requestAnimationFrame(function(){
+        ghost.classList.add("show");
+        piece.classList.add("fade");
+        setTimeout(function(){
+          pal=newPal;
+          piece.innerHTML=build(angle,null,0);
+          piece.classList.remove("fade");
+          ghost.classList.remove("show");
+          setTimeout(function(){fading=false;},460);
+        },300);
+      });
+    });
+  }
+
+  render();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

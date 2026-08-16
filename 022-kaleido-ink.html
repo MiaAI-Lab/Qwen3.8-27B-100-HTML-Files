@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaleido Ink — 022</title>
+<style>
+:root{
+  --fg:#261d10;
+  --fg-soft:rgba(38,29,16,.55);
+  --panel:rgba(255,252,243,.82);
+  --line:rgba(38,29,16,.24);
+}
+body.dark{
+  --fg:#efe4cf;
+  --fg-soft:rgba(239,228,207,.5);
+  --panel:rgba(16,20,26,.72);
+  --line:rgba(239,228,207,.24);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  overflow:hidden;
+  background:#f3ead8;
+  color:var(--fg);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  transition:background .5s ease;
+}
+#stage{
+  position:fixed;
+  inset:0;
+  width:100vw;
+  height:100dvh;
+  display:block;
+  touch-action:none;
+  cursor:crosshair;
+}
+.hud{
+  position:fixed;
+  top:0;left:0;right:0;
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  padding:clamp(12px,2.2vw,22px) clamp(14px,3vw,28px);
+  pointer-events:none;
+  z-index:3;
+}
+h1{
+  margin:0;
+  font-family:Georgia,'Times New Roman',serif;
+  font-weight:600;
+  font-size:clamp(15px,2.6vw,24px);
+  letter-spacing:.42em;
+}
+.no{
+  font-size:11px;
+  letter-spacing:.3em;
+  color:var(--fg-soft);
+}
+.hint{
+  position:fixed;
+  left:clamp(14px,3vw,28px);
+  top:clamp(54px,8.5vw,86px);
+  font-size:11px;
+  letter-spacing:.18em;
+  color:var(--fg-soft);
+  pointer-events:none;
+  z-index:3;
+  max-width:70vw;
+  line-height:1.7;
+}
+.caption{
+  position:fixed;
+  right:clamp(14px,3vw,28px);
+  top:clamp(54px,8.5vw,86px);
+  font-size:10px;
+  letter-spacing:.3em;
+  color:var(--fg-soft);
+  pointer-events:none;
+  z-index:3;
+  text-align:right;
+  line-height:1.8;
+}
+.deck{
+  position:fixed;
+  left:50%;
+  bottom:clamp(14px,3vh,26px);
+  transform:translateX(-50%);
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+  justify-content:center;
+  padding:10px 16px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:999px;
+  backdrop-filter:blur(8px);
+  z-index:4;
+  max-width:94vw;
+}
+.swatch{
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  border:2px solid var(--line);
+  background:var(--sw);
+  cursor:pointer;
+  padding:0;
+  transition:transform .18s ease,box-shadow .18s ease;
+}
+.swatch:hover{transform:scale(1.14)}
+.swatch.on{
+  box-shadow:0 0 0 3px var(--panel),0 0 0 5px var(--sw);
+  transform:scale(1.08);
+}
+.pill{
+  font-family:inherit;
+  font-size:11px;
+  letter-spacing:.22em;
+  color:var(--fg);
+  background:transparent;
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:9px 16px;
+  cursor:pointer;
+  transition:background .2s ease,border-color .2s ease,transform .12s ease;
+}
+.pill:hover{transform:translateY(-1px)}
+.pill.on{
+  border-color:var(--fg);
+  background:rgba(128,128,128,.22);
+}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div class="hud">
+  <h1>KALEIDO&nbsp;INK</h1>
+  <span class="no">022 / 100</span>
+</div>
+<p class="hint">draw anywhere — the glass multiplies every line eight-fold</p>
+<div class="caption">EIGHT-FOLD MIRROR<br>PAPER · INK · ROTATION</div>
+
+<div class="deck">
+  <button class="swatch on" data-c="#c22e3a" style="--sw:#c22e3a" aria-label="crimson ink"></button>
+  <button class="swatch" data-c="#e0b13f" style="--sw:#e0b13f" aria-label="gold ink"></button>
+  <button class="swatch" data-c="#33408f" style="--sw:#33408f" aria-label="indigo ink"></button>
+  <button class="swatch" data-c="#2f8f6f" style="--sw:#2f8f6f" aria-label="jade ink"></button>
+  <button id="paper" class="pill" aria-pressed="false">PAPER</button>
+  <button id="spin" class="pill" aria-pressed="false">SPIN</button>
+  <button id="clear" class="pill">CLEAR</button>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+var stage=document.getElementById('stage');
+var ctx=stage.getContext('2d');
+var ink=document.createElement('canvas');
+var inkCtx=ink.getContext('2d');
+
+var W=0,H=0,DPR=1;
+var paper='#f3ead8';
+var dark=false;
+var spin=false;
+var spinAngle=0;
+var inkColor='#c22e3a';
+var blot=null;
+var down=false;
+var lastX=0,lastY=0,lastT=0,lastW=9;
+
+function fit(){
+  var old=document.createElement('canvas');
+  old.width=ink.width;old.height=ink.height;
+  if(old.width>0&&old.height>0){old.getContext('2d').drawImage(ink,0,0);}
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=window.innerWidth;H=window.innerHeight;
+  stage.width=Math.max(1,Math.round(W*DPR));
+  stage.height=Math.max(1,Math.round(H*DPR));
+  ink.width=stage.width;ink.height=stage.height;
+  inkCtx.setTransform(DPR,0,0,DPR,0,0);
+  if(old.width>0&&old.height>0){
+    inkCtx.save();
+    inkCtx.setTransform(1,0,0,1,0,0);
+    inkCtx.drawImage(old,0,0,old.width,old.height,0,0,ink.width,ink.height);
+    inkCtx.restore();
+    inkCtx.setTransform(DPR,0,0,DPR,0,0);
+  }
+}
+
+function blotColor(){return dark?'#efe4cf':'#1a140d';}
+function ease(t){return 1-Math.pow(1-t,3);}
+
+function startBlot(){blot={t0:performance.now(),seed:Math.random()*7};}
+
+function drawBlot(now){
+  var t=Math.min(1,(now-blot.t0)/900);
+  var R=(Math.hypot(W,H)*0.6+40)*ease(t)+8;
+  ctx.save();
+  ctx.translate(W/2,H/2);
+  ctx.fillStyle=blotColor();
+  ctx.beginPath();
+  for(var i=0;i<=72;i++){
+    var a=i/72*Math.PI*2;
+    var wob=0.94+0.045*Math.sin(a*3+blot.seed)+0.03*Math.sin(a*7+blot.seed*1.7)+0.015*Math.sin(a*13-blot.seed*2.3);
+    var r=R*wob;
+    if(i===0){ctx.moveTo(r,0);}else{ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);}
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha=0.35;
+  ctx.strokeStyle=blotColor();
+  ctx.lineWidth=14;
+  ctx.stroke();
+  ctx.globalAlpha=1;
+  ctx.restore();
+  if(t>=1){
+    inkCtx.save();
+    inkCtx.setTransform(1,0,0,1,0,0);
+    inkCtx.clearRect(0,0,ink.width,ink.height);
+    inkCtx.restore();
+    inkCtx.setTransform(DPR,0,0,DPR,0,0);
+    blot=null;
+  }
+}
+
+function frame(now){
+  if(W===0){requestAnimationFrame(frame);return;}
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.fillStyle=paper;
+  ctx.fillRect(0,0,W,H);
+  var vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.75);
+  vg.addColorStop(0,'rgba(0,0,0,0)');
+  vg.addColorStop(1,dark?'rgba(0,0,0,0.55)':'rgba(70,50,20,0.14)');
+  ctx.fillStyle=vg;
+  ctx.fillRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(W/2,H/2);
+  ctx.rotate(spinAngle);
+  for(var i=0;i<8;i++){
+    ctx.save();
+    ctx.rotate(i*Math.PI/4);
+    if(i&1){ctx.scale(1,-1);}
+    ctx.drawImage(ink,-W/2,-H/2,W,H);
+    ctx.restore();
+  }
+  ctx.restore();
+  if(spin){spinAngle+=0.0016;}
+  ctx.save();
+  ctx.translate(W/2,H/2);
+  ctx.strokeStyle=inkColor;
+  ctx.lineWidth=1.5;
+  ctx.globalAlpha=0.9;
+  ctx.beginPath();
+  ctx.arc(0,0,10,0,Math.PI*2);
+  ctx.stroke();
+  ctx.globalAlpha=1;
+  ctx.fillStyle=paper;
+  ctx.beginPath();
+  ctx.arc(0,0,4,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  if(blot){drawBlot(now);}
+  requestAnimationFrame(frame);
+}
+
+function pt(e){
+  var rc=stage.getBoundingClientRect();
+  return {x:e.clientX-rc.left,y:e.clientY-rc.top};
+}
+
+function stampDot(p){
+  inkCtx.fillStyle=inkColor;
+  inkCtx.globalAlpha=0.28;
+  inkCtx.beginPath();
+  inkCtx.arc(p.x,p.y,lastW*1.2,0,Math.PI*2);
+  inkCtx.fill();
+  inkCtx.globalAlpha=0.92;
+  inkCtx.beginPath();
+  inkCtx.arc(p.x,p.y,lastW*0.55,0,Math.PI*2);
+  inkCtx.fill();
+  inkCtx.globalAlpha=1;
+}
+
+function stampSegment(ax,ay,bx,by){
+  var dist=Math.hypot(bx-ax,by-ay);
+  if(dist===0){return;}
+  var n=Math.max(1,Math.ceil(dist/5));
+  var px,py;
+  inkCtx.lineCap='round';
+  inkCtx.lineJoin='round';
+  inkCtx.strokeStyle=inkColor;
+  inkCtx.globalAlpha=0.28;
+  inkCtx.lineWidth=lastW*2.4;
+  inkCtx.beginPath();
+  inkCtx.moveTo(ax,ay);
+  for(var s=1;s<=n;s++){
+    px=ax+(bx-ax)*s/n;
+    py=ay+(by-ay)*s/n;
+    inkCtx.lineTo(px,py);
+  }
+  inkCtx.stroke();
+  inkCtx.globalAlpha=0.92;
+  inkCtx.lineWidth=lastW;
+  inkCtx.beginPath();
+  inkCtx.moveTo(ax,ay);
+  for(var u=1;u<=n;u++){
+    px=ax+(bx-ax)*u/n;
+    py=ay+(by-ay)*u/n;
+    inkCtx.lineTo(px,py);
+  }
+  inkCtx.stroke();
+  inkCtx.globalAlpha=1;
+}
+
+stage.addEventListener('pointerdown',function(e){
+  e.preventDefault();
+  down=true;
+  var p=pt(e);
+  lastX=p.x;lastY=p.y;
+  lastT=performance.now();
+  lastW=9;
+  stampDot(p);
+  try{stage.setPointerCapture(e.pointerId);}catch(err){}
+});
+window.addEventListener('pointermove',function(e){
+  if(!down){return;}
+  var p=pt(e);
+  var now=performance.now();
+  var dt=Math.max(1,now-lastT);
+  var dist=Math.hypot(p.x-lastX,p.y-lastY);
+  var speed=dist/dt;
+  var target=Math.min(16,3+14*Math.exp(-speed*1.2));
+  lastW+=(target-lastW)*0.35;
+  if(dist>0.4){stampSegment(lastX,lastY,p.x,p.y);}
+  lastX=p.x;lastY=p.y;lastT=now;
+});
+function lift(){down=false;}
+window.addEventListener('pointerup',lift);
+window.addEventListener('pointercancel',lift);
+
+var swatches=document.querySelectorAll('.swatch');
+swatches.forEach(function(b){
+  b.addEventListener('click',function(){
+    inkColor=b.dataset.c;
+    swatches.forEach(function(x){x.classList.toggle('on',x===b);});
+  });
+});
+
+var paperBtn=document.getElementById('paper');
+paperBtn.addEventListener('click',function(){
+  dark=!dark;
+  paper=dark?'#101418':'#f3ead8';
+  document.body.classList.toggle('dark',dark);
+  paperBtn.classList.toggle('on',dark);
+  paperBtn.setAttribute('aria-pressed',dark?'true':'false');
+});
+
+var spinBtn=document.getElementById('spin');
+spinBtn.addEventListener('click',function(){
+  spin=!spin;
+  spinBtn.classList.toggle('on',spin);
+  spinBtn.setAttribute('aria-pressed',spin?'true':'false');
+});
+
+var clearBtn=document.getElementById('clear');
+clearBtn.addEventListener('click',startBlot);
+
+window.addEventListener('resize',fit);
+
+fit();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

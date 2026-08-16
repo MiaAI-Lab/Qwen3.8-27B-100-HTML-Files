@@ -1,0 +1,15 @@
+=== 097 ===
+097-pixel-farm.html
+PIXEL FARM - 10x6 tile farm (48px blocks, canvas or div grid). Tile states: DIRT #7a5a3a -> TILLED (dark rows #5a4028) -> PLANTED (sprout) -> GROWING (2 stages) -> READY (glowing gold crop) -> HARVESTED (+1 coin, back to dirt); unharvested READY crops wither after 30s into WEED (must clear). Tools: TILL / SEED / WATER (growth x1.5, tile shines) / HARVEST. Weather cycles sunny/cloudy (affects growth speed); night = slower. HUD: GOLD count, DAY counter, weather icon. Top row of soil always tilled. Satisfying farm loop, crisp pixel look (image-smoothing off). Caption 'FARM / DAY 3 - GOLD 12'.
+
+=== 098 ===
+098-molecule-spin.html
+MOLECULE SPIN - CSS-3D molecular viewer. Presets: H2O (3 atoms), CH4 (5), C2H5OH ethanol (9: 2 C gray #4a4d55 spheres, 1 O red #d63a3a, 6 H white #f4f4f2 small). Spheres = radial-gradient divs; bonds = thin divs positioned/oriented between atoms each frame (rotate all atom coords by rotX/rotY, project with perspective, stretch bond divs). Auto-rotate + drag to spin with inertia; SPIN slider; PAUSE; LABELS toggle (atom name chips track atoms in 2D). BG #0e1116 faint grid. Caption 'MOLECULE / C2H5OH - 9 ATOMS, LIVE'.
+
+=== 099 ===
+099-neon-zen.html
+NEON ZEN - raked sand garden, dark #14161c. Sand grooves: faint parallel lines #1c1f28 + concentric SVG arc rings around 3 round-rect stones #3d4048 (with top highlight). Drag a stone: it leaves a temporary groove trail that slowly re-rakes (fades over 10s); releasing recenters the rings around all stones. GLOW toggle: all lines take soft neon cyan #27e0ff (shadowBlur) - zen x neon. RIKE button: full re-rake animation (grooves redraw over 1.5s, ripples re-center). Pale moon disc top; one leaf falls slowly on loop. Caption 'ZEN / NEON - 3 STONES, LIVE'. Calm, meditative, precise.
+
+=== 100 ===
+100-the-hundred.html
+THE HUNDRED - gallery finale. A 10x10 grid of 100 tiles, each a distinct generative mini-art rendered once at load (staggered over 2s for perf, offscreen canvases): 10 style families x 10 seeds - (1) gradient mesh discs, (2) concentric ring sets, (3) dot-matrix patterns, (4) stacked sine waves, (5) triangle grids, (6) noise flow fields, (7) radial bursts, (8) checkerboard fades, (9) bezier blob clusters, (10) horizontal bar stacks. Each tile: its index '001'-'100' tiny mono corner. Hover: tile scales 1.08 + name chip. Click: lightbox opens with a LARGER LIVE animated version of that tile's art + 'CLOSE'. BG #0d0d10, hairline grid. Footer: 'THE HUNDRED - A GALLERY OF ONE HUNDRED GENERATIVE ARTS - FIN.' Caption '100/100'.

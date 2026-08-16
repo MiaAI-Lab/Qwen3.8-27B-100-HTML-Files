@@ -1,0 +1,9 @@
+TITLE: Glass Music Box - Cylinder 24
+
+PROMPT: GLASS MUSIC BOX - warm #1c1510. Center: a rotating brass cylinder (#c8a05a, canvas-drawn with rows of pin dots) under a glass dome (translucent circle, rim highlight); 6 note lamps in a row below. WebAudio (gesture-created): as the cylinder spins, pin passes trigger music-box tones (triangle wave, E6/G#6/B6..., 24-note looping melody, precomputed pin schedule) with a gentle decay + slight detune waver. PLAY/PAUSE slows the cylinder to a stop with inertia; SPRING toggle winds it to 2x speed. Each pin pass flashes its lamp + a tiny star glint on the dome. Caption 'MUSIC BOX - CYLINDER 24'.
+
+DESCRIPTION: A warm #1c1510 vignette holds a walnut case with a translucent glass dome (radial highlight + screen-blended rim glow). Under the glass, a canvas-drawn brass cylinder in #c8a05a rotates: six engraved row-rings carry 24 precomputed pin dots on a 24-step schedule, each pin lit as it sweeps the fixed comb at the base. A 24-note E-major music-box melody (E6, G#6, B6, D#7...) is played through gesture-created WebAudio: triangle fundamental plus a chime overtone, gentle exponential decay, a 5.2Hz waver osc and a hair of random detune per note. Six brass lamps below flash in sequence as their pin passes, and each trigger throws a tiny star glint on the dome. A spring meter drains as the tune plays.
+
+TECHNIQUES: canvas radial-gradient brass cylinder, precomputed pin schedule with angular cross detection, fixed comb teeth, WebAudio triangle oscillators with exponential decay, detune waver via LFO, glass dome via CSS radial gradients and mix-blend-mode screen, lamp flash + star glint feedback, spring tension meter
+
+INTERACTION: PLAY/PAUSE eases the cylinder to a stop with inertia (speed lerps, does not snap); SPRING toggles winding to 2x speed and refills the spring; audio context is created on first gesture; every pin pass flashes one of the 6 lamps and a glint on the dome.

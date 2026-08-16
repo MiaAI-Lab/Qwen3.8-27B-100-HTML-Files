@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wave Tank A</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: #060d13;
+    color: #b8cdd8;
+    overflow-x: hidden;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .4rem 1.4rem;
+    padding: clamp(.8rem, 2.4vh, 1.4rem) clamp(1rem, 4vw, 2.4rem) .6rem;
+    border-bottom: 1px solid rgba(120, 180, 200, .16);
+  }
+  .cap {
+    font-size: clamp(.72rem, 1.6vw, .9rem);
+    font-weight: 700;
+    letter-spacing: .34em;
+    text-transform: uppercase;
+    color: #e8f4f8;
+  }
+  .cap em { font-style: normal; color: #27d3f2; }
+  .readout {
+    margin-left: auto;
+    font-size: clamp(.62rem, 1.3vw, .74rem);
+    letter-spacing: .18em;
+    color: #6f93a3;
+  }
+  .readout b { color: #ffd76f; font-weight: 700; }
+  .lab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(.7rem, 2vh, 1.2rem);
+    padding: clamp(.7rem, 2vh, 1.2rem) clamp(1rem, 4vw, 2.4rem);
+  }
+  .tank-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 300px;
+    border: 1px solid rgba(120, 180, 200, .28);
+    box-shadow: inset 0 0 42px rgba(0, 0, 0, .55);
+    background: #0d1a24;
+  }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .tank-tag {
+    position: absolute;
+    top: .55rem;
+    left: .7rem;
+    font-size: .58rem;
+    letter-spacing: .3em;
+    text-transform: uppercase;
+    color: rgba(184, 205, 216, .45);
+    pointer-events: none;
+  }
+  .panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: .9rem 1.2rem;
+  }
+  .ctl {
+    border: 1px solid rgba(120, 180, 200, .16);
+    background: rgba(255, 255, 255, .02);
+    padding: .55rem .7rem .65rem;
+  }
+  .ctl-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: .35rem;
+  }
+  .ctl-head label {
+    font-size: .6rem;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: #7fa4b4;
+  }
+  .ctl-head output {
+    font-size: .66rem;
+    color: #ffd76f;
+    font-weight: 700;
+  }
+  .w1 label { color: #27d3f2; }
+  .w2 label { color: #8fa8ff; }
+  .w3 label { color: #f2efe6; }
+  input[type="range"] {
+    width: 100%;
+    appearance: none;
+    height: 3px;
+    background: rgba(120, 180, 200, .3);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #ffd76f;
+    border: 2px solid #060d13;
+    box-shadow: 0 0 0 1px rgba(255, 215, 111, .5);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #ffd76f;
+    border: 2px solid #060d13;
+  }
+  .impulse-row {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    flex-wrap: wrap;
+  }
+  #impulse {
+    font: 700 .68rem/1 ui-monospace, Menlo, Consolas, monospace;
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    color: #0d1a24;
+    background: #27d3f2;
+    border: none;
+    padding: .7em 1.6em;
+    cursor: pointer;
+    transition: transform .15s, background .15s, box-shadow .15s;
+    box-shadow: 0 0 14px rgba(39, 211, 242, .35);
+  }
+  #impulse:hover { background: #f2efe6; box-shadow: 0 0 18px rgba(242, 239, 230, .4); }
+  #impulse:active { transform: scale(.96); }
+  .note { font-size: .58rem; letter-spacing: .16em; color: #56788a; }
+  footer {
+    padding: .5rem clamp(1rem, 4vw, 2.4rem) .9rem;
+    font-size: .56rem;
+    letter-spacing: .3em;
+    text-transform: uppercase;
+    color: #44606e;
+    border-top: 1px solid rgba(120, 180, 200, .12);
+  }
+</style>
+</head>
+<body>
+<header>
+  <span class="cap">Tank <em>A</em> &mdash; 3 Component Waves</span>
+  <span class="readout">T&nbsp;=&nbsp;<b id="period">4.2</b>&nbsp;s&nbsp;&nbsp;·&nbsp;&nbsp;Σ&nbsp;A&nbsp;=&nbsp;<b id="sumamp">1.0</b></span>
+</header>
+
+<div class="lab">
+  <div class="tank-wrap" id="wrap">
+    <canvas id="tank"></canvas>
+    <span class="tank-tag">Top-down view · tracer grid 200×60</span>
+  </div>
+
+  <div class="panel">
+    <div class="ctl w1">
+      <div class="ctl-head"><label for="w1a">W1 Amp</label><output id="w1ao">0.50</output></div>
+      <input type="range" id="w1a" min="0" max="100" value="50">
+      <div class="ctl-head" style="margin-top:.5rem"><label for="w1f">W1 Freq</label><output id="w1fo">0.90</output></div>
+      <input type="range" id="w1f" min="10" max="300" value="90">
+    </div>
+    <div class="ctl w2">
+      <div class="ctl-head"><label for="w2a">W2 Amp</label><output id="w2ao">0.35</output></div>
+      <input type="range" id="w2a" min="0" max="100" value="35">
+      <div class="ctl-head" style="margin-top:.5rem"><label for="w2f">W2 Freq</label><output id="w2fo">1.70</output></div>
+      <input type="range" id="w2f" min="10" max="300" value="170">
+    </div>
+    <div class="ctl w3">
+      <div class="ctl-head"><label for="w3a">W3 Amp</label><output id="w3ao">0.25</output></div>
+      <input type="range" id="w3a" min="0" max="100" value="25">
+      <div class="ctl-head" style="margin-top:.5rem"><label for="w3f">W3 Freq</label><output id="w3fo">0.45</output></div>
+      <input type="range" id="w3f" min="10" max="300" value="45">
+    </div>
+    <div class="ctl w1">
+      <div class="ctl-head"><label for="damp">Damping</label><output id="dampo">0.00</output></div>
+      <input type="range" id="damp" min="0" max="100" value="0">
+      <div class="impulse-row" style="margin-top:.8rem">
+        <button id="impulse" type="button">Impulse</button>
+        <span class="note">Gaussian packet, travels left → right, decays with damping</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>Hydro Lab · Bench 4 · Sampling 120 Hz · Buoy array 3</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var canvas = document.getElementById("tank");
+  var ctx = canvas.getContext("2d");
+  var wrap = document.getElementById("wrap");
+
+  var NCOLS = 200;
+  var NROWS = 60;
+
+  var sliders = {
+    w1a: document.getElementById("w1a"), w1f: document.getElementById("w1f"),
+    w2a: document.getElementById("w2a"), w2f: document.getElementById("w2f"),
+    w3a: document.getElementById("w3a"), w3f: document.getElementById("w3f"),
+    damp: document.getElementById("damp")
+  };
+  var outs = {
+    w1a: document.getElementById("w1ao"), w1f: document.getElementById("w1fo"),
+    w2a: document.getElementById("w2ao"), w2f: document.getElementById("w2fo"),
+    w3a: document.getElementById("w3ao"), w3f: document.getElementById("w3fo"),
+    damp: document.getElementById("dampo")
+  };
+  var periodEl = document.getElementById("period");
+  var sumampEl = document.getElementById("sumamp");
+  var impulseBtn = document.getElementById("impulse");
+
+  function amp(id) { return (+sliders[id].value) / 100; }
+  function freq(id) { return (+sliders[id].value) / 100; }
+  function damping() { return (+sliders.damp.value) / 100; }
+
+  function readouts() {
+    for (let key in outs) {
+      outs[key].textContent = (key === "damp" ? damping() : (key.endsWith("a") ? amp(key) : freq(key))).toFixed(2);
+    }
+    let omegas = [2 * Math.PI * freq("w1f"), 2 * Math.PI * freq("w2f"), 2 * Math.PI * freq("w3f")];
+    let meanW = omegas[0] + omegas[1] + omegas[2];
+    periodEl.textContent = meanW > 0.01 ? (2 * Math.PI / meanW).toFixed(1) : "∞";
+    sumampEl.textContent = (amp("w1a") + amp("w2a") + amp("w3a")).toFixed(2);
+  }
+
+  for (let key in sliders) {
+    sliders[key].addEventListener("input", readouts);
+  }
+  readouts();
+
+  let W = 0, H = 0, dpr = 1;
+  function fit() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.max(1, wrap.clientWidth);
+    H = Math.max(1, wrap.clientHeight);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  fit();
+  window.addEventListener("resize", fit);
+
+  let impulses = [];
+  impulseBtn.addEventListener("click", function () {
+    impulses.push({ x: -0.06, speed: 0.09 + Math.random() * 0.04, amp: 0.55, width: 0.014 });
+    if (impulses.length > 4) impulses.shift();
+  });
+
+  let t0 = performance.now();
+  let buoy = [
+    { x0: 0.22, drift: 0.0060, r: 5.5 },
+    { x0: 0.52, drift: 0.0042, r: 5.5 },
+    { x0: 0.80, drift: 0.0053, r: 5.5 }
+  ];
+
+  function surface(u, v, t) {
+    let d = damping();
+    let w1 = 2 * Math.PI * freq("w1f") * t;
+    let w2 = 2 * Math.PI * freq("w2f") * t;
+    let w3 = 2 * Math.PI * freq("w3f") * t;
+    let h =
+      amp("w1a") * Math.sin(2 * Math.PI * 0.9 * u - w1 + 0.35 * v) +
+      amp("w2a") * Math.sin(2 * Math.PI * 1.9 * u - w2 - 0.5 * v + 1.2) +
+      amp("w3a") * Math.sin(2 * Math.PI * 0.5 * u - w3 + 0.22 * Math.sin(v + t * 0.13));
+    h *= (1 - 0.55 * d);
+    for (let k = 0; k < impulses.length; k++) {
+      let im = impulses[k];
+      let du = u - im.x;
+      h += im.amp * Math.exp(-(du * du) / (2 * im.width * im.width));
+    }
+    return h;
+  }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    try {
+      let t = (now - t0) / 1000;
+      let d = damping();
+      for (let k = 0; k < impulses.length; k++) {
+        let im = impulses[k];
+        im.x += im.speed * 0.016;
+        im.amp *= Math.pow(1 - 0.35 * d, 0.016 * 60);
+      }
+      let alive = [];
+      for (let k = 0; k < impulses.length; k++) if (impulses[k].x < 1.25 && impulses[k].amp > 0.01) alive.push(impulses[k]);
+      impulses = alive;
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = "#0d1a24";
+      ctx.fillRect(0, 0, W, H);
+
+      let gx = W / 20, gy = H / 12;
+      ctx.strokeStyle = "rgba(140, 200, 220, 0.10)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 1; i < 20; i++) { ctx.moveTo(i * gx, 0); ctx.lineTo(i * gx, H); }
+      for (let j = 1; j < 12; j++) { ctx.moveTo(0, j * gy); ctx.lineTo(W, j * gy); }
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(140, 200, 220, 0.22)";
+      ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+
+      let padX = W * 0.045, padY = H * 0.16;
+      let iw = W - padX * 2, ih = H - padY * 2;
+      let stepX = iw / NCOLS, stepY = ih / NROWS;
+
+      for (let r = 0; r < NROWS; r++) {
+        let v = r / NROWS;
+        let y = padY + r * stepY;
+        for (let c = 0; c < NCOLS; c++) {
+          let u = c / NCOLS;
+          let h = surface(u, v, t);
+          let a = Math.abs(h);
+          if (a < 0.34) continue;
+          let light = Math.min(1, (a - 0.34) / 0.42);
+          let x = padX + c * stepX;
+          if (h > 0) {
+            ctx.fillStyle = "rgba(242, 239, 230, " + light.toFixed(3) + ")";
+          } else {
+            ctx.fillStyle = "rgba(39, 211, 242, " + light.toFixed(3) + ")";
+          }
+          ctx.beginPath();
+          ctx.arc(x, y + h * stepY * 0.9, 1.15, 0, 6.2832);
+          ctx.fill();
+        }
+      }
+
+      let midY = padY + ih * 0.5;
+      for (let b = 0; b < buoy.length; b++) {
+        let bo = buoy[b];
+        let bx = ((bo.x0 + t * bo.drift) % 1);
+        let bh = surface(bx, 0.5, t);
+        let px = padX + bx * iw;
+        let py = midY + bh * ih * 0.22;
+        ctx.strokeStyle = "rgba(255, 215, 111, 0.65)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(px, py - bo.r);
+        ctx.lineTo(px, py - bo.r - 14);
+        ctx.stroke();
+        ctx.fillStyle = "#ffd76f";
+        ctx.beginPath();
+        ctx.arc(px, py, bo.r, 0, 6.2832);
+        ctx.fill();
+        ctx.strokeStyle = "#060d13";
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(px, py, 2, 0, 6.2832);
+        ctx.fillStyle = "#0d1a24";
+        ctx.fill();
+      }
+    } catch (err) {
+      /* guard against silent frame death */
+    }
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

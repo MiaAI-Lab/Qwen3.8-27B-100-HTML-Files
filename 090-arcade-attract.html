@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEON DUNKER - Arcade Attract Mode</title>
+<style>
+  :root {
+    --bezel: #191512;
+    --bezel-hi: #2a241e;
+    --screen: #060b08;
+    --phos: #57ff9a;
+    --phos-dim: #1d5c38;
+    --title-c: #57ff9a;
+    --rgb-r: #ff3b6b;
+    --rgb-c: #38b6ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    min-height: 100dvh;
+    background: #0c0a09;
+    background-image:
+      radial-gradient(ellipse at 50% 18%, rgba(255,120,40,0.07), rgba(0,0,0,0) 55%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0 3px, rgba(0,0,0,0) 3px 7px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(8px, 2vw, 24px);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace;
+    overflow: hidden;
+  }
+  .cab {
+    width: min(96vw, 760px);
+    background: linear-gradient(180deg, var(--bezel-hi), var(--bezel) 22%);
+    border-radius: clamp(10px, 2vw, 18px);
+    border: 1px solid #3a3128;
+    box-shadow:
+      0 30px 60px -20px rgba(0,0,0,0.8),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+    padding: clamp(10px, 2.4vw, 22px);
+  }
+  .screen {
+    position: relative;
+    background: var(--screen);
+    border-radius: clamp(8px, 1.6vw, 14px);
+    border: 1px solid #000;
+    overflow: hidden;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.9), inset 0 0 6px rgba(87,255,154,0.12);
+    display: flex;
+    flex-direction: column;
+    min-height: clamp(340px, 58vh, 560px);
+  }
+  /* CRT curvature vignette + scanlines */
+  .scan {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 6;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 1px, rgba(0,0,0,0) 1px 3px);
+    mix-blend-mode: multiply;
+  }
+  .curve {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    background: radial-gradient(ellipse at 50% 46%, rgba(0,0,0,0) 58%, rgba(0,0,0,0.55) 86%, rgba(0,0,0,0.85) 100%);
+  }
+  .glare {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 7;
+    background: linear-gradient(115deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 22%);
+  }
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px 8px;
+    z-index: 2;
+  }
+  .credit {
+    color: var(--phos);
+    font-size: clamp(9px, 1.6vw, 12px);
+    letter-spacing: 0.28em;
+    text-shadow: 0 0 8px rgba(87,255,154,0.8);
+  }
+  .score {
+    color: #ffe9a8;
+    font-size: clamp(9px, 1.6vw, 12px);
+    letter-spacing: 0.22em;
+    text-shadow: 0 0 8px rgba(255,233,168,0.7);
+  }
+  .score b { color: #fff; }
+  .title {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -58%);
+    z-index: 3;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+  }
+  .title .t1 {
+    display: block;
+    font-size: clamp(26px, 7vw, 58px);
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: transparent;
+    -webkit-text-stroke: 2px var(--title-c);
+    text-shadow:
+      3px 0 0 var(--rgb-r),
+      -3px 0 0 var(--rgb-c),
+      0 0 22px rgba(87,255,154,0.35);
+    transition: -webkit-text-stroke 0.4s ease, text-shadow 0.4s ease;
+  }
+  .title .t2 {
+    display: block;
+    margin-top: 6px;
+    font-size: clamp(8px, 1.5vw, 11px);
+    letter-spacing: 0.6em;
+    color: var(--phos-dim);
+  }
+  .title.flash {
+    animation: tf 4s ease-in-out infinite;
+  }
+  @keyframes tf {
+    0%, 62% { opacity: 0; }
+    70%, 92% { opacity: 1; }
+    98%, 100% { opacity: 0; }
+  }
+  .mid {
+    flex: 1;
+    display: flex;
+    gap: clamp(10px, 2.5vw, 22px);
+    padding: 8px 18px 10px;
+    z-index: 2;
+    align-items: stretch;
+  }
+  .hs {
+    flex: 0 0 auto;
+    color: var(--phos);
+    font-size: clamp(9px, 1.8vw, 13px);
+    letter-spacing: 0.14em;
+    line-height: 1.9;
+    text-shadow: 0 0 7px rgba(87,255,154,0.65);
+    align-self: flex-start;
+  }
+  .hs h2 {
+    font-size: clamp(10px, 2vw, 14px);
+    letter-spacing: 0.34em;
+    color: #ffe9a8;
+    text-shadow: 0 0 8px rgba(255,233,168,0.7);
+    border-bottom: 1px dashed var(--phos-dim);
+    padding-bottom: 4px;
+    margin-bottom: 6px;
+  }
+  .hs .row { display: flex; gap: 10px; }
+  .hs .row.you { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.8); }
+  .blink { animation: bl 1s steps(2, start) infinite; }
+  @keyframes bl { 50% { opacity: 0.12; } }
+  .pit {
+    position: relative;
+    flex: 1 1 auto;
+    border: 2px solid var(--phos-dim);
+    border-radius: 6px;
+    overflow: hidden;
+    background:
+      repeating-linear-gradient(0deg, rgba(87,255,154,0.03) 0 1px, rgba(0,0,0,0) 1px 22px),
+      repeating-linear-gradient(90deg, rgba(87,255,154,0.03) 0 1px, rgba(0,0,0,0) 1px 22px),
+      #040906;
+    min-height: 150px;
+  }
+  .pit .lbl {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    font-size: 9px;
+    letter-spacing: 0.4em;
+    color: var(--phos-dim);
+    z-index: 2;
+  }
+  .ball {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 18px;
+    height: 18px;
+    margin: -9px 0 0 -9px;
+    z-index: 3;
+    pointer-events: none;
+  }
+  .ball .core {
+    position: absolute;
+    inset: 0;
+    background: #eafff3;
+    box-shadow: 0 0 12px 3px rgba(87,255,154,0.9), 0 0 30px 8px rgba(87,255,154,0.35);
+  }
+  .ball .ring {
+    position: absolute;
+    inset: -8px;
+    border: 1px solid rgba(87,255,154,0.5);
+    animation: ring 0.6s ease-out infinite;
+  }
+  @keyframes ring {
+    0% { transform: scale(0.4); opacity: 0.9; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+  .trail {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    background: var(--phos);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .kickbar {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    height: 3px;
+    background: rgba(87,255,154,0.12);
+    z-index: 2;
+  }
+  .kickbar i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--rgb-r);
+    box-shadow: 0 0 8px rgba(255,59,107,0.8);
+  }
+  .start {
+    text-align: center;
+    padding: 10px 18px 14px;
+    z-index: 2;
+  }
+  .start .pt {
+    font-size: clamp(11px, 2.4vw, 16px);
+    font-weight: 700;
+    letter-spacing: 0.5em;
+    color: #fff;
+    text-shadow: 0 0 12px rgba(255,255,255,0.6), 2px 0 var(--rgb-r), -2px 0 var(--rgb-c);
+  }
+  .start .hint {
+    margin-top: 6px;
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    color: var(--phos-dim);
+  }
+  .coplate {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding: 0 6px;
+    color: #6f6357;
+    font-size: clamp(8px, 1.5vw, 11px);
+    letter-spacing: 0.32em;
+  }
+  .coplate .lamp {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--rgb-r);
+    box-shadow: 0 0 8px var(--rgb-r);
+    margin-right: 10px;
+    vertical-align: -1px;
+    animation: lamp 2.4s ease-in-out infinite;
+  }
+  @keyframes lamp {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+</style>
+</head>
+<body>
+<div class="cab">
+  <div class="screen" id="screen">
+    <div class="top">
+      <span class="credit">CREDIT 01</span>
+      <span class="score">SCORE <b id="score">000000</b></span>
+    </div>
+    <div class="title flash" id="title">
+      <span class="t1">NEON DUNKER</span>
+      <span class="t2">STARLIGHT ARCADE PRESENTS</span>
+    </div>
+    <div class="mid">
+      <div class="hs" id="hs">
+        <h2>HIGH SCORES</h2>
+        <div class="row"><span>2L4</span><span>99990</span></div>
+        <div class="row"><span>KZ8</span><span>87450</span></div>
+        <div class="row"><span>M1X</span><span>76200</span></div>
+        <div class="row"><span>DQ2</span><span>61350</span></div>
+        <div class="row you blink" id="youRow"><span>YOU</span><span id="youScore">48900</span></div>
+      </div>
+      <div class="pit" id="pit">
+        <span class="lbl">BALL PIT</span>
+        <div class="kickbar"><i id="kick"></i></div>
+      </div>
+    </div>
+    <div class="start">
+      <div class="pt blink">PUSH TO START</div>
+      <div class="hint">SPACE KICK &middot; 1 / 2 / 3 TITLE INK</div>
+    </div>
+    <div class="scan"></div>
+    <div class="curve"></div>
+    <div class="glare"></div>
+  </div>
+  <div class="coplate">
+    <span><span class="lamp"></span>ATTRACT MODE</span>
+    <span>(C) 1987 STARLIGHT AMUSEMENTS</span>
+  </div>
+</div>
+<script>
+(() => {
+"use strict";
+const pit = document.getElementById("pit");
+const ball = document.createElement("div");
+ball.className = "ball";
+ball.innerHTML = '<div class="core"></div><div class="ring"></div>';
+pit.appendChild(ball);
+
+const kick = document.getElementById("kick");
+const youScore = document.getElementById("youScore");
+const scoreTop = document.getElementById("score");
+const title = document.getElementById("title");
+const root = document.documentElement;
+
+let W = 10, H = 10;
+let x = 50, y = 50, vx = 70, vy = 44;
+let trails = [];
+const TRAIL_MAX = 14;
+let kicked = 0;        // seconds of x2 speed remaining
+let ticker = 0;        // accumulated score bumps
+let youVal = 48900;
+const TITLES = ["#57ff9a", "#ffd166", "#ff5c8a"];
+let titleIdx = 0;
+
+function measure() {
+  const r = pit.getBoundingClientRect();
+  W = Math.max(40, r.width - 4);
+  H = Math.max(40, r.height - 4);
+  x = Math.min(W, Math.max(0, x));
+  y = Math.min(H, Math.max(0, y));
+}
+
+function addTrail() {
+  for (let i = 0; i < trails.length; i++) {
+    const t = trails[i];
+    t.opacity -= 0.16;
+    if (t.opacity <= 0) {
+      t.el.remove();
+      trails.splice(i, 1);
+      i--;
+    } else {
+      t.el.style.opacity = t.opacity.toFixed(3);
+    }
+  }
+  const el = document.createElement("div");
+  el.className = "trail";
+  el.style.opacity = "0.55";
+  pit.appendChild(el);
+  trails.push({ el: el, opacity: 0.55 });
+  const fresh = trails[trails.length - 1];
+  el.style.left = x + "px";
+  el.style.top = y + "px";
+}
+
+function step(dt) {
+  measure();
+  const sp = (kicked > 0) ? 2 : 1;
+  x += vx * dt * sp;
+  y += vy * dt * sp;
+  if (kicked > 0) {
+    kicked -= dt;
+    kick.style.width = Math.max(0, (kicked / 3) * 100) + "%";
+    if (kicked <= 0) {
+      kick.style.width = "0%";
+      kick.style.background = "rgba(87,255,154,0.4)";
+      setTimeout(function () { kick.style.background = "var(--rgb-r)"; }, 400);
+    }
+  }
+  if (x <= 0) { x = 0; vx = Math.abs(vx); }
+  else if (x >= W) { x = W; vx = -Math.abs(vx); }
+  if (y <= 0) { y = 0; vy = Math.abs(vy); }
+  else if (y >= H) { y = H; vy = -Math.abs(vy); }
+  addTrail();
+  ball.style.left = x + "px";
+  ball.style.top = y + "px";
+}
+
+let lastT = 0;
+function loop(t) {
+  requestAnimationFrame(loop);
+  try {
+    if (!lastT) lastT = t;
+    const dt = Math.min(0.05, (t - lastT) / 1000);
+    lastT = t;
+    step(dt);
+  } catch (err) { /* keep the cabinet alive */ }
+}
+
+window.addEventListener("resize", function () { measure(); });
+
+window.addEventListener("keydown", function (e) {
+  if (e.key === " " || e.code === "Space") {
+    e.preventDefault();
+    kicked = 3;
+    const bump = 100 + Math.floor(Math.random() * 9) * 100;
+    ticker += bump;
+    youVal += bump;
+    youScore.textContent = String(youVal);
+    scoreTop.textContent = String(ticker).padStart(6, "0");
+    document.getElementById("youRow").classList.remove("blink");
+    setTimeout(function () { document.getElementById("youRow").classList.add("blink"); }, 600);
+  } else if (e.key === "1" || e.key === "2" || e.key === "3") {
+    titleIdx = Number(e.key) - 1;
+    root.style.setProperty("--title-c", TITLES[titleIdx]);
+  }
+});
+
+measure();
+requestAnimationFrame(loop);
+
+/* alternate title phosphor color with the 4s flash cycle */
+setInterval(function () {
+  titleIdx = (titleIdx + 1) % TITLES.length;
+  root.style.setProperty("--title-c", TITLES[titleIdx]);
+}, 4000);
+})();
+</script>
+</body>
+</html>

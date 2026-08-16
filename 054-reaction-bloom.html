@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>054 — Reaction / Bloom</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden}
+  body{
+    background:#0a0d14;
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    color:#c9d4e6;
+    height:100dvh;
+    display:flex;flex-direction:column;
+  }
+  #wrap{position:relative;flex:1;min-height:0}
+  #cv{display:block;width:100%;height:100%}
+  #hud{
+    position:absolute;left:clamp(10px,2vw,20px);bottom:clamp(10px,2vw,20px);
+    display:flex;gap:12px 20px;flex-wrap:wrap;align-items:center;
+    background:rgba(10,13,20,.72);
+    border:1px solid rgba(122,92,255,.25);
+    border-radius:10px;
+    padding:12px 16px;
+    backdrop-filter:blur(8px);
+    max-width:min(560px,calc(100% - 24px));
+  }
+  .sl{display:flex;flex-direction:column;gap:6px;min-width:150px}
+  .sl label{
+    font-size:9px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;
+    color:#8b93ad;display:flex;justify-content:space-between;gap:10px;
+  }
+  .sl label b{color:#46ff9e;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.05em}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:2px;
+    background:linear-gradient(90deg,#1d3a52,#7a5cff);outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;
+    background:#46ff9e;border:2px solid #0a0d14;box-shadow:0 0 10px rgba(70,255,158,.55);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:14px;height:14px;border-radius:50%;background:#46ff9e;
+    border:2px solid #0a0d14;box-shadow:0 0 10px rgba(70,255,158,.55);
+  }
+  .acts{display:flex;gap:8px}
+  .acts button{
+    font:inherit;font-size:9px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;
+    padding:9px 14px;border-radius:6px;cursor:pointer;
+    border:1px solid rgba(122,92,255,.5);
+    background:rgba(122,92,255,.14);color:#b9a8ff;
+    transition:background .15s,color .15s,transform .1s;
+  }
+  .acts button:hover{background:rgba(122,92,255,.32);color:#e4dcff}
+  .acts button:active{transform:translateY(1px)}
+  #inoc{border-color:rgba(70,255,158,.55);background:rgba(70,255,158,.12);color:#46ff9e}
+  #inoc:hover{background:rgba(70,255,158,.28);color:#8fffbe}
+  #caption{
+    flex:none;display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:11px clamp(14px,2.5vw,24px);
+    border-top:1px solid rgba(122,92,255,.22);
+    background:#080a11;
+  }
+  #caption .name{
+    font-size:clamp(10px,1.3vw,13px);font-weight:700;
+    letter-spacing:.4em;text-transform:uppercase;color:#e6ecf8;
+  }
+  #regime{
+    font-size:9px;font-weight:800;letter-spacing:.3em;text-transform:uppercase;
+    color:#46ff9e;padding:5px 10px;border:1px solid rgba(70,255,158,.4);border-radius:999px;
+  }
+  @media (max-width:560px){
+    #hud{max-width:calc(100% - 20px)}
+    .sl{min-width:118px}
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <div id="hud">
+    <div class="sl">
+      <label for="fs">Feed F <b id="fv">0.054</b></label>
+      <input id="fs" type="range" min="0.03" max="0.06" step="0.001" value="0.054">
+    </div>
+    <div class="sl">
+      <label for="ks">Kill K <b id="kv">0.062</b></label>
+      <input id="ks" type="range" min="0.04" max="0.08" step="0.001" value="0.062">
+    </div>
+    <div class="acts">
+      <button id="inoc" type="button">Inoculate</button>
+      <button id="clear" type="button">Clear</button>
+    </div>
+  </div>
+</div>
+<footer id="caption">
+  <span class="name">Reaction / Bloom - F.K Map</span>
+  <span id="regime">Coral</span>
+</footer>
+<script>
+(function(){
+  "use strict";
+
+  var N=256, M=144;            // grid dimensions
+  var cv=document.getElementById("cv");
+  var ctx=cv.getContext("2d");
+  var off=document.createElement("canvas");
+  off.width=N; off.height=M;
+  var octx=off.getContext("2d");
+  var img=octx.createImageData(N,M);
+
+  // two typed-array state buffers (A: inhibitor, B: activator)
+  var A=new Float32Array(N*M);
+  var B=new Float32Array(N*M);
+  var A2=new Float32Array(N*M);
+  var B2=new Float32Array(N*M);
+
+  var F=0.054, K=0.062;
+  var DU=1.0, DV=0.5;
+  var running=true;
+  var W=0,H=0,DPR=1;
+
+  // ---- color LUT ---------------------------------------------------------
+  // #0a0d14 -> #1d3a52 -> #7a5cff -> #46ff9e
+  var LUT=new Uint8ClampedArray(256*3);
+  (function(){
+    const stops=[
+      [0.00, 10,13,20],
+      [0.45, 29,58,82],
+      [0.72, 122,92,255],
+      [1.00, 70,255,158]
+    ];
+    for(let i=0;i<256;i++){
+      const t=i/255;
+      let s0=stops[0], s1=stops[stops.length-1];
+      for(let j=0;j<stops.length-1;j++){
+        if(t>=stops[j][0] && t<=stops[j+1][0]){s0=stops[j];s1=stops[j+1];break;}
+      }
+      const f=(t-s0[0])/Math.max(1e-9,s1[0]-s0[0]);
+      LUT[i*3]  =s0[1]+(s1[1]-s0[1])*f;
+      LUT[i*3+1]=s0[2]+(s1[2]-s0[2])*f;
+      LUT[i*3+2]=s0[3]+(s1[3]-s0[3])*f;
+    }
+  })();
+
+  function fit(){
+    DPR=Math.min(window.devicePixelRatio||1,2);
+    const r=cv.parentElement.getBoundingClientRect();
+    W=Math.max(1,r.width); H=Math.max(1,r.height);
+    cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    ctx.imageSmoothingEnabled=true;      // soft organic blobs, never crisp
+    ctx.imageSmoothingQuality="high";
+    render();
+  }
+  window.addEventListener("resize",fit);
+
+  // ---- seeding -----------------------------------------------------------
+  function resetUniform(){
+    for(let i=0;i<A.length;i++){A[i]=1;B[i]=0;}
+    for(let i=0;i<A2.length;i++){A2[i]=1;B2[i]=0;}
+  }
+  function inoculate(){
+    // small seeded blob at center + a few specks for organic start
+    const cx=N>>1, cy=M>>1;
+    for(let y=cy-9;y<=cy+9;y++){
+      for(let x=cx-9;x<=cx+9;x++){
+        if(x<0||y<0||x>=N||y>=M)continue;
+        const d=Math.hypot(x-cx,y-cy);
+        if(d<=8){const i=y*N+x;B[i]=1;A[i]=0.8;}
+      }
+    }
+    for(let s=0;s<5;s++){
+      const sx=Math.floor(N*(0.18+0.64*Math.random()));
+      const sy=Math.floor(M*(0.2+0.6*Math.random()));
+      for(let y=sy-3;y<=sy+3;y++){
+        for(let x=sx-3;x<=sx+3;x++){
+          if(x<0||y<0||x>=N||y>=M)continue;
+          B[y*N+x]=1; A[y*N+x]=0.7;
+        }
+      }
+    }
+  }
+
+  // ---- simulation ---------------------------------------------------------
+  function step(){
+    const a=A, b=B, a2=A2, b2=B2;
+    for(let y=1;y<M-1;y++){
+      const row=y*N;
+      for(let x=1;x<N-1;x++){
+        const i=row+x;
+        const av=a[i], bv=b[i];
+        const lapA=a[i-1]+a[i+1]+a[i-N]+a[i+N]-4*av;
+        const lapB=b[i-1]+b[i+1]+b[i-N]+b[i+N]-4*bv;
+        const react=av*bv*bv;
+        a2[i]=av+DU*lapA-react+F*(1-av);
+        b2[i]=bv+DV*lapB+react-(K+F)*bv;
+      }
+    }
+    // border: copy inner edge (Dirichlet)
+    for(let x=0;x<N;x++){a2[x]=a2[x+N];a2[x+(M-1)*N]=a2[x+(M-2)*N];b2[x]=b2[x+N];b2[x+(M-1)*N]=b2[x+(M-2)*N];}
+    for(let y=0;y<M;y++){a2[y*N]=a2[y*N+1];a2[y*N+N-1]=a2[y*N+N-2];b2[y*N]=b2[y*N+1];b2[y*N+N-1]=b2[y*N+N-2];}
+    // swap
+    let tmp;
+    tmp=A;A=a2;A2=tmp;
+    tmp=B;B=b2;B2=tmp;
+  }
+
+  // ---- regime naming ------------------------------------------------------
+  const regimeEl=document.getElementById("regime");
+  function regimeName(){
+    if(K>=0.074 || (F>=0.055 && K>=0.068))return "Chaos";
+    if(F>=0.049 && K>=0.058 && K<=0.068)return "Rings";
+    if(F<0.041 || K<0.052)return "Cells";
+    return "Coral";
+  }
+  function syncRegime(){regimeEl.textContent=regimeName();}
+
+  // ---- render -------------------------------------------------------------
+  function render(){
+    const px=img.data;
+    for(let i=0;i<N*M;i++){
+      // B (activator) drives color; A darkens slightly
+      let t=B[i]*(0.92+0.08*(1-A[i]));
+      if(t>1)t=1; else if(t<0)t=0;
+      const li=(t*255)|0;
+      const o=i*4;
+      px[o]=LUT[li*3];
+      px[o+1]=LUT[li*3+1];
+      px[o+2]=LUT[li*3+2];
+      px[o+3]=255;
+    }
+    octx.putImageData(img,0,0);
+    try{
+      ctx.fillStyle="#0a0d14";
+      ctx.fillRect(0,0,W,H);
+      // cover-fit the grid to the viewport
+      const s=Math.max(W/N,H/M);
+      const dw=N*s, dh=M*s;
+      const ox=(W-dw)/2, oy=(H-dh)/2;
+      ctx.drawImage(off,ox,oy,dw,dh);
+      // soft vignette to seat the field
+      const g=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.42,W/2,H/2,Math.max(W,H)*0.78);
+      g.addColorStop(0,"rgba(10,13,20,0)");
+      g.addColorStop(1,"rgba(4,5,9,0.55)");
+      ctx.fillStyle=g;
+      ctx.fillRect(0,0,W,H);
+    }catch(err){
+      // never let a render frame kill the page
+    }
+  }
+
+  // ---- main loop (chunked sim) -------------------------------------------
+  let last=performance.now();
+  function frame(now){
+    if(!running)return;
+    let dt=now-last; last=now;
+    if(dt>250)dt=250;
+    let budget=dt>0?dt:16;
+    let done=0;
+    try{
+      while(budget>4 && done<6){
+        const t0=performance.now();
+        step();
+        done++;
+        const cost=performance.now()-t0;
+        budget-=Math.max(cost,2);
+      }
+    }catch(err){
+      done=0;
+    }
+    if(done>0)render();
+    requestAnimationFrame(frame);
+  }
+
+  // ---- controls -----------------------------------------------------------
+  const fs=document.getElementById("fs");
+  const ks=document.getElementById("ks");
+  const fv=document.getElementById("fv");
+  const kv=document.getElementById("kv");
+  fs.addEventListener("input",function(){F=parseFloat(fs.value)||0.054;fv.textContent=F.toFixed(3);syncRegime();});
+  ks.addEventListener("input",function(){K=parseFloat(ks.value)||0.062;kv.textContent=K.toFixed(3);syncRegime();});
+  document.getElementById("inoc").addEventListener("click",function(){inoculate();});
+  document.getElementById("clear").addEventListener("click",function(){resetUniform();});
+
+  // ---- boot ---------------------------------------------------------------
+  fit();
+  inoculate();
+  syncRegime();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

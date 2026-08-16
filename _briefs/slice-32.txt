@@ -1,0 +1,11 @@
+=== 094 ===
+094-porthole.html
+SUB PORTHOLE - the page is a dark submarine hull: #1c1f24 panels, seam lines, rivets, one amber warning light blinking. Center: a round porthole (metal ring, 4 bolts) whose glass window shows the deep: gradient #0d2a3f->#051019, 40 drifting plankton dots, 3 fish silhouettes passing occasionally, one distant glowing jellyfish (slow). Depth readout in the glass corner ticks down while the page sits (-234m...-300m). SONAR button: concentric ping rings expand from center; 'hits' (fish positions) light up for 2s. Hover the porthole: a radial fog-clear wipe. Caption 'PORT 7 - DEPTH 246 M - 25 ATM'.
+
+=== 095 ===
+095-light-shaft.html
+LIGHT SHAFT - minimal cathedral interior. Dark #14100c walls, two tall arched window outlines #0d0a08; one strong diagonal light shaft (warm #ffd9a0, alpha .12 outer / .2 core parallelogram) from the upper-right window into the room. 400 dust motes (1-2px dots #ffe9c8): brightness = inside-shaft test (point in parallelogram) x twinkle; they drift slowly upward-Brownian. Pointer inside the shaft gently repels motes. SUN slider: shaft angle 30-60deg + brightness; motes outside are near-invisible (alpha .05). Occasionally one big mote catches the light (3x brightness for 1s). Caption 'SHAFT / 400 MOTES - 3:12 PM'.
+
+=== 096 ===
+096-diner-chalk.html
+ROUTE 9 DINER - chalkboard menu. BG #1a1c18 chalkboard (vignette + chalk dust specks), wood frame #7a5a3a. Title 'ROUTE 9 DINER - EST 1954' and all menu text rendered in CHALK style on canvas: white #f4f2ec strokes with per-character jitter offsets (hand-drawn wobble), no fills. Two columns x 5 items (HAMBURGER $5, APPLE PIE $3, MALTED $4, FRENCH TOAST $6, COFFEE $2) with dotted leaders. Hover an item: a chalk circle gets drawn around it (dashoffset animation). Click: a red-chalk 'ORDERED' stamp #e08a8a appears rotated. KITCHEN button: chalk dust puff (10 white particles) + 'ORDER UP' flash. Caption 'MENU - CHALK & ERASER'.

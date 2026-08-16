@@ -1,0 +1,11 @@
+=== 076 ===
+076-silk-flow.html
+SILK FLOW - flow-field ribbons. Dark #141018; 26 ribbons, each a 60-segment polyline: the head advances along a slowly evolving 2-octave curl field (~12px/s), the body eases toward the previous segment (classic tail). Render as tapered strokes (width 6->0, round caps), 6 colors (rose, gold, violet, teal, coral, champagne), alpha .5, 'lighter' composite -> overlapping silk glow. Pointer: local vortex warp within 200px. SPEED chips: SLEEK / FLOW / GALE. RESTART respawns ribbons. Caption '26 SILK - FLOW 0.4'. Elegant, silky, alive.
+
+=== 077 ===
+077-weather-minimal.html
+TODAY WEATHER - minimal single-card weather app. Center: huge '23' degree readout (14vw, thin weight, #1c1d22 on #f4f2ec), condition word in tracked caps, and a CSS-only weather icon that morphs between states: SUN (disc + 8 slowly rotating rays), CLOUD (three overlapping drifting circles), RAIN (cloud + 4 falling drop loops), SNOW (cloud + 6 drifting flakes), STORM (cloud + flickering bolt). 5 chips switch state - each swaps icon + subtly tints the palette (rain cool #2f5fd8, sun warm). Bottom: 4 tiny stat tiles (H/L, WIND, HUM, UV) whose numbers lerp-animate on change. Hover icon: it pulses. Caption 'TODAY / 14:00'.
+
+=== 078 ===
+078-myth-constellations.html
+MYTH CONSTELLATIONS - dark #0a0e1c sky; five named figures scattered: ORION (7 stars), LYRA (5), DRACO (9), CYGNUS (5), URSA (8) - bright twinkling stars, connecting lines drawn dashed with slow stroke-dashoffset crawl. Click a name chip near its figure: lines complete (dash animates full over 1s), star labels fade in, and a two-line myth plaque (serif, hairline border) appears by the figure. ALL chip lights every constellation; NIGHT slider dims all lines (stargazing mode). Drag pans the sky slowly over an infinite star background with constellation parallax. Caption 'MYTH - 5 FIGURES'.

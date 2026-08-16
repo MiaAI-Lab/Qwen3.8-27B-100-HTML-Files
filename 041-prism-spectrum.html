@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRISM SPECTRUM — 380–700nm</title>
+<style>
+  :root{
+    --stage:#0a0b10; --line:#9fd8ff; --dim:rgba(159,216,255,.34);
+    --text:#cfe4ff; --mono:ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(120% 100% at 50% 30%, #10131d 0%, var(--stage) 58%, #05060a 100%);
+    color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    min-height:100dvh;
+    display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+  .hud-top{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:14px 22px 10px; gap:14px; flex-wrap:wrap;
+  }
+  .hud-top .name{
+    font-family:var(--mono); letter-spacing:.42em; text-transform:uppercase;
+    font-size:clamp(10px,1.2vw,13px); color:var(--line);
+  }
+  .hud-top .name b{color:#fff; font-weight:700}
+  .hud-top .spec{
+    font-family:var(--mono); font-size:clamp(9px,1vw,11px); letter-spacing:.22em;
+    color:var(--dim); text-transform:uppercase;
+  }
+  .stage{
+    flex:1; position:relative; min-height:300px;
+  }
+  canvas#scene{position:absolute; inset:0; width:100%; height:100%; display:block}
+
+  /* controls */
+  .controls{
+    position:absolute; left:18px; bottom:18px; z-index:5;
+    display:flex; flex-direction:column; gap:14px;
+    background:rgba(10,11,16,.55);
+    border:1px solid rgba(159,216,255,.22);
+    padding:14px 16px; backdrop-filter:blur(6px);
+    width:min(300px,72vw);
+  }
+  .ctl label{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-family:var(--mono); font-size:10px; letter-spacing:.3em;
+    text-transform:uppercase; color:var(--line); margin-bottom:7px;
+  }
+  .ctl label output{color:#fff; letter-spacing:.05em; font-size:11px}
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:100%; height:2px;
+    background:linear-gradient(90deg, rgba(159,216,255,.5), rgba(159,216,255,.15));
+    outline:none; cursor:ew-resize;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:14px; height:14px;
+    background:#eaf6ff; border:1px solid var(--line);
+    transform:rotate(45deg); box-shadow:0 0 10px rgba(159,216,255,.8);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:12px; height:12px; background:#eaf6ff; border:1px solid var(--line);
+    transform:rotate(45deg); box-shadow:0 0 10px rgba(159,216,255,.8); border-radius:0;
+  }
+  .toggle{
+    display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none;
+    font-family:var(--mono); font-size:10px; letter-spacing:.3em; text-transform:uppercase;
+    color:var(--line);
+  }
+  .toggle input{position:absolute; opacity:0; pointer-events:none}
+  .toggle .sw{
+    width:34px; height:16px; border:1px solid var(--line); position:relative; flex:none;
+    background:rgba(159,216,255,.06); transition:background .25s;
+  }
+  .toggle .sw::after{
+    content:""; position:absolute; top:2px; left:2px; width:10px; height:10px;
+    background:var(--dim); transition:transform .25s, background .25s;
+  }
+  .toggle input:checked + .sw{background:rgba(159,216,255,.18)}
+  .toggle input:checked + .sw::after{transform:translateX(18px); background:#fff}
+  .caption{
+    position:absolute; right:20px; bottom:18px; z-index:5; text-align:right;
+    font-family:var(--mono); letter-spacing:.4em; text-transform:uppercase;
+    font-size:clamp(9px,1vw,11px); color:var(--dim);
+  }
+  .caption b{color:var(--line); font-weight:600}
+  .chip{
+    position:absolute; z-index:6; pointer-events:none;
+    font-family:var(--mono); font-size:10px; letter-spacing:.18em;
+    color:#0a0b10; background:var(--band,#fff);
+    padding:4px 8px; border:1px solid rgba(255,255,255,.6);
+    box-shadow:0 0 14px var(--band,#fff);
+    opacity:0; transform:translate(-50%,-130%); transition:opacity .18s;
+    text-transform:uppercase; white-space:nowrap;
+  }
+  .chip.show{opacity:1}
+  @media (max-width:560px){
+    .controls{left:12px; bottom:12px; width:calc(100vw - 24px)}
+    .caption{right:12px; bottom:auto; top:12px}
+  }
+</style>
+</head>
+<body>
+  <div class="hud-top">
+    <div class="name"><b>PRISM</b> SPECTRUM · OPTICS BENCH 41</div>
+    <div class="spec">SPECTRUM — 380–700NM</div>
+  </div>
+
+  <div class="stage">
+    <canvas id="scene"></canvas>
+    <div class="chip" id="chip"></div>
+
+    <div class="controls">
+      <div class="ctl">
+        <label for="ang">Angle <output id="angOut">+00°</output></label>
+        <input type="range" id="ang" min="-20" max="20" step="0.5" value="0">
+      </div>
+      <div class="ctl">
+        <label for="int">Intensity <output id="intOut">0.80</output></label>
+        <input type="range" id="int" min="0.2" max="1" step="0.01" value="0.8">
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="halo">
+        <span class="sw"></span>
+        <span>Rainbow Halo</span>
+      </label>
+    </div>
+
+    <div class="caption">INCIDENCE <b id="capAng">0°</b> · GLASS <b>n = 1.52</b></div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  var cv=document.getElementById("scene");
+  var ctx=cv.getContext("2d");
+  var chip=document.getElementById("chip");
+  var angEl=document.getElementById("ang");
+  var intEl=document.getElementById("int");
+  var haloEl=document.getElementById("halo");
+  var angOut=document.getElementById("angOut");
+  var intOut=document.getElementById("intOut");
+  var capAng=document.getElementById("capAng");
+
+  /* bands: wavelength nm, display colour, hover chip colour */
+  var BANDS=[
+    {nm:"700–645", label:"RED",     col:"rgba(235,57,48,"},
+    {nm:"645–610", label:"ORANGE",  col:"rgba(242,124,30,"},
+    {nm:"610–585", label:"YELLOW",  col:"rgba(246,204,35,"},
+    {nm:"585–560", label:"GREEN",   col:"rgba(60,204,110,"},
+    {nm:"560–500", label:"CYAN",    col:"rgba(58,196,224,"},
+    {nm:"500–455", label:"BLUE",    col:"rgba(72,120,236,"},
+    {nm:"455–380", label:"VIOLET",  col:"rgba(140,84,220,"}
+  ];
+
+  var angle=0, intensity=0.8, haloOn=false;
+  var W=0,H=0,dpr=1;
+  var t0=Date.now();
+
+  function fit(){
+    dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+    W=cv.clientWidth; H=cv.clientHeight;
+    cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function lerp(a,b,k){return a+(b-a)*k;}
+
+  /* prism + beam + spectrum geometry, all in css px */
+  function geom(){
+    var px=lerp(W*0.44, W*0.5, 0.5);      /* prism centre x — keep at ~46% */
+    px=W*0.46;
+    var py=H*0.52;
+    var s=Math.min(W*0.30, H*0.34);
+    var a=angle*Math.PI/180;
+    /* beam origin (left edge) and prism centre */
+    var bx=px - Math.cos(a)*W*0.34;
+    var by=py - Math.sin(a)*W*0.34*0.6;
+    return {px:px, py:py, s:s, a:a, bx:bx, by:by,
+            spread:W*0.5, fanX:W*0.40};
+  }
+
+  function drawPrism(g){
+    ctx.save();
+    ctx.translate(g.px,g.py);
+    var r=g.s*0.62;
+    ctx.beginPath();
+    ctx.moveTo(0,-r);
+    ctx.lineTo(r*0.87,r*0.5);
+    ctx.lineTo(-r*0.87,r*0.5);
+    ctx.closePath();
+    var grd=ctx.createLinearGradient(-r,-r,r,r);
+    grd.addColorStop(0,"rgba(159,216,255,.10)");
+    grd.addColorStop(0.5,"rgba(159,216,255,.03)");
+    grd.addColorStop(1,"rgba(159,216,255,.14)");
+    ctx.fillStyle=grd;
+    ctx.fill();
+    ctx.strokeStyle="rgba(159,216,255,.95)";
+    ctx.lineWidth=1;
+    ctx.stroke();
+    /* inner refraction lines */
+    ctx.strokeStyle="rgba(159,216,255,.28)";
+    ctx.beginPath(); ctx.moveTo(0,-r*0.55); ctx.lineTo(r*0.4,r*0.28); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,-r*0.35); ctx.lineTo(-r*0.28,r*0.34); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r*0.42,r*0.05); ctx.lineTo(r*0.18,-r*0.45); ctx.stroke();
+    /* vertex glints */
+    ctx.fillStyle="rgba(230,250,255,.9)";
+    ctx.beginPath(); ctx.arc(0,-r,1.6,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(r*0.87,r*0.5,1.4,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-r*0.87,r*0.5,1.4,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBeam(g,tick){
+    /* flicker */
+    var fl=0.82+0.10*Math.sin(tick*1.7)+0.05*Math.sin(tick*4.3+1.2);
+    fl*=intensity;
+    /* thin trapezoid from beam start to prism */
+    var halfW=lerp(1.2,5,intensity)+0.6;
+    var dx=g.px-g.bx, dy=g.py-g.by;
+    var len=Math.hypot(dx,dy);
+    var nx=-dy/len, ny=dx/len;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(g.bx+nx*0.6, g.by+ny*0.6);
+    ctx.lineTo(g.px+nx*halfW, g.py+ny*halfW);
+    ctx.lineTo(g.px-nx*halfW, g.py-ny*halfW);
+    ctx.lineTo(g.bx-nx*0.6, g.by-ny*0.6);
+    ctx.closePath();
+    var bg=ctx.createLinearGradient(g.bx,g.by,g.px,g.py);
+    bg.addColorStop(0,"rgba(255,255,255,0)");
+    bg.addColorStop(0.25,"rgba(255,255,255,"+(0.28*fl)+")");
+    bg.addColorStop(0.8,"rgba(255,252,240,"+(0.85*fl)+")");
+    bg.addColorStop(1,"rgba(255,255,255,"+(0.95*fl)+")");
+    ctx.fillStyle=bg;
+    ctx.fill();
+    /* hot core */
+    ctx.strokeStyle="rgba(255,255,255,"+(0.5*fl)+")";
+    ctx.lineWidth=0.8;
+    ctx.beginPath(); ctx.moveTo(g.bx,g.by); ctx.lineTo(g.px,g.py); ctx.stroke();
+    /* source glow at beam start */
+    var sg=ctx.createRadialGradient(g.bx,g.by,0,g.bx,g.by,26);
+    sg.addColorStop(0,"rgba(255,255,255,"+(0.7*fl)+")");
+    sg.addColorStop(1,"rgba(255,255,255,0)");
+    ctx.fillStyle=sg;
+    ctx.beginPath(); ctx.arc(g.bx,g.by,26,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  /* returns per-band edge positions for hover hit-testing */
+  var bandEdges=[];
+  function drawSpectrum(g,tick){
+    bandEdges.length=0;
+    var n=BANDS.length;
+    /* fan divergence: total spread grows slightly with |angle| (dispersion) */
+    var spreadBase=g.spread*(0.72+Math.abs(g.a)*0.9);
+    var cx=g.px+g.s*0.18, cy=g.py;
+    ctx.save();
+    for(var i=0;i<n;i++){
+      var f=i/(n-1);
+      var baseAng=(-0.62 + f*1.24);           /* fan from -35.5°..+35.5° */
+      /* spectrum bends with incidence angle */
+      var ang=baseAng + g.a*0.55 + Math.sin(tick*0.8+i)*0.006;
+      /* subtle width oscillation per band */
+      var widthOsc=1+0.05*Math.sin(tick*1.4+i*1.9);
+      var half=Math.PI/2*0.085*spreadBase/320*widthOsc;
+      var a0=ang-half, a1=ang+half;
+      var r0=g.s*0.55, r1=g.fanX;
+      ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(a0)*r0, cy+Math.sin(a0)*r0);
+      ctx.lineTo(cx+Math.cos(a1)*r0, cy+Math.sin(a1)*r0);
+      ctx.lineTo(cx+Math.cos(a1)*r1, cy+Math.sin(a1)*r1);
+      ctx.lineTo(cx+Math.cos(a0)*r1, cy+Math.sin(a0)*r1);
+      ctx.closePath();
+      var alpha=0.34*intensity*(0.9+0.1*Math.sin(tick*0.9+i));
+      var sat=0.9;
+      var mid=(a0+a1)/2;
+      var grd=ctx.createRadialGradient(cx,cy,r0*0.8,cx,cy,r1);
+      grd.addColorStop(0,BANDS[i].col+(alpha*sat)+")");
+      grd.addColorStop(1,BANDS[i].col+"0)");
+      ctx.fillStyle=grd;
+      ctx.fill();
+      /* crisp hairline on outer edge */
+      ctx.strokeStyle=BANDS[i].col+(0.5*intensity)+")";
+      ctx.lineWidth=0.7;
+      ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(a1)*r0, cy+Math.sin(a1)*r0);
+      ctx.lineTo(cx+Math.cos(a1)*r1, cy+Math.sin(a1)*r1);
+      ctx.stroke();
+      bandEdges.push({i:i, x0:cx+Math.cos(a0)*r1, x1:cx+Math.cos(a1)*r1,
+                      y:cy+Math.sin(mid)*r1*0.92});
+    }
+    ctx.restore();
+
+    /* wall behind: light spot slides along the fan with angle */
+    var wallX=g.px+g.spread*(0.98+Math.abs(g.a)*0.5);
+    var spotY=cy+Math.sin(g.a*0.55)*H*0.30;
+    ctx.save();
+    /* wall line */
+    ctx.strokeStyle="rgba(159,216,255,.14)";
+    ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(wallX,H*0.12); ctx.lineTo(wallX,H*0.88); ctx.stroke();
+    /* spectrum spot on wall */
+    var spot=ctx.createRadialGradient(wallX,spotY,0,wallX,spotY,60+40*intensity);
+    for(var j=0;j<n;j++){
+      var f2=j/(n-1);
+      spot.addColorStop(Math.min(1,f2*0.92+0.04),BANDS[j].col+(0.5*intensity)+")");
+    }
+    spot.addColorStop(1,"rgba(0,0,0,0)");
+    ctx.fillStyle=spot;
+    ctx.beginPath(); ctx.arc(wallX,spotY,60+40*intensity,0,Math.PI*2); ctx.fill();
+    /* tick mark on the wall */
+    ctx.strokeStyle="rgba(159,216,255,.5)";
+    ctx.beginPath(); ctx.moveTo(wallX-7,spotY); ctx.lineTo(wallX+7,spotY); ctx.stroke();
+    ctx.restore();
+
+    /* halo toggle */
+    if(haloOn){
+      ctx.save();
+      var hr=g.s*1.5;
+      for(var k=0;k<n;k++){
+        var f3=k/(n-1);
+        var a0b=-Math.PI*0.5 - 0.9 + f3*1.8;
+        var a1b=a0b+0.36;
+        ctx.beginPath();
+        ctx.arc(g.px,g.py,hr,a0b,a1b);
+        ctx.strokeStyle=BANDS[k].col+(0.14*intensity)+")";
+        ctx.lineWidth=3;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawStars(tick){
+    ctx.save();
+    for(var i=0;i<42;i++){
+      var x=(i*97.3)%100/100*W;
+      var y=(i*53.7)%100/100*H*0.9;
+      var tw=0.25+0.25*Math.sin(tick*0.7+i*1.31);
+      ctx.fillStyle="rgba(200,225,255,"+tw+")";
+      ctx.beginPath(); ctx.arc(x,y,i%7===0?1.1:0.6,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function frame(){
+    var tick=(Date.now()-t0)/1000;
+    if(!ctx){return requestAnimationFrame(frame);}
+    try{
+      ctx.clearRect(0,0,W,H);
+      drawStars(tick);
+      var g=geom();
+      drawSpectrum(g,tick);
+      drawBeam(g,tick);
+      drawPrism(g);
+    }catch(e){}
+    requestAnimationFrame(frame);
+  }
+
+  function syncLabels(){
+    var s=String(Math.round(angle));
+    var sign=angle>0?"+":(angle<0?"−":"±");
+    if(angle===0){sign="±"; s="0";}
+    angOut.textContent=sign+s+"°";
+    capAng.textContent=s+"°";
+    intOut.textContent=intensity.toFixed(2);
+  }
+
+  angEl.addEventListener("input",function(){
+    angle=parseFloat(angEl.value); syncLabels();
+  });
+  intEl.addEventListener("input",function(){
+    intensity=parseFloat(intEl.value); syncLabels();
+  });
+  haloEl.addEventListener("change",function(){
+    haloOn=haloEl.checked;
+  });
+
+  /* hover hit-test on bands */
+  cv.addEventListener("mousemove",function(e){
+    var r=cv.getBoundingClientRect();
+    var x=e.clientX-r.left, y=e.clientY-r.top;
+    var hit=-1;
+    for(var i=0;i<bandEdges.length;i++){
+      var b=bandEdges[i];
+      if(x>=b.x0&&x<=b.x1&&Math.abs(y-b.y)<b.y*0.35+30){hit=i;break;}
+    }
+    if(hit>=0){
+      var bb=BANDS[hit];
+      chip.style.setProperty("--band",bb.col+"1)");
+      chip.style.background=bb.col+"0.95)";
+      chip.style.boxShadow="0 0 14px "+bb.col+"0.8)";
+      chip.textContent=bb.label+" · "+bb.nm+" nm";
+      chip.style.left=(Math.max(b.x0,Math.min(x,b.x1)))+"px";
+      chip.style.top=y+"px";
+      chip.classList.add("show");
+      cv.style.cursor="crosshair";
+    }else{
+      chip.classList.remove("show");
+      cv.style.cursor="default";
+    }
+  });
+  cv.addEventListener("mouseleave",function(){chip.classList.remove("show");});
+
+  window.addEventListener("resize",fit);
+  fit();
+  syncLabels();
+  frame();
+})();
+</script>
+</body>
+</html>

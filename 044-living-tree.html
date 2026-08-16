@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>044 — Living Tree</title>
+<style>
+:root{
+  --ink:#26221c; --paper:#f3efe4; --mut:#8d8574;
+  --leaf:#4d9e5f; --amber:#e08a2e; --bud:#f2a4c0; --bare:#8a8f98;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--paper);color:var(--ink);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;
+  min-height:100dvh;overflow:hidden;
+}
+.hud{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:clamp(10px,2vh,18px) clamp(14px,3vw,30px);flex-wrap:wrap;
+}
+.hud .idx{font-family:var(--mono);font-size:10px;letter-spacing:.32em;color:var(--mut);display:block}
+.hud h1{font-size:clamp(17px,3.2vw,26px);font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.hud .spec{font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:var(--mut);text-transform:uppercase;text-align:right}
+.stage{flex:1;position:relative;margin:0 clamp(8px,1.6vw,18px);min-height:0}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:18px;box-shadow:inset 0 0 0 1px rgba(38,34,28,.08),0 18px 40px rgba(38,34,28,.14)}
+.dock{
+  display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
+  padding:clamp(10px,2vh,18px) 12px clamp(14px,2.6vh,22px);
+}
+.grp{display:flex;gap:6px;align-items:center;background:#fff;border:1px solid #e4ddcb;border-radius:999px;padding:5px 8px;box-shadow:0 4px 14px rgba(38,34,28,.08)}
+.grp .lbl{font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--mut);text-transform:uppercase;padding:0 4px 0 6px}
+.chip{
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  border:none;border-radius:999px;padding:7px 12px;cursor:pointer;background:#f1ecdd;color:var(--ink);
+  transition:all .18s ease;
+}
+.chip:hover{transform:translateY(-1px)}
+.chip.on{background:var(--ink);color:#fff;box-shadow:0 4px 10px rgba(38,34,28,.28)}
+.chip[data-s="spring"].on{background:var(--bud);color:#4a2036}
+.chip[data-s="summer"].on{background:var(--leaf);color:#fff}
+.chip[data-s="autumn"].on{background:var(--amber);color:#3d2405}
+.chip[data-s="winter"].on{background:var(--bare);color:#fff}
+.chip.storm.on{background:#5b6472;color:#fff}
+.chip.night.on{background:#1d2740;color:#fff}
+#regrow{
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  border-radius:999px;padding:9px 16px;cursor:pointer;border:1.5px solid var(--ink);
+  background:var(--ink);color:var(--paper);box-shadow:0 4px 12px rgba(38,34,28,.3);transition:transform .15s ease;
+}
+#regrow:hover{transform:translateY(-1px)}
+#regrow:active{transform:translateY(1px)}
+.cap{font-family:var(--mono);font-size:10px;letter-spacing:.34em;color:var(--mut);text-transform:uppercase;text-align:center;padding-bottom:10px}
+@media (max-width:560px){
+  .grp .lbl{display:none}
+  .chip{padding:6px 9px;font-size:9px}
+}
+</style>
+</head>
+<body>
+<header class="hud">
+  <div>
+    <span class="idx">044 / GALLERY 100</span>
+    <h1>Living Tree</h1>
+  </div>
+  <div class="spec">SPECIMEN 07 &mdash; OAK<br>recursive growth, depth 9</div>
+</header>
+<div class="stage"><canvas id="cv"></canvas></div>
+<div class="dock">
+  <div class="grp">
+    <span class="lbl">Season</span>
+    <button class="chip" data-s="spring" type="button">Spring</button>
+    <button class="chip on" data-s="summer" type="button">Summer</button>
+    <button class="chip" data-s="autumn" type="button">Autumn</button>
+    <button class="chip" data-s="winter" type="button">Winter</button>
+  </div>
+  <div class="grp">
+    <button class="chip storm" id="stormbtn" type="button" aria-pressed="false">Storm</button>
+    <button class="chip night" id="nightbtn" type="button" aria-pressed="false">Night</button>
+  </div>
+  <button id="regrow" type="button">Re-grow</button>
+</div>
+<p class="cap">SPECIMEN 07 - OAK &middot; GROWS IN 8 SECONDS &middot; WIND NEVER STOPS</p>
+<script>
+(function(){
+'use strict';
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+var W = 0, H = 0, DPR = 1;
+var segs = [];
+var stars = [];
+var leaves = [];
+var season = 'summer';
+var night = false;
+var storm = false;
+var growStart = 0;
+var time = 0;
+var last = 0;
+var gust = 0, gustTarget = 0, gustT = 0;
+var SEASON_COL = { spring:'#f2a4c0', summer:'#4d9e5f', autumn:'#e08a2e', winter:'#8a8f98' };
+var SPREAD = 24 * Math.PI / 180;
+var RATIO = 0.72;
+var DEPTH = 9;
+var GROW_TIME = 8;
+function rand(a, b){ return a + Math.random() * (b - a); }
+function buildTree(baseLen){
+  segs = [];
+  function add(parent, x, y, ang, len, depth){
+    var idx = segs.length;
+    segs.push({ parent:parent, x:x, y:y, ang:ang, len:len, depth:depth,
+      birth:depth * (GROW_TIME / DEPTH) * 0.92,
+      wob:rand(0, 6.28), ph:rand(0, 6.28) });
+    if (depth >= DEPTH - 1){ return; }
+    var n = depth < 1 ? 3 : (Math.random() < 0.22 ? 3 : 2);
+    for (var i = 0; i < n; i++){
+      var off = n === 2 ? (i === 0 ? -1 : 1) * SPREAD / 2 : (i - 1) * SPREAD / 1.5;
+      off += rand(-0.05, 0.05);
+      add(idx, 0, 0, off, len * RATIO * rand(0.9, 1.06), depth + 1);
+    }
+  }
+  add(-1, 0, 0, -Math.PI / 2, baseLen, 0);
+}
+function fit(){
+  var r = cv.parentElement.getBoundingClientRect();
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(1, Math.round(r.width));
+  H = Math.max(1, Math.round(r.height));
+  cv.width = Math.round(W * DPR);
+  cv.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  var base = Math.min(W * 0.42, H * 0.56) / 3.6;
+  buildTree(base);
+}
+function regrow(){
+  growStart = time;
+  fit();
+}
+for (var s = 0; s < 90; s++){
+  stars.push({ x:Math.random(), y:Math.random() * 0.72, r:rand(0.4, 1.4), tw:rand(0, 6.28), sp:rand(0.4, 1.6) });
+}
+function spawnLeaf(x, y, stormy){
+  if (leaves.length >= 60){ return; }
+  leaves.push({
+    x:x, y:y,
+    vx:stormy ? rand(30, 140) : rand(-8, 20),
+    vy:stormy ? rand(10, 60) : rand(12, 34),
+    rot:rand(0, 6.28), vr:rand(-4, 4),
+    size:rand(2.4, 4.6), life:rand(4, 9), age:0,
+    col: SEASON_COL[season]
+  });
+}
+function easeGrow(p){
+  if (p <= 0){ return 0; }
+  if (p >= 1){ return 1; }
+  var base = p * p * (3 - 2 * p);
+  var wob = Math.sin(p * Math.PI * 2.5) * 0.05 * (1 - p);
+  return base + wob;
+}
+function drawSky(){
+  var g;
+  if (night){
+    g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#0b1226');
+    g.addColorStop(0.55, '#16203a');
+    g.addColorStop(1, '#222b44');
+  } else {
+    g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#cfe0ee');
+    g.addColorStop(0.55, '#e9eee2');
+    g.addColorStop(1, '#f3ecdb');
+  }
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  if (night){
+    for (var i = 0; i < stars.length; i++){
+      var st = stars[i];
+      var a = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(time * st.sp + st.tw));
+      ctx.globalAlpha = a;
+      ctx.fillStyle = '#e8ecff';
+      ctx.beginPath();
+      ctx.arc(st.x * W, st.y * H, st.r, 0, 6.283);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  ctx.fillStyle = night ? 'rgba(18,24,40,.5)' : 'rgba(120,104,78,.28)';
+  ctx.beginPath();
+  ctx.ellipse(W / 2, H * 0.965, W * 0.42, H * 0.055, 0, 0, 6.283);
+  ctx.fill();
+}
+function frame(nowMs){
+  try{
+    var now = nowMs / 1000;
+    var dt = Math.min(0.05, now - last || 0.016);
+    last = now;
+    time += dt;
+    gustT -= dt;
+    if (gustT <= 0){
+      gustTarget = storm ? rand(0.6, 1) : 0;
+      gustT = rand(0.5, 1.2);
+    }
+    gust += (gustTarget - gust) * Math.min(1, dt * 2.2);
+    drawSky();
+    var windBase = storm ? (1.6 + gust * 2.6) : 0.7;
+    var wind = windBase + Math.sin(time * 0.6) * 0.25 + (storm ? Math.sin(time * 13.7) * 0.12 * gust : 0);
+    var px = W / 2, py = H * 0.86;
+    var tipPts = [];
+    for (var i = 0; i < segs.length; i++){
+      var sg = segs[i];
+      var p = (time - growStart - sg.birth) / 1.15;
+      if (p <= 0){ continue; }
+      var e = easeGrow(p);
+      if (e <= 0.001){ continue; }
+      var par = sg.parent >= 0 ? segs[sg.parent] : null;
+      var wx = sg.parent === -1 ? px : par.wx + Math.cos(par.wang) * par.wlen;
+      var wy = sg.parent === -1 ? py : par.wy + Math.sin(par.wang) * par.wlen;
+      var sway = Math.sin(time * 1.35 + sg.ph) * (0.004 + sg.depth * 0.0034) * wind;
+      var wang = (par ? par.wang : -Math.PI / 2) + sg.ang * Math.min(1, e * 1.4) + sway;
+      var wlen = sg.len * e;
+      sg.wx = wx; sg.wy = wy; sg.wang = wang; sg.wlen = wlen;
+      var tx = wx + Math.cos(wang) * wlen;
+      var ty = wy + Math.sin(wang) * wlen;
+      var wdt = Math.max(0.8, sg.len * 0.055 * (1.1 - sg.depth * 0.09));
+      var col;
+      if (season === 'winter'){
+        col = 'rgba(138,143,152,' + (1 - sg.depth * 0.045) + ')';
+      } else {
+        col = sg.depth < 3 ? '#4a3a2c' : (sg.depth < 6 ? '#5d4c3a' : '#6f6050');
+        ctx.strokeStyle = col;
+      }
+      if (sg.depth === 0){ ctx.lineWidth = wdt * 1.7; } else { ctx.lineWidth = wdt; }
+      ctx.lineCap = 'round';
+      if (col !== undefined){ ctx.strokeStyle = col; }
+      ctx.beginPath();
+      ctx.moveTo(wx, wy);
+      ctx.lineTo(tx, ty);
+      ctx.stroke();
+      if (sg.depth >= DEPTH - 2 && p >= 0.95){ tipPts.push([tx, ty, sg.depth]); }
+    }
+    if (season !== 'winter'){
+      for (var t = 0; t < tipPts.length; t += 2){
+        var pt = tipPts[t];
+        var c = SEASON_COL[season];
+        ctx.fillStyle = c;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.arc(pt[0] + Math.sin(time * 2 + t) * 1.4, pt[1], season === 'spring' ? 2.6 : 4.4, 0, 6.283);
+        ctx.fill();
+        ctx.globalAlpha = 0.55;
+        ctx.beginPath();
+        ctx.arc(pt[0] + 3, pt[1] + 2.5, season === 'spring' ? 1.8 : 3.1, 0, 6.283);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+    var born = 0;
+    if (storm && born === 0 && tipPts.length && Math.random() < 0.5){
+      var rp = tipPts[Math.floor(Math.random() * tipPts.length)];
+      spawnLeaf(rp[0], rp[1], true);
+      born++;
+    }
+    if (!storm && season === 'autumn' && leaves.length < 24 && tipPts.length && Math.random() < 0.22){
+      var ap = tipPts[Math.floor(Math.random() * tipPts.length)];
+      spawnLeaf(ap[0], ap[1], false);
+    }
+    var push = wind * (storm ? 60 : 8);
+    for (var L = leaves.length - 1; L >= 0; L--){
+      var lf = leaves[L];
+      lf.age += dt;
+      lf.vy += 26 * dt;
+      lf.vx += Math.sin(time * 3 + lf.rot) * 8 * dt + push * dt * 0.4;
+      lf.x += lf.vx * dt;
+      lf.y += lf.vy * dt;
+      lf.rot += lf.vr * dt;
+      if (lf.age > lf.life || lf.y > H + 12 || lf.x > W + 20 || lf.x < -20){
+        leaves.splice(L, 1);
+        continue;
+      }
+      ctx.save();
+      ctx.translate(lf.x, lf.y);
+      ctx.rotate(lf.rot);
+      ctx.globalAlpha = Math.max(0, 1 - lf.age / lf.life) * 0.9;
+      ctx.fillStyle = lf.col;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, lf.size, lf.size * 0.55, 0, 0, 6.283);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }catch(err){ /* keep frame loop alive */ }
+  requestAnimationFrame(frame);
+}
+document.querySelectorAll('.chip[data-s]').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.chip[data-s]').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    season = b.getAttribute('data-s');
+  });
+});
+var stormBtn = document.getElementById('stormbtn');
+stormBtn.addEventListener('click', function(){
+  storm = !storm;
+  stormBtn.classList.toggle('on', storm);
+  stormBtn.setAttribute('aria-pressed', String(storm));
+});
+var nightBtn = document.getElementById('nightbtn');
+nightBtn.addEventListener('click', function(){
+  night = !night;
+  nightBtn.classList.toggle('on', night);
+  nightBtn.setAttribute('aria-pressed', String(night));
+});
+document.getElementById('regrow').addEventListener('click', regrow);
+window.addEventListener('resize', fit);
+growStart = 0;
+fit();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Snow Village Iso</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0a1424}
+  body{width:100%;height:100dvh;font-family:system-ui,sans-serif}
+  canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .hud{
+    position:fixed;left:0;right:0;bottom:0;
+    display:flex;align-items:flex-end;justify-content:space-between;gap:14px;
+    padding:10px clamp(12px,2.4vw,22px);
+    background:linear-gradient(to top,rgba(5,10,22,.82),rgba(5,10,22,0));
+    pointer-events:none;
+  }
+  .cap{
+    font:600 clamp(9px,1.25vh,11px)/1.4 system-ui,sans-serif;
+    letter-spacing:.3em;text-transform:uppercase;color:#dbe7f5;
+    text-shadow:0 1px 4px rgba(0,0,0,.7);
+  }
+  .panel{
+    pointer-events:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end;
+  }
+  .row{display:flex;align-items:center;gap:7px;color:#9db4d4;font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:clamp(80px,16vw,150px);height:3px;border-radius:2px;
+    background:linear-gradient(90deg,#33507a,#7fa3c9);outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:13px;height:13px;border-radius:50%;
+    background:#e8f2fc;border:2px solid #4a6d99;box-shadow:0 0 8px rgba(160,200,255,.5);cursor:grab;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:11px;height:11px;border-radius:50%;background:#e8f2fc;border:2px solid #4a6d99;cursor:grab;
+  }
+  button.tog{
+    pointer-events:auto;cursor:pointer;background:rgba(20,36,60,.85);color:#cfe2f7;
+    border:1px solid #3d5c85;border-radius:999px;padding:7px 14px;
+    font:600 10px/1 system-ui,sans-serif;letter-spacing:.22em;text-transform:uppercase;
+    transition:all .25s ease;
+  }
+  button.tog:hover{border-color:#7fa3c9;color:#fff}
+  button.tog.on{background:rgba(64,46,20,.9);border-color:#d9a44a;color:#ffd98a;box-shadow:0 0 14px rgba(255,190,90,.35)}
+  .tip{font:400 9px/1.4 system-ui,sans-serif;color:#5f7ba0;letter-spacing:.1em;text-transform:uppercase}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud">
+  <div>
+    <div class="cap" id="cap">Village / Snowfall - Depth 0 px</div>
+    <div class="tip">click a tile to shove snow</div>
+  </div>
+  <div class="panel">
+    <div class="row">Wind<input id="wind" type="range" min="-100" max="100" value="18"></div>
+    <button id="lan" class="tog on">Lanterns</button>
+  </div>
+</div>
+<script>
+(function(){
+  "use strict";
+  var cv=document.getElementById('c');
+  var ctx=cv.getContext('2d');
+  var W=0,H=0,DPR=1;
+  var cap=document.getElementById('cap');
+  var windEl=document.getElementById('wind');
+  var lanEl=document.getElementById('lan');
+
+  /* iso 2:1 */
+  var N=6, TW=64, TH=32;
+  var ORX=0,ORY=0,SCALE=1;
+  function isoX(c,r){return ORX+(c-r)*TW/2*SCALE;}
+  function isoY(c,r){return ORY+(c+r)*TH/2*SCALE;}
+
+  /* layout: 0 grass, 1 house, 2 pine */
+  var LAYOUT=[
+    [0,2,0,1,0,0],
+    [2,0,1,0,0,2],
+    [0,0,0,2,1,0],
+    [1,0,2,0,0,1],
+    [0,2,0,1,0,0],
+    [2,0,0,0,2,0]
+  ];
+  var lamps=[[1,1],[3,2],[4,4],[2,4]];
+  var caps=[];for(var i=0;i<N*N;i++)caps.push(0);
+  var maxCap=6;
+
+  function fit(){
+    DPR=Math.min(2,window.devicePixelRatio||1);
+    W=window.innerWidth;H=window.innerHeight;
+    cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+    cv.style.width=W+'px';cv.style.height=H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    SCALE=Math.min(1,Math.min(W/640,H/520));
+    ORX=W/2; ORY=H*0.34;
+  }
+
+  function tilePath(c,r){
+    var x=isoX(c,r),y=isoY(c,r);
+    ctx.beginPath();
+    ctx.moveTo(x,y);
+    ctx.lineTo(x+TW/2*SCALE,y+TH/2*SCALE);
+    ctx.lineTo(x,y+TH*SCALE);
+    ctx.lineTo(x-TW/2*SCALE,y+TH/2*SCALE);
+    ctx.closePath();
+  }
+  function tileCenter(c,r){return {x:isoX(c,r),y:isoY(c,r)+TH/2*SCALE};}
+  function pickTile(mx,my){
+    var best=-1,bd=1e9;
+    for(var r=0;r<N;r++)for(var c=0;c<N;c++){
+      var p=tileCenter(c,r);
+      var dx=(mx-p.x),dy=(my-p.y)*2;
+      var d=dx*dx+dy*dy;
+      if(d<bd){bd=d;best=r*N+c;}
+    }
+    return bd<(TW*0.72*SCALE)*(TW*0.72*SCALE)?best:-1;
+  }
+
+  /* snowflake layers */
+  var flakes=[];
+  (function(){
+    var n=250,L=0;
+    for(;L<3;L++){
+      var count=(L===0)?80:(L===1)?90:80;
+      var j=0;
+      for(;j<count;j++){
+        flakes.push({
+          x:Math.random(),y:Math.random(),L:L,
+          r:(0.8+Math.random()*1.4)*(1+L*0.55),
+          sway:0.4+Math.random()*0.9,
+          ph:Math.random()*6.283,
+          vy:0.05+Math.random()*0.06+L*0.045
+        });
+      }
+    }
+  })();
+
+  /* puffs when shoving */
+  var puffs=[];
+  function shove(idx){
+    var c=idx%N,r=(idx/N)|0;
+    caps[idx]=Math.max(0,caps[idx]-3);
+    var p=tileCenter(c,r);
+    var j=0;
+    for(j=0;j<14;j++){
+      puffs.push({
+        x:p.x,y:p.y-4,vx:(Math.random()-0.5)*2.4,vy:-0.8-Math.random()*1.6,
+        r:1.2+Math.random()*2.4,life:1
+      });
+    }
+  }
+
+  function drawHouse(c,r,lanterns){
+    var bx=isoX(c,r),by=isoY(c,r)+TH/2*SCALE;
+    var cap=caps[r*N+c];
+    var hw=TW*0.30*SCALE, hh=TH*1.05*SCALE; /* half width, wall height */
+    var s=SCALE;
+    /* left face (south-west) */
+    ctx.fillStyle='#8a6d55';
+    ctx.beginPath();
+    ctx.moveTo(bx-hw,by-hh);ctx.lineTo(bx,by-hh+hw/2);ctx.lineTo(bx,by+hw/2);ctx.lineTo(bx-hw,by);ctx.closePath();ctx.fill();
+    /* right face */
+    ctx.fillStyle='#a08366';
+    ctx.beginPath();
+    ctx.moveTo(bx+hw,by-hh);ctx.lineTo(bx,by-hh+hw/2);ctx.lineTo(bx,by+hw/2);ctx.lineTo(bx+hw,by);ctx.closePath();ctx.fill();
+    /* roof: two sloped quads meeting at ridge */
+    var ridge=(hw*0.5);
+    ctx.fillStyle='#5d4a3d';
+    ctx.beginPath();
+    ctx.moveTo(bx-hw,by-hh);ctx.lineTo(bx,by-hh-ridge);ctx.lineTo(bx,by-hh+hw/2);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#6e594a';
+    ctx.beginPath();
+    ctx.moveTo(bx+hw,by-hh);ctx.lineTo(bx,by-hh-ridge);ctx.lineTo(bx,by-hh+hw/2);ctx.closePath();ctx.fill();
+    /* snow cap on roof */
+    if(cap>0){
+      var ca=Math.min(1,cap/4)*1.0;
+      ctx.fillStyle='rgba(235,244,252,'+(0.75*ca)+')';
+      ctx.beginPath();
+      ctx.moveTo(bx-hw*0.96,by-hh+1);ctx.lineTo(bx,by-hh-ridge*0.98);ctx.lineTo(bx+hw*0.96,by-hh+1);
+      ctx.lineTo(bx+hw*0.6,by-hh+2.4);ctx.lineTo(bx,by-hh-ridge*0.62);ctx.lineTo(bx-hw*0.6,by-hh+2.4);
+      ctx.closePath();ctx.fill();
+    }
+    /* windows: left face */
+    var wy=by-hh*0.52, ww=hw*0.34, wh=hh*0.30;
+    ctx.save();
+    ctx.transform(1,0.5,0,1,bx-hw*0.62,wy);
+    ctx.fillStyle=lanterns?'rgba(255,196,92,.95)':'rgba(40,52,80,.9)';
+    ctx.fillRect(0,0,ww,wh);
+    ctx.strokeStyle='rgba(60,45,35,.8)';ctx.lineWidth=1;ctx.strokeRect(0,0,ww,wh);
+    ctx.restore();
+    ctx.save();
+    ctx.transform(1,-0.5,0,1,bx+hw*0.16,wy-hw*0.34);
+    ctx.fillStyle=lanterns?'rgba(255,204,110,.95)':'rgba(40,52,80,.9)';
+    ctx.fillRect(0,0,ww*0.9,wh*0.9);
+    ctx.restore();
+    if(lanterns){
+      var g=ctx.createRadialGradient(bx-hw*0.5,wy+wh/2,2,bx-hw*0.5,wy+wh/2,hw*1.5);
+      g.addColorStop(0,'rgba(255,186,80,.28)');g.addColorStop(1,'rgba(255,186,80,0)');
+      ctx.fillStyle=g;
+      ctx.beginPath();ctx.arc(bx-hw*0.5,wy+wh/2,hw*1.5,0,6.283);ctx.fill();
+    }
+  }
+
+  function drawPine(c,r){
+    var bx=isoX(c,r),by=isoY(c,r)+TH/2*SCALE;
+    var cap=caps[r*N+c];
+    var s=SCALE;
+    var h=TH*2.1*s, w=TW*0.34*s;
+    ctx.fillStyle='#4a3a2c';
+    ctx.fillRect(bx-1.5*s,by-6*s,3*s,6*s);
+    var layers=3,j;
+    for(j=0;j<layers;j++){
+      var ly=by-6*s-h*(0.55+j*0.30), lw=w*(1-j*0.26), lh=h*0.42;
+      ctx.fillStyle=j===2?'#2f5d43':'#38664b';
+      ctx.beginPath();
+      ctx.moveTo(bx,ly-lh);ctx.lineTo(bx+lw,ly);ctx.lineTo(bx-lw,ly);ctx.closePath();ctx.fill();
+      /* snow cap on each tier */
+      ctx.fillStyle='rgba(238,246,253,.9)';
+      ctx.beginPath();
+      var cw=lw*0.52;
+      ctx.moveTo(bx,ly-lh);ctx.lineTo(bx+cw,ly-lh*0.42);ctx.lineTo(bx-cw,ly-lh*0.42);ctx.closePath();ctx.fill();
+    }
+    if(cap>0){
+      ctx.fillStyle='rgba(255,255,255,'+(0.25*cap/maxCap)+')';
+      ctx.beginPath();ctx.arc(bx,by-4*s,w*1.1,0,6.283);ctx.fill();
+    }
+  }
+
+  function drawLamp(c,r,lanterns){
+    var p=tileCenter(c,r);
+    var x=p.x,y=p.y;
+    var s=SCALE;
+    ctx.strokeStyle='#3a4a63';ctx.lineWidth=2*s;
+    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y-TH*1.5*s);ctx.stroke();
+    var ly=y-TH*1.5*s;
+    if(lanterns){
+      var g=ctx.createRadialGradient(x,ly,1,x,ly,TH*1.6*s);
+      g.addColorStop(0,'rgba(255,190,90,.55)');g.addColorStop(1,'rgba(255,190,90,0)');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,ly,TH*1.6*s,0,6.283);ctx.fill();
+      ctx.fillStyle='#ffd27a';
+      ctx.beginPath();ctx.arc(x,ly,3.2*s,0,6.283);ctx.fill();
+    }else{
+      ctx.fillStyle='#5a7092';
+      ctx.beginPath();ctx.arc(x,ly,2.6*s,0,6.283);ctx.fill();
+    }
+  }
+
+  function drawSky(lanterns,now){
+    var g=ctx.createLinearGradient(0,0,0,H);
+    if(lanterns){
+      g.addColorStop(0,'#0a0f1e');g.addColorStop(0.55,'#14213a');g.addColorStop(1,'#1c2b47');
+    }else{
+      g.addColorStop(0,'#1a2b4d');g.addColorStop(0.5,'#33507d');g.addColorStop(1,'#5a7ba6');
+    }
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    /* stars */
+    var j;
+    for(j=0;j<40;j++){
+      var sx=(Math.sin(j*127.1)*0.5+0.5)*W;
+      var sy=(Math.sin(j*311.7)*0.5+0.5)*H*0.5;
+      var tw=0.5+0.5*Math.sin(now*0.0012+j*1.7);
+      ctx.fillStyle='rgba(220,235,255,'+(0.15+0.55*tw*(lanterns?1:0.35))+')';
+      ctx.beginPath();ctx.arc(sx,sy,(j%3===0)?1.4:0.9,0,6.283);ctx.fill();
+    }
+    /* moon */
+    var mx=W*0.78,my=H*0.14,MR=Math.max(16,Math.min(W,H)*0.045);
+    var mg=ctx.createRadialGradient(mx,my,2,mx,my,MR*3.2);
+    mg.addColorStop(0,'rgba(240,248,255,.5)');mg.addColorStop(1,'rgba(240,248,255,0)');
+    ctx.fillStyle=mg;ctx.beginPath();ctx.arc(mx,my,MR*3.2,0,6.283);ctx.fill();
+    ctx.fillStyle=lanterns?'#e9f1fb':'#f4f8ff';
+    ctx.beginPath();ctx.arc(mx,my,MR,0,6.283);ctx.fill();
+    ctx.fillStyle=lanterns?'rgba(180,200,230,.5)':'rgba(210,225,245,.45)';
+    var cr=MR*0.28;
+    ctx.beginPath();ctx.arc(mx-MR*0.3,my-MR*0.2,cr,0,6.283);ctx.fill();
+    ctx.beginPath();ctx.arc(mx+MR*0.25,my+MR*0.3,cr*0.7,0,6.283);ctx.fill();
+  }
+
+  function drawGround(){
+    var r,c;
+    for(r=0;r<N;r++)for(c=0;c<N;c++){
+      var cap=caps[r*N+c];
+      tilePath(c,r);
+      var base=(r+c)%2===0?'#3d6f4a':'#457a51';
+      if(!lanternsOn())base=(r+c)%2===0?'#4a7f55':'#528a5d';
+      ctx.fillStyle=base;ctx.fill();
+      ctx.strokeStyle='rgba(20,35,25,.35)';ctx.lineWidth=1;ctx.stroke();
+      if(cap>0){
+        tilePath(c,r);
+        ctx.fillStyle='rgba(232,242,252,'+(0.28*cap/maxCap+0.18)+')';
+        ctx.fill();
+      }
+      /* snow pile at tile south corner grows with accumulation */
+      if(cap>0){
+        var p=tileCenter(c,r);
+        var pw=TW*0.5*SCALE*(0.4+0.6*cap/maxCap);
+        ctx.fillStyle='rgba(236,244,252,.9)';
+        ctx.beginPath();
+        ctx.ellipse(p.x,p.y+TH*0.42*SCALE,pw*0.8,pw*0.34,0,0,6.283);
+        ctx.fill();
+      }
+    }
+  }
+  var lanterns=true;
+  function lanternsOn(){return lanterns;}
+
+  function drawFlakes(now,windVal){
+    var j,f;
+    for(j=0;j<flakes.length;j++){
+      f=flakes[j];
+      var sp=f.vy*(f.L===2?1:f.L===1?0.7:0.45);
+      f.y+=sp*0.016;
+      f.x+=(windVal/100)*(0.00025*(1+f.L*0.7))+Math.sin(now*0.001*f.sway+f.ph)*0.0004;
+      if(f.y>1.02){f.y=-0.02;f.x=Math.random();}
+      if(f.x>1.02)f.x=-0.02;if(f.x<-0.02)f.x=1.02;
+      var alpha=f.L===2?0.9:f.L===1?0.6:0.35;
+      var sz=f.r*(f.L===2?1:f.L===1?0.75:0.5);
+      ctx.fillStyle='rgba(240,248,255,'+alpha+')';
+      ctx.beginPath();ctx.arc(f.x*W,f.y*H,sz,0,6.283);ctx.fill();
+    }
+  }
+
+  function drawPuffs(){
+    var q,u;
+    for(q=0;q<puffs.length;q++){
+      u=puffs[q];
+      u.x+=u.vx;u.y+=u.vy;u.vy+=0.05;u.life-=0.02;
+      if(u.life>0){
+        ctx.fillStyle='rgba(235,245,255,'+(0.55*u.life)+')';
+        ctx.beginPath();ctx.arc(u.x,u.y,u.r*(1.6-u.life*0.6),0,6.283);ctx.fill();
+      }
+    }
+    puffs=puffs.filter(function(x){return x.life>0;});
+  }
+
+  var windVal=18;
+  windEl.addEventListener('input',function(){windVal=+windEl.value;});
+  lanEl.addEventListener('click',function(){
+    lanterns=!lanterns;
+    lanEl.classList.toggle('on',lanterns);
+  });
+  cv.addEventListener('pointerdown',function(e){
+    var idx=pickTile(e.clientX,e.clientY);
+    if(idx>=0)shove(idx);
+  });
+
+  var t0=performance.now();
+  var lastAccum=t0;
+  var lastCapShown=-1;
+
+  function frame(now){
+    try{
+      var windV=windVal;
+      drawSky(lanternsOn(),now);
+      drawGround();
+      /* painter's order: back to front */
+      var r,c;
+      for(r=0;r<N;r++)for(c=0;c<N;c++){
+        var t=LAYOUT[r][c];
+        if(t===1)drawHouse(c,r,lanternsOn());
+        else if(t===2)drawPine(c,r);
+      }
+      for(var q=0;q<lamps.length;q++)drawLamp(lamps[q][0],lamps[q][1],lanternsOn());
+      drawPuffs();
+      drawFlakes(now,windV);
+      /* accumulation every 30s real time */
+      if(now-lastAccum>=30000){
+        lastAccum=now;
+        for(var i2=0;i2<caps.length;i2++)caps[i2]=Math.min(maxCap,caps[i2]+1);
+      }
+      var avg=0;for(var i3=0;i3<caps.length;i3++)avg+=caps[i3];
+      var depth=Math.round(avg/caps.length);
+      if(depth!==lastCapShown){
+        lastCapShown=depth;
+        cap.textContent='Village / Snowfall - Depth '+depth+' px';
+      }
+    }catch(err){}
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize',fit);
+  fit();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+=== 052 ===
+052-cozy-house.html
+COZY HOUSE - isometric 2.5D house at night (canvas): warm windows #ffd27a (one flickers), chimney smoke particles, snow falling (150 flakes, 3 parallax layers), road with mailbox + streetlamp cone + tree. TIME slider DUSK->MIDNIGHT: sky #2a3560->#0d1226, snow rate rises, one window goes dark (someone sleeps). Click a window: toggle its light; click the chimney: smoke puff; click the tree: stars twinkle inside its canopy. Every ~30s a tiny cat silhouette crosses a window. Caption 'THE HOUSE AT MAPLE 12' soft caps. Quiet, warm, alive.
+
+=== 053 ===
+053-type-specimen.html
+TYPE SPECIMEN - 'system stacks, set in scale'. BG #f4f1ea, ink #17181a. 3x3 specimen cards, each one font stack: Georgia serif, system-ui, ui-monospace, Times New Roman, Courier New, Arial, Verdana, Trebuchet MS, Palatino - each card shows a huge 'Ag' glyph, the full alphabet, a sample paragraph, and metric guides (baseline/cap/x-height as thin red #d63a3a lines). Global SIZE slider (12-120px) scales everything live; CASE toggle swaps sample text to upper/lower; clicking a card scrambles its alphabet into random glyphs that re-resolve. Footer: 'SPECIMEN SHEET 03 - NO EXTERNAL FONTS'.
+
+=== 054 ===
+054-reaction-bloom.html
+REACTION BLOOM - Gray-Scott reaction-diffusion, full-bleed canvas (256x144 grid, two typed-array buffers). Colors: bg #0a0d14, substance bands #1d3a52 -> mid #7a5cff -> living #46ff9e. Default F=0.054, K=0.062; live sliders F (0.03-0.06) and K (0.04-0.08) morph the regime (cells -> coral -> rings -> chaos). INOCULATE drops a seed blob at center; CLEAR resets to uniform. Render via ImageData at grid res, upscaled with smoothing ON (soft organic blobs - never crisp). Step sim in chunks across frames to stay smooth. Caption 'REACTION / BLOOM - F.K MAP' + regime name.

@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Greenhouse — Five Specimens</title>
+<style>
+:root{
+  --fog:#dfe8e0;
+  --frame:#2a3a3a;
+  --ink:#22302a;
+  --dim:#5d7068;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 55%),
+    linear-gradient(180deg,#e9f0e9 0%, var(--fog) 42%, #d3ded4 100%);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  color:var(--ink);
+  overflow:hidden;
+}
+#stage{position:fixed;inset:0}
+#art{display:block;width:100%;height:100%}
+#hud{
+  position:fixed;left:0;right:0;top:0;
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:13px clamp(14px,2.5vw,28px);
+  background:linear-gradient(to bottom,rgba(233,240,233,.96) 30%,rgba(233,240,233,0));
+  z-index:2;flex-wrap:wrap;
+}
+.brand{
+  font-size:clamp(11px,1.5vw,14px);letter-spacing:.32em;
+  text-transform:uppercase;font-weight:600;color:var(--ink);
+}
+.brand span{color:var(--dim);font-weight:400;letter-spacing:.26em}
+.ctrl{display:flex;gap:12px;align-items:center}
+.sl{display:flex;align-items:center;gap:8px}
+.sl i{
+  font-style:normal;font-size:10px;letter-spacing:.26em;color:var(--dim);
+}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  width:clamp(110px,22vw,190px);height:22px;background:transparent;cursor:pointer;
+}
+input[type=range]::-webkit-slider-runnable-track{
+  height:4px;border-radius:4px;
+  background:linear-gradient(90deg,#b9cdb6,#7fa08a 60%,#e8c87a);
+}
+input[type=range]::-moz-range-track{
+  height:4px;border-radius:4px;
+  background:linear-gradient(90deg,#b9cdb6,#7fa08a 60%,#e8c87a);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:16px;height:16px;border-radius:50%;margin-top:-6px;
+  background:radial-gradient(circle at 35% 35%,#fff2c8,#e8b25a);
+  box-shadow:0 0 10px rgba(232,178,90,.65);border:1px solid #caa050;
+}
+input[type=range]::-moz-range-thumb{
+  width:15px;height:15px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#fff2c8,#e8b25a);
+  box-shadow:0 0 10px rgba(232,178,90,.65);border:1px solid #caa050;
+}
+.chip{
+  font:inherit;font-size:11px;letter-spacing:.24em;
+  padding:7px 15px;border-radius:999px;
+  border:1px solid rgba(42,58,58,.35);
+  background:rgba(255,255,255,.5);color:var(--dim);cursor:pointer;
+  transition:all .25s ease;
+}
+.chip:hover{border-color:rgba(42,58,58,.7);color:var(--ink)}
+.chip.on{
+  color:#fff;font-weight:600;border-color:transparent;
+  background:linear-gradient(180deg,#6f9ec2,#3d6a94);
+  box-shadow:0 0 14px rgba(90,140,190,.45);
+}
+#hint{
+  position:fixed;top:64px;right:clamp(14px,2.5vw,28px);z-index:2;
+  font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim);
+  background:rgba(255,255,255,.5);padding:5px 10px;border-radius:8px;
+  transition:opacity .8s ease;pointer-events:none;
+}
+#caption{
+  position:fixed;left:clamp(14px,2.5vw,28px);bottom:15px;z-index:2;
+  font-size:clamp(10px,1.2vw,12px);letter-spacing:.42em;text-transform:uppercase;
+  color:var(--dim);pointer-events:none;
+}
+#caption b{color:#3c6a4a;font-weight:600;letter-spacing:.3em}
+.hit{cursor:pointer}
+</style>
+</head>
+<body>
+<div id="stage">
+<svg id="art" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" aria-label="glass greenhouse with five plants">
+<defs>
+  <clipPath id="glassClip">
+    <polygon points="500,150 730,265 730,495 270,495 270,265"/>
+  </clipPath>
+  <linearGradient id="shineGrad" gradientUnits="userSpaceOnUse" x1="300" y1="200" x2="520" y2="380">
+    <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+    <stop offset="0.42" stop-color="#ffffff" stop-opacity="0.30"/>
+    <stop offset="0.58" stop-color="#ffffff" stop-opacity="0.30"/>
+    <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#aec7a5"/>
+    <stop offset="1" stop-color="#8fae87"/>
+  </linearGradient>
+</defs>
+
+<!-- garden -->
+<rect x="0" y="470" width="1000" height="150" fill="url(#grassGrad)"/>
+<rect x="0" y="470" width="1000" height="14" fill="#7fa377" opacity="0.5"/>
+<ellipse cx="120" cy="478" rx="110" ry="26" fill="#7fa377"/>
+<ellipse cx="880" cy="478" rx="110" ry="26" fill="#7fa377"/>
+<ellipse cx="60" cy="500" rx="70" ry="20" fill="#6f9468"/>
+<ellipse cx="940" cy="500" rx="70" ry="20" fill="#6f9468"/>
+<ellipse id="fog1" cx="300" cy="530" rx="320" ry="34" fill="#ffffff" opacity="0.30"/>
+<ellipse id="fog2" cx="720" cy="565" rx="360" ry="40" fill="#ffffff" opacity="0.24"/>
+
+<!-- glass fill -->
+<polygon points="500,150 730,265 730,495 270,495 270,265" fill="rgba(180,220,240,0.18)"/>
+<!-- light beam through glass -->
+<polygon id="beam" clip-path="url(#glassClip)" points="340,148 400,148 480,496 280,496" fill="#fff4d6" opacity="0.10"/>
+
+<!-- plants -->
+<!-- 0 monstera -->
+<g class="plant" transform="translate(320 457)">
+  <ellipse class="shad" cx="0" cy="40" rx="38" ry="7" fill="#22382c" opacity="0.16"/>
+  <g class="sway"><g class="art">
+    <path d="M0,6 Q -4,-18 -16,-34" stroke="#2f5d46" stroke-width="3" fill="none"/>
+    <path d="M0,6 Q 6,-20 20,-38" stroke="#2f5d46" stroke-width="3" fill="none"/>
+    <path d="M0,6 Q 0,-30 0,-52" stroke="#2f5d46" stroke-width="3" fill="none"/>
+    <path d="M-16,-34 Q -46,-44 -52,-20 Q -44,0 -22,-8 Q -12,-20 -16,-34 Z" fill="#2f5d46"/>
+    <path d="M20,-38 Q 50,-48 54,-22 Q 46,-2 24,-10 Q 14,-24 20,-38 Z" fill="#35694e"/>
+    <path d="M0,-52 Q -16,-72 2,-84 Q 22,-80 14,-58 Q 6,-48 0,-52 Z" fill="#2f5d46"/>
+  </g></g>
+  <path d="M-22,8 L22,8 L16,38 L-16,38 Z" fill="#8a5a3c"/>
+  <rect x="-26" y="0" width="52" height="9" rx="2" fill="#96633f"/>
+  <ellipse class="soil" cx="0" cy="4" rx="18" ry="4.5" fill="#4a3527"/>
+  <circle class="hit" r="36" cy="-14" fill="rgba(0,0,0,0)" data-i="0"/>
+</g>
+<!-- 1 cactus -->
+<g class="plant" transform="translate(410 457)">
+  <ellipse class="shad" cx="0" cy="40" rx="34" ry="6" fill="#22382c" opacity="0.16"/>
+  <g class="sway"><g class="art">
+    <path d="M-9,4 L-9,-58 Q -9,-70 0,-70 Q 9,-70 9,-58 L9,4 Z" fill="#3f7a52"/>
+    <path d="M-9,-30 L-22,-30 Q -28,-30 -28,-38 L-28,-52 Q -28,-60 -21,-60 Q -14,-60 -14,-52 L-14,-42 L-9,-42 Z" fill="#3f7a52"/>
+    <path d="M9,-22 L18,-22 Q 24,-22 24,-30 L24,-40 Q 24,-48 17,-48 Q 10,-48 10,-40 L10,-33 L9,-33 Z" fill="#35694e"/>
+    <line x1="-3" y1="-8" x2="-3" y2="-62" stroke="#2c5a3e" stroke-width="1.4" opacity="0.7"/>
+    <line x1="3" y1="-8" x2="3" y2="-62" stroke="#2c5a3e" stroke-width="1.4" opacity="0.7"/>
+    <circle cx="0" cy="-66" r="4" fill="#c96a8a"/>
+  </g></g>
+  <path d="M-22,8 L22,8 L16,38 L-16,38 Z" fill="#8a5a3c"/>
+  <rect x="-26" y="0" width="52" height="9" rx="2" fill="#96633f"/>
+  <ellipse class="soil" cx="0" cy="4" rx="18" ry="4.5" fill="#4a3527"/>
+  <circle class="hit" r="36" cy="-14" fill="rgba(0,0,0,0)" data-i="1"/>
+</g>
+<!-- 2 fern (steam) -->
+<g class="plant" transform="translate(500 457)">
+  <ellipse class="shad" cx="0" cy="40" rx="40" ry="7" fill="#22382c" opacity="0.16"/>
+  <g class="sway"><g class="art">
+    <path d="M0,4 Q -12,-30 -44,-44" stroke="#2c5c3f" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M0,4 Q -8,-34 -28,-58" stroke="#2c5c3f" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <path d="M0,4 Q 0,-40 4,-70" stroke="#2c5c3f" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <path d="M0,4 Q 8,-34 28,-58" stroke="#33694a" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <path d="M0,4 Q 12,-30 44,-44" stroke="#33694a" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M0,4 Q -20,-20 -58,-14" stroke="#33694a" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <path d="M0,4 Q 20,-20 58,-14" stroke="#2c5c3f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  </g></g>
+  <path d="M-22,8 L22,8 L16,38 L-16,38 Z" fill="#8a5a3c"/>
+  <rect x="-26" y="0" width="52" height="9" rx="2" fill="#96633f"/>
+  <ellipse class="soil" cx="0" cy="4" rx="18" ry="4.5" fill="#4a3527"/>
+  <circle class="hit" r="36" cy="-14" fill="rgba(0,0,0,0)" data-i="2"/>
+</g>
+<!-- 3 sansevieria -->
+<g class="plant" transform="translate(590 457)">
+  <ellipse class="shad" cx="0" cy="40" rx="34" ry="6" fill="#22382c" opacity="0.16"/>
+  <g class="sway"><g class="art">
+    <path d="M0,4 Q -22,-30 -10,-74 Q -2,-40 6,4 Z" fill="#356a4c"/>
+    <path d="M4,4 Q 24,-26 14,-66 Q 6,-34 -2,4 Z" fill="#3f7a55"/>
+    <path d="M-4,4 Q -34,-16 -36,-44 Q -20,-28 -10,4 Z" fill="#356a4c"/>
+    <path d="M8,4 Q 36,-14 38,-40 Q 22,-24 12,4 Z" fill="#2f5d46"/>
+    <path d="M0,4 Q -4,-44 2,-92 Q 10,-44 8,4 Z" fill="#3f7a55"/>
+    <line x1="4" y1="-8" x2="3" y2="-84" stroke="#274d38" stroke-width="1.2" opacity="0.6"/>
+  </g></g>
+  <path d="M-22,8 L22,8 L16,38 L-16,38 Z" fill="#8a5a3c"/>
+  <rect x="-26" y="0" width="52" height="9" rx="2" fill="#96633f"/>
+  <ellipse class="soil" cx="0" cy="4" rx="18" ry="4.5" fill="#4a3527"/>
+  <circle class="hit" r="36" cy="-14" fill="rgba(0,0,0,0)" data-i="3"/>
+</g>
+<!-- 4 bonsai shrub -->
+<g class="plant" transform="translate(680 457)">
+  <ellipse class="shad" cx="0" cy="40" rx="36" ry="6.5" fill="#22382c" opacity="0.16"/>
+  <g class="sway"><g class="art">
+    <path d="M0,4 L0,-24" stroke="#4a3527" stroke-width="5" stroke-linecap="round"/>
+    <path d="M0,-18 Q -10,-30 -16,-36" stroke="#4a3527" stroke-width="3.4" fill="none" stroke-linecap="round"/>
+    <circle cx="-12" cy="-42" r="17" fill="#31604a"/>
+    <circle cx="12" cy="-48" r="15" fill="#3c7058"/>
+    <circle cx="0" cy="-62" r="13" fill="#31604a"/>
+    <circle cx="-22" cy="-32" r="9" fill="#3c7058"/>
+  </g></g>
+  <path d="M-22,8 L22,8 L16,38 L-16,38 Z" fill="#8a5a3c"/>
+  <rect x="-26" y="0" width="52" height="9" rx="2" fill="#96633f"/>
+  <ellipse class="soil" cx="0" cy="4" rx="18" ry="4.5" fill="#4a3527"/>
+  <circle class="hit" r="36" cy="-14" fill="rgba(0,0,0,0)" data-i="4"/>
+</g>
+
+<!-- steam wisps: 8 persistent from fern pot + 16 burst slots -->
+<g id="steam" fill="none" stroke="#f2f8fa" stroke-linecap="round" stroke-width="2" opacity="0.9">
+  <path class="wisp" d="M500,466 L500,376" opacity="0"/>
+  <path class="wisp" d="M500,466 L500,376" opacity="0"/>
+  <path class="wisp" d="M500,466 L500,376" opacity="0"/>
+  <path class="wisp" d="M500,466 L500,376" opacity="0"/>
+  <path class="wisp" d="M500,466 L500,376" opacity="0"/>
+  <path class="wisp" d="M500,466 L500,376" opacity="0"/>
+  <path class="wisp" d="M500,466 L500,376" opacity="0"/>
+  <path class="wisp" d="M500,466 L500,376" opacity="0"/>
+</g>
+<g id="burst" fill="none" stroke="#f2f8fa" stroke-linecap="round" stroke-width="2">
+  <path d="M0,0 L0,-10" opacity="0"/><path d="M0,0 L0,-10" opacity="0"/>
+  <path d="M0,0 L0,-10" opacity="0"/><path d="M0,0 L0,-10" opacity="0"/>
+  <path d="M0,0 L0,-10" opacity="0"/><path d="M0,0 L0,-10" opacity="0"/>
+  <path d="M0,0 L0,-10" opacity="0"/><path d="M0,0 L0,-10" opacity="0"/>
+  <path d="M0,0 L0,-10" opacity="0"/><path d="M0,0 L0,-10" opacity="0"/>
+  <path d="M0,0 L0,-10" opacity="0"/><path d="M0,0 L0,-10" opacity="0"/>
+  <path d="M0,0 L0,-10" opacity="0"/><path d="M0,0 L0,-10" opacity="0"/>
+  <path d="M0,0 L0,-10" opacity="0"/><path d="M0,0 L0,-10" opacity="0"/>
+</g>
+
+<!-- shine band over glass -->
+<polygon points="500,150 730,265 730,495 270,495 270,265" fill="url(#shineGrad)" opacity="0.55"/>
+
+<!-- mullion grid -->
+<g stroke="#2a3a3a" fill="none">
+  <g stroke-width="2.4" opacity="0.95">
+    <line x1="335" y1="232" x2="335" y2="495"/>
+    <line x1="400" y1="195" x2="400" y2="495"/>
+    <line x1="465" y1="157" x2="465" y2="495"/>
+    <line x1="535" y1="157" x2="535" y2="495"/>
+    <line x1="600" y1="195" x2="600" y2="495"/>
+    <line x1="665" y1="232" x2="665" y2="495"/>
+    <line x1="500" y1="150" x2="500" y2="495"/>
+    <line x1="270" y1="330" x2="730" y2="330"/>
+    <line x1="270" y1="412" x2="730" y2="412"/>
+  </g>
+  <g stroke-width="5">
+    <line x1="500" y1="150" x2="270" y2="265"/>
+    <line x1="500" y1="150" x2="730" y2="265"/>
+    <line x1="270" y1="265" x2="730" y2="265"/>
+    <line x1="270" y1="265" x2="270" y2="495"/>
+    <line x1="730" y1="265" x2="730" y2="495"/>
+    <line x1="270" y1="495" x2="730" y2="495"/>
+  </g>
+</g>
+<circle cx="500" cy="148" r="7" fill="#2a3a3a"/>
+<rect x="258" y="494" width="484" height="8" rx="2" fill="#2a3a3a"/>
+
+<!-- rain on glass -->
+<g id="drops" clip-path="url(#glassClip)" stroke="rgba(205,232,252,0.6)" stroke-width="1.3" stroke-linecap="round">
+  <line opacity="0" x1="300" y1="200" x2="300" y2="188"/>
+  <line opacity="0" x1="340" y1="300" x2="340" y2="288"/>
+  <line opacity="0" x1="380" y1="240" x2="380" y2="228"/>
+  <line opacity="0" x1="420" y1="360" x2="420" y2="348"/>
+  <line opacity="0" x1="460" y1="210" x2="460" y2="198"/>
+  <line opacity="0" x1="500" y1="330" x2="500" y2="318"/>
+  <line opacity="0" x1="540" y1="270" x2="540" y2="258"/>
+  <line opacity="0" x1="580" y1="390" x2="580" y2="378"/>
+  <line opacity="0" x1="620" y1="230" x2="620" y2="218"/>
+  <line opacity="0" x1="660" y1="350" x2="660" y2="338"/>
+  <line opacity="0" x1="700" y1="290" x2="700" y2="278"/>
+  <line opacity="0" x1="440" y1="430" x2="440" y2="418"/>
+</g>
+</svg>
+</div>
+<header id="hud">
+  <div class="brand">GREENHOUSE <span>&#183; MORNING FOG</span></div>
+  <div class="ctrl">
+    <label class="sl"><i>SUN</i><input id="sun" type="range" min="0" max="100" value="42" aria-label="sun position"></label>
+    <button id="rain" class="chip" type="button">RAIN</button>
+  </div>
+</header>
+<div id="hint">click a pot to water</div>
+<div id="caption">GREENHOUSE &#8212; 5 SPECIMENS &#183; <b id="watered">WATERED &#215;0</b></div>
+<script>
+(function(){
+  'use strict';
+  var sunSlider=document.getElementById('sun');
+  var rainBtn=document.getElementById('rain');
+  var hint=document.getElementById('hint');
+  var wateredEl=document.getElementById('watered');
+  var fog1=document.getElementById('fog1');
+  var fog2=document.getElementById('fog2');
+  var beam=document.getElementById('beam');
+  var shine=document.getElementById('shineGrad');
+  var dropsG=document.getElementById('drops');
+  var wisps=document.querySelectorAll('.wisp');
+  var burstPaths=document.querySelectorAll('#burst path');
+
+  var T=0,lastTs=0,last=0;
+  var sunPos=0.42;
+  var rain=false,rainAlpha=0;
+  var watered=0;
+  var burstCursor=0;
+
+  var plants=[];
+  var hitEls=document.querySelectorAll('.hit');
+  var i;
+  for(i=0;i<hitEls.length;i++){
+    var g=hitEls[i].parentNode;
+    plants.push({
+      el:g,
+      art:g.querySelector('.art'),
+      sway:g.querySelector('.sway'),
+      shad:g.querySelector('.shad'),
+      soil:g.querySelector('.soil'),
+      x:parseInt(hitEls[i].getAttribute('data-i'),10),
+      stage:0,sCur:1,sTgt:1,
+      ph:i*1.7,
+      soilT:0
+    });
+  }
+  var dropData=[];
+  var lines=dropsG.querySelectorAll('line');
+  for(i=0;i<lines.length;i++){
+    dropData.push({el:lines[i],x:300,y:200,sp:80,len:12});
+  }
+
+  function seedDrops(){
+    var d;
+    for(d=0;d<dropData.length;d++){
+      var dd=dropData[d];
+      dd.x=285+Math.random()*430;
+      dd.y=160+Math.random()*320;
+      dd.sp=55+Math.random()*90;
+      dd.len=8+Math.random()*10;
+    }
+  }
+
+  function water(idx){
+    var p=plants[idx];
+    if(p.stage>=2){return;}
+    p.stage+=1;
+    p.sTgt=1+0.05*p.stage;
+    p.soilT=T;
+    watered+=1;
+    wateredEl.textContent='WATERED ×'+watered;
+    var n=6,k=0;
+    for(k=0;k<n;k++){
+      var bp=burstPaths[burstCursor];
+      burstCursor=(burstCursor+1)%burstPaths.length;
+      bp.setAttribute('data-x',(p.x*90+320+(Math.random()*24-12)).toFixed(1));
+      bp.setAttribute('data-t0',T.toFixed(3));
+      bp.setAttribute('data-dur',(0.9+Math.random()*0.5).toFixed(2));
+    }
+  }
+
+  var hi=0;
+  for(hi=0;hi<hitEls.length;hi++){
+    (function(el){
+      el.addEventListener('click',function(){
+        var idx=parseInt(el.getAttribute('data-i'),10);
+        water(idx);
+        hint.style.opacity='0';
+      });
+    })(hitEls[hi]);
+  }
+
+  sunSlider.addEventListener('input',function(){
+    sunPos=(+sunSlider.value)/100;
+  });
+
+  rainBtn.addEventListener('click',function(){
+    rain=!rain;
+    rainBtn.classList.toggle('on',rain);
+    if(rain){seedDrops();}
+  });
+
+  function plantX(idx){return 320+idx*90;}
+
+  function frame(ts){
+    requestAnimationFrame(frame);
+    try{
+      T=ts/1000;
+      var dt=Math.min(0.05,T-last);
+      last=T;
+      rainAlpha+= (rain?1:-1)*dt*1.6;
+      if(rainAlpha<0){rainAlpha=0;}
+      if(rainAlpha>1){rainAlpha=1;}
+
+      fog1.setAttribute('cx',(300+Math.sin(T*0.07)*240).toFixed(1));
+      fog2.setAttribute('cx',(720+Math.sin(T*0.05+2.1)*260).toFixed(1));
+
+      var bx=230+sunPos*540;
+      beam.setAttribute('points',
+        (bx-30).toFixed(1)+',148 '+(bx+30).toFixed(1)+',148 '+(bx+95).toFixed(1)+',496 '+(bx-65).toFixed(1)+',496');
+      shine.setAttribute('x1',(bx-120).toFixed(1));
+      shine.setAttribute('y1','180');
+      shine.setAttribute('x2',(bx+120).toFixed(1));
+      shine.setAttribute('y2','400');
+
+      var d,k,p;
+      for(k=0;k<plants.length;k++){
+        p=plants[k];
+        p.sCur+=(p.sTgt-p.sCur)*Math.min(1,dt*3.2);
+        p.art.setAttribute('transform','scale('+p.sCur.toFixed(3)+')');
+        var swayA=Math.sin(T*0.9+p.ph)*1.3+rainAlpha*Math.sin(T*2.7+p.ph*1.4)*2.4;
+        p.sway.setAttribute('transform','rotate('+swayA.toFixed(2)+' 0 4)');
+        var dx=(0.5-sunPos)*120;
+        p.shad.setAttribute('cx',dx.toFixed(1));
+        p.shad.setAttribute('opacity',(0.13+Math.abs(0.5-sunPos)*0.14).toFixed(3));
+        var dark=Math.max(0,1-(T-p.soilT)/1.6);
+        if(dark>0){
+          p.soil.setAttribute('fill',dark>0.5?'#2e2118':'#40301f');
+        }else{
+          p.soil.setAttribute('fill','#4a3527');
+        }
+      }
+
+      for(d=0;d<8;d++){
+        var t=((T*0.22)+d/8)%1;
+        var sx=plantX(2)+(d-3.5)*4.5;
+        var a=Math.sin(Math.PI*t)*0.42;
+        var o1=Math.sin(T*1.4+d*1.3)*10;
+        var o2=Math.sin(T*1.1+d*2.1)*15;
+        var ex=sx+Math.sin(T*0.8+d*1.9)*13;
+        var ey=466-95*t;
+        wisps[d].setAttribute('d','M'+sx.toFixed(1)+',466 C'+(sx+o1).toFixed(1)+','+(466-32).toFixed(1)+' '+(sx+o2).toFixed(1)+','+(466-62).toFixed(1)+' '+ex.toFixed(1)+','+ey.toFixed(1));
+        wisps[d].setAttribute('opacity',a.toFixed(3));
+      }
+
+      for(d=0;d<burstPaths.length;d++){
+        var bp=burstPaths[d];
+        var t0=parseFloat(bp.getAttribute('data-t0')||'0');
+        var dur=parseFloat(bp.getAttribute('data-dur')||'1');
+        var bb=(T-t0)/dur;
+        if(bp.getAttribute('data-x')&&bb>0&&bb<1){
+          var bsx=parseFloat(bp.getAttribute('data-x'));
+          var bo1=Math.sin(T*3+d)*8;
+          var bey=464-105*bb;
+          bp.setAttribute('d','M'+bsx.toFixed(1)+',466 C'+(bsx+bo1).toFixed(1)+','+(466-28).toFixed(1)+' '+(bsx+bo1*1.5).toFixed(1)+','+(466-55).toFixed(1)+' '+(bsx+bo1*0.6).toFixed(1)+','+bey.toFixed(1));
+          bp.setAttribute('opacity',(Math.sin(Math.PI*bb)*0.55).toFixed(3));
+        }else if(bb>=1){
+          bp.setAttribute('opacity','0');
+          bp.setAttribute('data-x','');
+        }
+      }
+
+      for(d=0;d<dropData.length;d++){
+        var dd=dropData[d];
+        var dl=dd.el;
+        if(rainAlpha>0.02){
+          dd.y+=dd.sp*dt;
+          if(dd.y>488){
+            dd.y=155+Math.random()*40;
+            dd.x=285+Math.random()*430;
+          }
+          var wob=Math.sin(T*5+dd.x*0.3)*1.4;
+          var fade=Math.min(1,(dd.y-150)/40,(492-dd.y)/50);
+          dl.setAttribute('x1',(dd.x+wob-dd.len*0.12).toFixed(1));
+          dl.setAttribute('y1',(dd.y-dd.len).toFixed(1));
+          dl.setAttribute('x2',(dd.x+wob).toFixed(1));
+          dl.setAttribute('y2',dd.y.toFixed(1));
+          dl.setAttribute('opacity',(rainAlpha*Math.max(0,fade)*0.85).toFixed(3));
+        }else{
+          dl.setAttribute('opacity','0');
+        }
+      }
+    }catch(err){}
+  }
+
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

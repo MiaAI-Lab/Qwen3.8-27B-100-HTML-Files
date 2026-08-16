@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Today Weather — Minimal</title>
+<style>
+  :root{
+    --bg:#f4f2ec;
+    --ink:#1c1d22;
+    --muted:#8a8b90;
+    --line:#dcd9cf;
+    --tint:#f4f2ec;
+    --accent:#e0a832;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    min-height:100dvh;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;
+    transition:background 1.2s ease;
+  }
+  .caption{
+    position:fixed;top:clamp(14px,3vh,30px);left:50%;transform:translateX(-50%);
+    font-size:11px;letter-spacing:.42em;text-transform:uppercase;
+    color:var(--ink);
+    padding:10px 22px 9px;
+    border:1px solid var(--line);
+    background:rgba(255,255,255,.5);
+    backdrop-filter:blur(6px);
+    display:flex;align-items:baseline;gap:14px;
+    user-select:none;
+  }
+  .caption .num{color:var(--muted);letter-spacing:.3em;font-size:10px}
+
+  main{
+    flex:1;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:clamp(10px,2.5vh,26px);
+    padding:clamp(64px,12vh,90px) 16px clamp(110px,20vh,140px);
+  }
+
+  .card{
+    width:min(560px,92vw);
+    background:var(--tint);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:clamp(28px,6vh,54px) clamp(20px,5vw,44px);
+    display:flex;flex-direction:column;align-items:center;gap:clamp(14px,3vh,30px);
+    box-shadow:0 30px 80px -50px rgba(28,29,34,.25);
+    transition:background 1.2s ease,border-color 1.2s ease;
+  }
+
+  .temp{
+    font-size:14vw;
+    line-height:.95;
+    font-weight:200;
+    letter-spacing:-.03em;
+    color:var(--ink);
+    display:flex;align-items:flex-start;
+    transition:color 1.2s ease;
+  }
+  .temp .unit{
+    font-size:.22em;font-weight:300;margin-top:.35em;letter-spacing:0;
+    color:var(--muted);
+  }
+  .cond{
+    font-size:12px;letter-spacing:.5em;text-transform:uppercase;
+    color:var(--ink);
+    display:flex;align-items:center;gap:16px;
+  }
+  .cond::before,.cond::after{
+    content:"";width:34px;height:1px;background:var(--line);
+  }
+
+  /* ---- CSS weather icon ---- */
+  .icon{
+    position:relative;
+    width:clamp(96px,18vw,148px);height:clamp(96px,18vw,148px);
+    cursor:pointer;
+  }
+  .icon:hover .disc{animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{
+    0%,100%{transform:scale(1)}
+    50%{transform:scale(1.08)}
+  }
+  .icon .layer{position:absolute;inset:0;opacity:0;transform:scale(.85);transition:opacity .8s ease,transform .8s cubic-bezier(.2,.8,.2,1)}
+  .icon .layer.show{opacity:1;transform:scale(1)}
+
+  /* sun: disc + 8 rotating rays */
+  .disc{
+    position:absolute;left:50%;top:50%;width:44%;height:44%;
+    margin:-22% 0 0 -22%;
+    background:radial-gradient(circle at 38% 32%, #ffd775, var(--accent) 70%);
+    border-radius:50%;
+    box-shadow:0 0 30px rgba(224,168,50,.5);
+    transform-origin:center;
+  }
+  .rays{
+    position:absolute;inset:8%;
+    animation:spin 24s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .rays i{
+    position:absolute;left:50%;top:0;width:2px;height:20%;
+    margin-left:-1px;background:var(--accent);
+    transform-origin:50% 440%;
+    border-radius:2px;
+  }
+  .rays i:nth-child(1){transform:rotate(0deg)}
+  .rays i:nth-child(2){transform:rotate(45deg)}
+  .rays i:nth-child(3){transform:rotate(90deg)}
+  .rays i:nth-child(4){transform:rotate(135deg)}
+  .rays i:nth-child(5){transform:rotate(180deg)}
+  .rays i:nth-child(6){transform:rotate(225deg)}
+  .rays i:nth-child(7){transform:rotate(270deg)}
+  .rays i:nth-child(8){transform:rotate(315deg)}
+
+  /* cloud: three drifting circles */
+  .cloud{position:absolute;left:50%;top:50%;width:64%;height:38%;margin:-19% 0 0 -32%}
+  .cloud b{
+    position:absolute;background:#f8f7f2;border:1px solid #e2e0d6;
+    border-radius:50%;
+    animation:drift 6s ease-in-out infinite;
+  }
+  @keyframes drift{
+    0%,100%{transform:translateX(0)}
+    50%{transform:translateX(6%)}
+  }
+  .cloud .c1{left:0;bottom:0;width:55%;height:100%;animation-delay:-1s}
+  .cloud .c2{left:26%;bottom:8%;width:64%;height:120%;animation-delay:-3s}
+  .cloud .c3{left:52%;bottom:0;width:48%;height:88%;animation-delay:-5s}
+  .icon .cloud-only .cloud{background:transparent}
+
+  /* rain: 4 falling drop loops */
+  .drops{position:absolute;left:50%;top:62%;width:52%;height:38%;margin-left:-26%}
+  .drops i{
+    position:absolute;top:0;width:2px;height:16%;
+    background:var(--accent);border-radius:2px;
+    opacity:0;animation:fall 1.3s linear infinite;
+  }
+  .drops i:nth-child(1){left:12%;animation-delay:0s}
+  .drops i:nth-child(2){left:37%;animation-delay:.35s}
+  .drops i:nth-child(3){left:62%;animation-delay:.7s}
+  .drops i:nth-child(4){left:85%;animation-delay:1.05s}
+  @keyframes fall{
+    0%{transform:translateY(0);opacity:0}
+    15%{opacity:1}
+    80%{opacity:1}
+    100%{transform:translateY(280%);opacity:0}
+  }
+
+  /* snow: 6 drifting flakes */
+  .flakes{position:absolute;left:50%;top:62%;width:56%;height:38%;margin-left:-28%}
+  .flakes i{
+    position:absolute;top:0;width:5px;height:5px;border-radius:50%;
+    background:var(--accent);opacity:0;
+    animation:flake 2.2s linear infinite;
+  }
+  .flakes i:nth-child(1){left:8%;animation-delay:0s}
+  .flakes i:nth-child(2){left:26%;animation-delay:.4s;width:4px;height:4px}
+  .flakes i:nth-child(3){left:44%;animation-delay:.8s}
+  .flakes i:nth-child(4){left:60%;animation-delay:1.2s;width:4px;height:4px}
+  .flakes i:nth-child(5){left:76%;animation-delay:1.6s}
+  .flakes i:nth-child(6){left:90%;animation-delay:2s;width:3px;height:3px}
+  @keyframes flake{
+    0%{transform:translate(0,0) ;opacity:0}
+    12%{opacity:.95}
+    45%{transform:translate(-9px,160%)}
+    55%{transform:translate(9px,190%)}
+    88%{opacity:.95}
+    100%{transform:translate(-5px,300%);opacity:0}
+  }
+
+  /* storm: flickering bolt */
+  .bolt{
+    position:absolute;left:50%;top:60%;width:14%;height:44%;margin-left:-7%;
+    background:var(--accent);
+    clip-path:polygon(62% 0,100% 0,52% 42%,82% 42%,18% 100%,38% 52%,8% 52%);
+    animation:flicker 1.1s steps(2,end) infinite;
+    filter:drop-shadow(0 0 8px var(--accent));
+  }
+  @keyframes flicker{
+    0%,100%{opacity:.25}
+    12%{opacity:1}
+    24%{opacity:.4}
+    36%{opacity:1}
+    58%{opacity:.3}
+    70%{opacity:1}
+  }
+
+  /* ---- chips ---- */
+  .chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .chip{
+    appearance:none;cursor:pointer;
+    font:inherit;font-size:10px;letter-spacing:.26em;text-transform:uppercase;
+    color:var(--muted);
+    background:transparent;
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding:9px 16px 8px;
+    transition:color .4s ease,border-color .4s ease,background .4s ease,transform .4s ease;
+  }
+  .chip:hover{color:var(--ink);transform:translateY(-1px)}
+  .chip.on{
+    color:var(--ink);
+    background:rgba(255,255,255,.75);
+    border-color:var(--accent);
+    box-shadow:0 2px 14px -6px rgba(28,29,34,.3);
+  }
+
+  /* ---- stat tiles ---- */
+  .stats{
+    display:grid;grid-template-columns:repeat(4,1fr);
+    gap:10px;width:min(560px,92vw);
+  }
+  .stat{
+    background:rgba(255,255,255,.55);
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:12px 8px 10px;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    transition:background 1.2s ease,border-color 1.2s ease;
+  }
+  .stat .k{font-size:8px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted)}
+  .stat .v{font-size:clamp(14px,2.4vw,18px);font-weight:500;font-variant-numeric:tabular-nums}
+  @media (max-width:480px){
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .temp{font-size:22vw}
+  }
+</style>
+</head>
+<body>
+<div class="caption"><span class="num">Gallery 100 / 077</span><span>Today / 14:00</span></div>
+
+<main>
+  <section class="card" aria-label="Weather card">
+    <div class="temp" id="temp"><span id="deg">23</span><span class="unit">°C</span></div>
+    <div class="cond" id="cond">Clear</div>
+    <div class="icon" id="icon" role="img" aria-label="weather icon">
+      <div class="layer sun" id="l-sun">
+        <div class="rays"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="disc"></div>
+      </div>
+      <div class="layer cloud-only" id="l-cloud"><div class="cloud"><b class="c1"></b><b class="c2"></b><b class="c3"></b></div></div>
+      <div class="layer rain" id="l-rain"><div class="cloud"><b class="c1"></b><b class="c2"></b><b class="c3"></b></div><div class="drops"><i></i><i></i><i></i><i></i></div></div>
+      <div class="layer snow" id="l-snow"><div class="cloud"><b class="c1"></b><b class="c2"></b><b class="c3"></b></div><div class="flakes"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="layer storm" id="l-storm"><div class="cloud"><b class="c1"></b><b class="c2"></b><b class="c3"></b></div><div class="bolt"></div></div>
+    </div>
+  </section>
+
+  <div class="chips" role="group" aria-label="Weather state">
+    <button class="chip on" data-state="sun">Sun</button>
+    <button class="chip" data-state="cloud">Cloud</button>
+    <button class="chip" data-state="rain">Rain</button>
+    <button class="chip" data-state="snow">Snow</button>
+    <button class="chip" data-state="storm">Storm</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="k">H / L</span><span class="v" id="s-hl">25 / 14</span></div>
+    <div class="stat"><span class="k">Wind</span><span class="v" id="s-wind">12 km/h</span></div>
+    <div class="stat"><span class="k">Hum</span><span class="v" id="s-hum">48 %</span></div>
+    <div class="stat"><span class="k">UV</span><span class="v" id="s-uv">6</span></div>
+  </div>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  var degEl = document.getElementById("deg");
+  var condEl = document.getElementById("cond");
+  var hlEl = document.getElementById("s-hl");
+  var windEl = document.getElementById("s-wind");
+  var humEl = document.getElementById("s-hum");
+  var uvEl = document.getElementById("s-uv");
+  var layers = {
+    sun: document.getElementById("l-sun"),
+    cloud: document.getElementById("l-cloud"),
+    rain: document.getElementById("l-rain"),
+    snow: document.getElementById("l-snow"),
+    storm: document.getElementById("l-storm")
+  };
+  var chips = Array.prototype.slice.call(document.querySelectorAll(".chip"));
+
+  var STATES = {
+    sun:   { cond:"Clear",    tint:"#f6f1e4", accent:"#e0a832", bg:"#f4f2ec", deg:23, hl:"26 / 14", wind:"12 km/h", hum:"48 %", uv:6 },
+    cloud: { cond:"Overcast", tint:"#f2f1ec", accent:"#9aa0a8", bg:"#f4f2ec", deg:19, hl:"21 / 15", wind:"14 km/h", hum:"57 %", uv:4 },
+    rain:  { cond:"Rain",     tint:"#eef1f7", accent:"#2f5fd8", bg:"#f1f2f5", deg:14, hl:"16 / 10", wind:"24 km/h", hum:"83 %", uv:2 },
+    snow:  { cond:"Snow",     tint:"#eef2f4", accent:"#7fa8c9", bg:"#f4f5f6", deg:1,  hl:"3 / -4",  wind:"11 km/h", hum:"74 %", uv:1 },
+    storm: { cond:"Storm",    tint:"#ececf1", accent:"#5a5f7a", bg:"#f0f0f3", deg:16, hl:"18 / 12", wind:"46 km/h", hum:"88 %", uv:1 }
+  };
+
+  var cur = "sun";
+  var shownDeg = 23;
+  var lerpFrom = 23, lerpTo = 23, lerpT = 1;
+
+  function setState(name){
+    cur = name;
+    var s = STATES[name];
+    condEl.textContent = s.cond;
+    document.body.style.background = s.bg;
+    var card = document.querySelector(".card");
+    card.style.background = s.tint;
+    document.documentElement.style.setProperty("--accent", s.accent);
+    document.documentElement.style.setProperty("--tint", s.tint);
+
+    for(let k in layers){
+      layers[k].classList.toggle("show", k === name);
+    }
+    for(let i = 0; i < chips.length; i++){
+      chips[i].classList.toggle("on", chips[i].getAttribute("data-state") === name);
+    }
+
+    /* lerp the big degree readout */
+    lerpFrom = shownDeg;
+    lerpTo = s.deg;
+    lerpT = 0;
+
+    animateNumber(hlEl, s.hl);
+    animateNumber(windEl, s.wind);
+    animateNumber(humEl, s.hum);
+    animateNumber(uvEl, String(s.uv));
+  }
+
+  /* ease every number embedded in a tile's text (e.g. "26 / 14", "12 km/h") */
+  var anims = [];
+  function animateNumber(el, toText){
+    var fromNums = (el.textContent.match(/-?\d+(\.\d+)?/g) || []).map(Number);
+    var toNums = (toText.match(/-?\d+(\.\d+)?/g) || []).map(Number);
+    if(fromNums.length !== toNums.length || fromNums.length === 0){
+      el.textContent = toText;
+      return;
+    }
+    var oldAnim = null;
+    for(let i = 0; i < anims.length; i++){
+      if(anims[i].el === el){ oldAnim = anims[i]; break; }
+    }
+    if(oldAnim){
+      fromNums = oldAnim.from.map(function(n, idx){ return n + (oldAnim.to[idx] - n) * oldAnim.t; });
+    }
+    anims.push({ el: el, from: fromNums.slice(), to: toNums, text: toText, t: 0 });
+  }
+  function stepAnims(){
+    for(let i = anims.length - 1; i >= 0; i--){
+      var a = anims[i];
+      a.t = Math.min(1, a.t + 1/55);
+      var e = ease(a.t);
+      var m = 0;
+      var out = a.text.replace(/-?\d+(\.\d+)?/g, function(num){
+        var v = a.from[m] + (a.to[m] - a.from[m]) * e;
+        m += 1;
+        return (v % 1 === 0) ? String(Math.round(v)) : v.toFixed(1);
+      });
+      a.el.textContent = out;
+      if(a.t >= 1){ anims.splice(i, 1); }
+    }
+  }
+
+  for(let i = 0; i < chips.length; i++){
+    (function(chip){
+      chip.addEventListener("click", function(){ setState(chip.getAttribute("data-state")); });
+    })(chips[i]);
+  }
+
+  function ease(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
+
+  function tick(){
+    try{
+      if(lerpT < 1){
+        lerpT = Math.min(1, lerpT + 1/60);
+        shownDeg = lerpFrom + (lerpTo - lerpFrom) * ease(lerpT);
+        degEl.textContent = Math.round(shownDeg);
+      }
+      stepAnims();
+    }catch(err){}
+    requestAnimationFrame(tick);
+  }
+
+  setState("sun");
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

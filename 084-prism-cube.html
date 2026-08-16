@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Glass Cube</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;overflow:hidden}
+  body{
+    width:100%;height:100dvh;
+    background:
+      radial-gradient(120% 90% at 50% 118%, rgba(90,120,170,.55) 0%, rgba(20,28,48,0) 55%),
+      radial-gradient(80% 60% at 20% 8%, rgba(70,90,140,.35) 0%, rgba(10,14,26,0) 60%),
+      linear-gradient(180deg,#0b1020 0%,#141d33 45%,#1d2a47 72%,#0d1426 100%);
+    font-family:system-ui,sans-serif;
+  }
+  .stage{
+    position:fixed;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    perspective:clamp(520px,90vmin,1100px);
+    perspective-origin:50% 44%;
+  }
+  /* refraction strip zone */
+  .stripzone{
+    position:absolute;left:50%;top:50%;
+    width:min(72vmin,560px);height:min(46vmin,360px);
+    transform:translate(-50%,-50%);
+    overflow:hidden;pointer-events:none;
+    filter:blur(1px);
+  }
+  .strip{
+    position:absolute;left:-20%;top:50%;
+    width:140%;height:clamp(40px,7vmin,72px);
+    transform:translateY(-50%);
+    background:linear-gradient(180deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.55) 42%,rgba(255,255,255,.9) 50%,rgba(255,255,255,.55) 58%,rgba(255,255,255,0) 100%);
+    mix-blend-mode:screen;
+  }
+  .strip.s2{height:clamp(14px,2.4vmin,22px);opacity:.4;transform:translateY(calc(-50% - clamp(18px,3vmin,30px)));}
+  .strip.s3{height:clamp(10px,1.8vmin,16px);opacity:.28;transform:translateY(calc(-50% + clamp(18px,3vmin,30px)));}
+  body.spec .strip{
+    background:linear-gradient(180deg,rgba(255,0,90,0) 0%,rgba(255,60,120,.65) 30%,rgba(255,200,0,.75) 45%,rgba(0,230,180,.7) 60%,rgba(40,120,255,.65) 78%,rgba(160,0,255,0) 100%);
+  }
+  body.spec .strip.s2{opacity:.5}
+  body.spec .strip.s3{opacity:.4}
+  .floor{
+    position:absolute;left:50%;top:50%;
+    width:min(60vmin,480px);height:min(16vmin,120px);
+    transform:translate(-50%,calc(50% + min(19vmin,150px)));
+    background:radial-gradient(50% 50% at 50% 50%,rgba(6,10,20,.65) 0%,rgba(6,10,20,.32) 45%,rgba(6,10,20,0) 72%);
+    border-radius:50%;pointer-events:none;
+  }
+  .bobber{
+    position:relative;
+    transform-style:preserve-3d;
+    will-change:transform;
+  }
+  .cube{
+    position:relative;width:var(--sz);height:var(--sz);
+    transform-style:preserve-3d;
+    cursor:grab;
+  }
+  .cube:active{cursor:grabbing}
+  .face{
+    position:absolute;inset:0;
+    background:rgba(200,230,250,.12);
+    -webkit-backdrop-filter:blur(6px);
+    backdrop-filter:blur(6px);
+    border:1px solid #cfe8f5;
+    box-shadow:inset 0 0 26px rgba(190,225,255,.14),inset 0 0 4px rgba(255,255,255,.28);
+    backface-visibility:hidden;
+  }
+  .face::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(115deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,0) 38%,rgba(255,255,255,0) 62%,rgba(255,255,255,.08) 100%);
+  }
+  .f1{transform:translateZ(calc(var(--sz)/2))}
+  .f2{transform:rotateY(90deg) translateZ(calc(var(--sz)/2))}
+  .f3{transform:rotateY(180deg) translateZ(calc(var(--sz)/2))}
+  .f4{transform:rotateY(-90deg) translateZ(calc(var(--sz)/2))}
+  .f5{transform:rotateX(90deg) translateZ(calc(var(--sz)/2))}
+  .f6{transform:rotateX(-90deg) translateZ(calc(var(--sz)/2))}
+  body.spec .f1{background:rgba(255,120,170,.20)}
+  body.spec .f2{background:rgba(90,220,255,.20)}
+  body.spec .f3{background:rgba(180,120,255,.20)}
+  body.spec .f4{background:rgba(90,220,255,.16)}
+  body.spec .f5{background:rgba(255,150,200,.16)}
+  body.spec .f6{background:rgba(160,110,255,.16)}
+  body.spec .face{border-color:#e6d4f5}
+  .hud{
+    position:fixed;left:0;right:0;bottom:0;
+    display:flex;align-items:flex-end;justify-content:space-between;gap:14px;
+    padding:12px clamp(12px,2.4vw,24px);
+    background:linear-gradient(to top,rgba(5,8,18,.75),rgba(5,8,18,0));
+    pointer-events:none;
+  }
+  .cap{
+    font:600 clamp(9px,1.25vh,11px)/1.4 system-ui,sans-serif;
+    letter-spacing:.32em;text-transform:uppercase;color:#dce9f8;
+    text-shadow:0 1px 5px rgba(0,0,0,.7);
+  }
+  .tip{font:400 9px/1.4 system-ui,sans-serif;color:#6f86a8;letter-spacing:.12em;text-transform:uppercase;margin-top:3px}
+  .tog{
+    pointer-events:auto;cursor:pointer;
+    background:rgba(24,34,58,.85);color:#bcd2ee;
+    border:1px solid #46608f;border-radius:999px;padding:8px 16px;
+    font:600 10px/1 system-ui,sans-serif;letter-spacing:.24em;text-transform:uppercase;
+    transition:all .3s ease;
+  }
+  .tog:hover{border-color:#8fb0dd;color:#fff}
+  .tog.on{background:rgba(58,32,74,.92);border-color:#c07de0;color:#f0c8ff;box-shadow:0 0 16px rgba(190,110,255,.4)}
+  .grain{
+    position:fixed;inset:0;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+    background:radial-gradient(1px 1px at 12% 22%,#fff 50%,transparent 51%),
+      radial-gradient(1px 1px at 78% 12%,#fff 50%,transparent 51%),
+      radial-gradient(1.4px 1.4px at 42% 66%,#fff 50%,transparent 51%),
+      radial-gradient(1px 1px at 88% 74%,#fff 50%,transparent 51%),
+      radial-gradient(1.2px 1.2px at 22% 88%,#fff 50%,transparent 51%),
+      radial-gradient(1px 1px at 62% 38%,#fff 50%,transparent 51%);
+  }
+  :root{--sz:clamp(130px,26vmin,220px)}
+  @media (max-width:480px){:root{--sz:clamp(110px,34vw,160px)}}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="stage" id="stage">
+  <div class="floor" id="floor"></div>
+  <div class="stripzone" id="stripzone">
+    <div class="strip s1" id="strip1"></div>
+    <div class="strip s2" id="strip2"></div>
+    <div class="strip s3" id="strip3"></div>
+  </div>
+  <div class="bobber" id="bob">
+    <div class="cube" id="cube">
+      <div class="face f1"></div>
+      <div class="face f2"></div>
+      <div class="face f3"></div>
+      <div class="face f4"></div>
+      <div class="face f5"></div>
+      <div class="face f6"></div>
+    </div>
+  </div>
+</div>
+<div class="hud">
+  <div>
+    <div class="cap">Glass / Cube - 6 Faces, Live</div>
+    <div class="tip">drag to spin &middot; release for inertia</div>
+  </div>
+  <button id="spec" class="tog">Spectrum</button>
+</div>
+<script>
+(function(){
+  "use strict";
+  var cube=document.getElementById('cube');
+  var bob=document.getElementById('bob');
+  var floor=document.getElementById('floor');
+  var strip1=document.getElementById('strip1');
+  var strip2=document.getElementById('strip2');
+  var strip3=document.getElementById('strip3');
+  var specBtn=document.getElementById('spec');
+  var stage=document.getElementById('stage');
+
+  var rx=-18,ry=24;             /* current orientation */
+  var vx=0.0,vy=0.35;           /* angular velocity (deg/frame-ish, uses dt) */
+  var idleVy=0.35;              /* base continuous spin */
+  var dragging=false;
+  var lastX=0,lastY=0;
+  var lastT=0;
+
+  function onDown(e){
+    dragging=true;
+    lastX=e.clientX;lastY=e.clientY;
+    vx=0;vy=0;
+    cube.setPointerCapture&&cube.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!dragging)return;
+    var dx=e.clientX-lastX,dy=e.clientY-lastY;
+    lastX=e.clientX;lastY=e.clientY;
+    ry+=dx*0.45;
+    rx-=dy*0.45;
+    /* remember velocity for inertia */
+    vx=-dy*0.45;
+    vy=dx*0.45;
+  }
+  function onUp(){
+    dragging=false;
+    /* ease inertia back toward idle spin if user was gentle */
+    if(Math.abs(vy)<0.06)vy=idleVy;
+    if(vy>0.9)vy=0.9;if(vy<-0.9)vy=-0.9;
+    if(vx>0.9)vx=0.9;if(vx<-0.9)vx=-0.9;
+  }
+  cube.addEventListener('pointerdown',onDown);
+  window.addEventListener('pointermove',onMove,{passive:false});
+  window.addEventListener('pointerup',onUp);
+  window.addEventListener('pointercancel',onUp);
+
+  specBtn.addEventListener('click',function(){
+    var on=specBtn.classList.toggle('on');
+    document.body.classList.toggle('spec',on);
+    /* pulse the strips when spectrum engages */
+    pulseT=1;
+  });
+
+  var pulseT=0;
+
+  function frame(now){
+    try{
+      var dt=Math.min(50,now-lastT)/16.667; /* in 60fps-frame units */
+      if(lastT===0)dt=1;
+      lastT=now;
+
+      if(!dragging){
+        rx+=vx*dt;
+        ry+=vy*dt;
+        /* inertia decay + drift back to idle spin */
+        vx*=Math.pow(0.985,dt);
+        vy+=(idleVy-vy)*Math.min(1,0.004*dt);
+        vy*=Math.pow(0.999,dt);
+      }
+
+      /* slow sine bob */
+      var bobY=Math.sin(now*0.00052)*10;
+      var bobTilt=Math.sin(now*0.00037)*2.2;
+      bob.style.transform='translateY('+bobY.toFixed(2)+'px) rotateZ('+bobTilt.toFixed(2)+'deg)';
+      cube.style.transform='rotateX('+rx.toFixed(2)+'deg) rotateY('+ry.toFixed(2)+'deg)';
+
+      /* floor shadow squashes inversely to bob height */
+      var squash=1.25-bobY*0.028;
+      var dim=0.72-bobY*0.012;
+      floor.style.transform='translate(-50%,calc(50% + min(19vmin,150px))) scale('+squash.toFixed(3)+',0.55)';
+      floor.style.opacity=Math.max(0.25,Math.min(1,dim)).toFixed(3);
+
+      /* refraction strips: faint offset copies crossing the cube zone,
+         drifting slowly so light appears to slide through the glass */
+      var drift=(Math.sin(now*0.00033)*18);
+      strip1.style.transform='translateY(-50%) translateX('+drift.toFixed(1)+'px) skewX('+(drift*0.4).toFixed(1)+'deg)';
+      strip2.style.transform='translateY(calc(-50% - clamp(18px,3vmin,30px))) translateX('+(-drift*1.35).toFixed(1)+'px) skewX('+(-drift*0.5).toFixed(1)+'deg)';
+      strip3.style.transform='translateY(calc(-50% + clamp(18px,3vmin,30px))) translateX('+(drift*1.7).toFixed(1)+'px) skewX('+(drift*0.6).toFixed(1)+'deg)';
+
+      /* face tints by orientation when spectrum is on */
+      if(document.body.classList.contains('spec')){
+        var front=Math.cos((ry%360)*Math.PI/180);
+        var side=Math.sin((ry%360)*Math.PI/180);
+        var top=Math.sin((rx%360)*Math.PI/180);
+        var t1=Math.max(0,front),t2=Math.max(0,side),t3=Math.max(0,-front),t4=Math.max(0,-side),t5=Math.max(0,top),t6=Math.max(0,-top);
+        var f=document.querySelectorAll('.face');
+        var gains=[t1,t2,t3,t4,t5,t6];
+        var j;
+        for(j=0;j<6;j++){
+          if(f[j])f[j].style.boxShadow='inset 0 0 26px rgba(190,225,255,'+(0.14+gains[j]*0.30).toFixed(3)+'), inset 0 0 4px rgba(255,255,255,'+(0.28+gains[j]*0.4).toFixed(3)+')';
+        }
+        /* spectrum pulse on toggle */
+        if(pulseT>0){
+          pulseT-=0.02*dt;
+          stage.style.filter='saturate('+(1+pulseT*0.6).toFixed(2)+')';
+        }else{
+          stage.style.filter='';
+        }
+      }
+    }catch(err){
+      /* never let a frame kill the loop */
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

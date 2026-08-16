@@ -1,0 +1,11 @@
+=== 061 ===
+061-led-marquee.html
+LED MARQUEE - 'THE STARLIGHT HOTEL' dot-matrix sign. Black #0a0a0a; big rounded LED panel (canvas grid 104x24 dots, 8px spacing): on-dots = glow circles #ffb454, off-dots = faint #241a12 ghosts. Text scrolls left using a custom 5x7 pixel font (bit arrays for A-Z, 0-9, period, star). Mode chips: SCROLL / CHASE (running dot border) / RAIN (dots fall down the grid) / TEST (all on + random flicker). Color chips: amber / red #ff3b30 / blue #3a6fff. Occasional dead-dot flicker (1 dot off for 200ms). CSS metal bezel with corner screws. Caption 'MARQUEE 104x24 - EST 1978'.
+
+=== 062 ===
+062-alpenglow.html
+ALPENGLOW - five ridge layers (SVG silhouettes, jagged-smooth hybrid: far #d8a0c0 alpenglow-pink -> near #2a1e3a) over a sky gradient #ffd9a8->#7a5fd8. SUN slider DAWN->DUSK sweeps: sky hue lerps, ridges retint (alpenglow strongest at low sun; near ridges fall into blue shadow), snow caps on the two far ridges glow pink at dawn. 120 stars fade in at dusk; translucent fog bands drift between ridges; one hawk silhouette circles slowly on the middle ridge. Caption 'ALPENGLOW - RIDGE 5' + time-of-day readout. Serene, painterly, big.
+
+=== 063 ===
+063-music-box.html
+GLASS MUSIC BOX - warm #1c1510. Center: a rotating brass cylinder (#c8a05a, canvas-drawn with rows of pin dots) under a glass dome (translucent circle, rim highlight); 6 note lamps in a row below. WebAudio (gesture-created): as the cylinder spins, pin passes trigger music-box tones (triangle wave, E6/G#6/B6..., 24-note looping melody, precomputed pin schedule) with a gentle decay + slight detune waver. PLAY/PAUSE slows the cylinder to a stop with inertia; SPRING toggle winds it to 2x speed. Each pin pass flashes its lamp + a tiny star glint on the dome. Caption 'MUSIC BOX - CYLINDER 24'.

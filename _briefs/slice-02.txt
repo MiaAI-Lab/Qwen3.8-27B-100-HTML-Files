@@ -1,0 +1,11 @@
+=== 004 ===
+004-concrete-zine.html
+CONCRETE ZINE - brutalist zine cover 'ISSUE 07 - CONCRETE POETRY'. BG #101010, white #f2f0ec blocks, single accent red #ff3b30. Massive display type (system-ui 800) that overflows: 'LOUD' at ~20vw with hard offset shadow; asymmetric grid: rotated text strip, boxed manifesto paragraph, barcode column of black rects, a slightly-rotated 'FREE' sticker circle. Hover: red blocks invert to black-with-red-text. Three scroll 'pages', each a different layout, same brutal vocabulary. NO border-radius anywhere, NO gradients - flat only. Crosshair cursor. Everything sharp, loud, uneven on purpose.
+
+=== 005 ===
+005-tideglass-water.html
+TIDEGLASS - sunlit water surface sim. Sky gradient #ffd9a0->#7fc8ff top third; water #0b3550->#061e2c. Two-buffer ripple simulation on canvas at 1/8 resolution: click/drag drops ripples; waves refract a sun disc + shimmer highlight field beneath. Specular fleck particles drift with wave height. HUD top-right: 'TIDE / GLASS' caps + thin wave-energy bar. On load: three staggered auto-ripples. DPR-aware; fit() called once at boot. Slow, luxurious, meditative. Water should look liquid, not tiled.
+
+=== 006 ===
+006-constellation-drift.html
+CONSTELLATION DRIFT - deep #070b18 sky, 140 stars in 3 parallax depth layers (size by depth), gentle twinkle (alpha sine). Every ~90ms connect stars within 90px with thin lines (alpha by distance) so constellations shift and reform; 4 bright 'named' stars carry small-caps labels (VEGA, RIGEL, DENEB, POLARIS). Pointer = gentle gravity well bending nearby lines + spawning slow-drifting new stars at cursor. Bottom: 'CONSTELLATION / DRIFT' + live link counter. One canvas; additive glow only on the big stars via shadowBlur.

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Myth Constellations — Five Figures</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:#0a0e1c;
+    overflow:hidden;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    color:#e8ecf6;
+    -webkit-font-smoothing:antialiased;
+  }
+  #sky{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+  #sky.dragging{cursor:grabbing}
+
+  .hud{position:fixed;left:0;right:0;display:flex;justify-content:center;pointer-events:none;user-select:none;z-index:6}
+  .top{top:clamp(14px,3vh,30px)}
+  .bottom{bottom:clamp(14px,3.5vh,32px)}
+  .caption{
+    font-size:11px;letter-spacing:.42em;text-transform:uppercase;
+    padding:10px 22px 9px;
+    border:1px solid rgba(232,236,246,.16);
+    background:rgba(10,14,28,.6);
+    backdrop-filter:blur(6px);
+    display:flex;align-items:baseline;gap:14px;
+  }
+  .caption .num{color:rgba(232,236,246,.4);letter-spacing:.3em;font-size:10px}
+
+  .controls{
+    display:flex;gap:14px;align-items:center;pointer-events:auto;
+    padding:10px 16px;
+    border:1px solid rgba(232,236,246,.16);
+    background:rgba(10,14,28,.6);
+    backdrop-filter:blur(6px);
+  }
+  .allbtn{
+    appearance:none;cursor:pointer;font:inherit;
+    font-size:10px;letter-spacing:.3em;text-transform:uppercase;
+    color:#e8ecf6;background:transparent;
+    border:1px solid rgba(200,180,255,.45);
+    padding:8px 16px 7px;
+    transition:background .3s ease,border-color .3s ease;
+  }
+  .allbtn:hover{background:rgba(200,180,255,.14);border-color:rgba(200,180,255,.9)}
+  .allbtn.on{background:rgba(200,180,255,.2);border-color:#c8b4ff}
+  .night{
+    display:flex;align-items:center;gap:10px;
+    font-size:10px;letter-spacing:.3em;text-transform:uppercase;
+    color:rgba(232,236,246,.55);
+  }
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;
+    width:110px;height:2px;background:rgba(232,236,246,.25);outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:12px;height:12px;border-radius:50%;
+    background:#c8b4ff;border:1px solid #0a0e1c;
+    box-shadow:0 0 10px rgba(200,180,255,.6);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:12px;height:12px;border-radius:50%;border:1px solid #0a0e1c;
+    background:#c8b4ff;box-shadow:0 0 10px rgba(200,180,255,.6);
+  }
+
+  /* name chips travel with the world */
+  #chips{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:5}
+  #chips .inner{position:absolute;left:0;top:0}
+  .nchip{
+    appearance:none;cursor:pointer;font:inherit;
+    font-size:9px;letter-spacing:.34em;text-transform:uppercase;
+    color:rgba(232,236,246,.75);
+    background:rgba(10,14,28,.55);
+    border:1px solid rgba(232,236,246,.22);
+    padding:7px 13px 6px;
+    pointer-events:auto;
+    transition:color .4s ease,border-color .4s ease,box-shadow .4s ease,background .4s ease;
+  }
+  .nchip:hover{color:#fff;border-color:rgba(255,255,255,.6);box-shadow:0 0 16px rgba(120,140,255,.35)}
+  .nchip.lit{
+    color:#fff;background:rgba(40,48,86,.7);
+    border-color:rgba(190,170,255,.85);
+    box-shadow:0 0 18px rgba(140,120,255,.45);
+  }
+
+  /* myth plaques */
+  #plaques{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:4}
+  #plaques .inner{position:absolute;left:0;top:0}
+  .plaque{
+    width:230px;
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:12.5px;line-height:1.55;font-style:italic;
+    color:#dfe4f2;
+    background:rgba(12,16,32,.78);
+    border:1px solid rgba(220,205,170,.4);
+    box-shadow:0 0 0 1px rgba(220,205,170,.08) inset,0 18px 50px -22px rgba(0,0,0,.9);
+    padding:14px 16px 13px;
+    opacity:0;transform:translateY(10px);
+    transition:opacity .9s ease,transform .9s ease;
+  }
+  .plaque.show{opacity:1;transform:translateY(0)}
+  .plaque .fig{
+    font-style:normal;font-family:system-ui,sans-serif;
+    font-size:9px;letter-spacing:.4em;text-transform:uppercase;
+    color:rgba(220,205,170,.85);
+    margin-bottom:8px;
+    border-bottom:1px solid rgba(220,205,170,.25);
+    padding-bottom:7px;
+  }
+
+  /* svg element animation */
+  .crawl{
+    fill:none;stroke:rgba(150,170,255,.4);stroke-width:1;
+    stroke-dasharray:4 9;
+    animation:crawl 7s linear infinite;
+  }
+  @keyframes crawl{to{stroke-dashoffset:-130}}
+  .litline{
+    fill:none;stroke:#cdd6ff;stroke-width:1.4;
+    stroke-dasharray:100;stroke-dashoffset:100;
+    transition:stroke-dashoffset 1s cubic-bezier(.4,0,.2,1),stroke .6s ease;
+  }
+  .done .litline{stroke-dashoffset:0}
+  .done .crawl{opacity:0;transition:opacity 1.2s ease}
+  .star{animation:twinkle 3.4s ease-in-out infinite}
+  @keyframes twinkle{
+    0%,100%{opacity:var(--o1)}
+    50%{opacity:var(--o2)}
+  }
+  .lbl{
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:9px;letter-spacing:.14em;fill:rgba(226,231,245,.95);
+    opacity:0;transition:opacity 1s ease .35s;
+  }
+  .done .lbl{opacity:1}
+  @media (max-width:480px){
+    .caption{font-size:9px;letter-spacing:.3em}
+    .plaque{width:190px;font-size:11.5px}
+    input[type=range]{width:80px}
+  }
+</style>
+</head>
+<body>
+<svg id="sky" aria-label="Myth constellations night sky" preserveAspectRatio="none"></svg>
+
+<div id="chips"><div class="inner" id="chipInner"></div></div>
+<div id="plaques"><div class="inner" id="plqInner"></div></div>
+
+<div class="hud top">
+  <div class="caption"><span class="num">Gallery 100 / 078</span><span>Myth - 5 Figures</span></div>
+</div>
+
+<div class="hud bottom">
+  <div class="controls">
+    <button class="allbtn" id="allBtn">All</button>
+    <div class="night"><span>Night</span><input type="range" id="night" min="0" max="100" value="30"><span id="nval">30</span></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var svg = document.getElementById("sky");
+  var chipInner = document.getElementById("chipInner");
+  var plqInner = document.getElementById("plqInner");
+  var allBtn = document.getElementById("allBtn");
+  var nightInput = document.getElementById("night");
+  var nval = document.getElementById("nval");
+
+  var TILE = 1600, TILES = 3;             /* background tile size, cols */
+  var WORLD = { w: 1700, h: 1000 };
+
+  /* ---- figure data: stars [x,y,label,bright], edges [i,j] ---- */
+  var FIGS = [
+    {
+      id:"orion", name:"Orion", x:230, y:200,
+      stars:[[70,40,"Betelgeuse",1],[150,38,"Bellatrix",1],[118,128,"Alnitak",1],[92,134,"Alnilam",0.8],[66,140,"Mintaka",0.8],[118,240,"Saiph",0.8],[52,248,"Rigel",1]],
+      edges:[[0,1],[0,2],[1,4],[2,3],[3,4],[2,5],[4,6]],
+      chip:[10,285],
+      myth:"The great hunter, set among the stars<br>by Artemis, ever chased by the scorpion."
+    },
+    {
+      id:"lyra", name:"Lyra", x:950, y:130,
+      stars:[[70,30,"Vega",1],[105,95,"Sheliak",0.8],[60,105,"Sulafat",0.8],[95,150,"Zeta",0.6],[50,158,"Delta",0.6]],
+      edges:[[0,1],[0,2],[1,3],[2,4],[3,4]],
+      chip:[10,215],
+      myth:"The lyre of Orpheus, placed in the sky<br>that the first of poets might keep music forever."
+    },
+    {
+      id:"draco", name:"Draco", x:1330, y:330,
+      stars:[[30,120,"Thuban",1],[62,96,"Kappa",0.7],[96,84,"Rastaban",0.8],[128,92,"Edasich",0.8],[152,120,"Epsilon",0.7],[150,158,"Nu",0.6],[122,182,"Omicron",0.6],[92,176,"Eta",0.7],[64,152,"Zeta",0.6]],
+      edges:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,0]],
+      chip:[40,215],
+      myth:"Ladon, the hundred-headed dragon<br>guarding the golden apples, coiled about the north pole."
+    },
+    {
+      id:"cygnus", name:"Cygnus", x:640, y:520,
+      stars:[[96,20,"Deneb",1],[96,100,"Sadr",0.8],[140,148,"Gienah",0.8],[96,182,"Albireo",0.9],[54,148,"Delta",0.7]],
+      edges:[[0,1],[1,2],[1,3],[1,4]],
+      chip:[-6,225],
+      myth:"The swan of Zeus gliding the milky way,<br>or Cicero, faithful to his friend forever."
+    },
+    {
+      id:"ursa", name:"Ursa", x:230, y:680,
+      stars:[[18,96,"Alkaid",0.8],[56,112,"Mizar",0.8],[96,120,"Alioth",0.8],[132,112,"Megrez",0.6],[146,156,"Phecda",0.8],[192,150,"Merak",0.9],[196,88,"Dubhe",1],[158,64,"Upsilon",0.7]],
+      edges:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,3]],
+      chip:[60,230],
+      myth:"Callisto, made a bear by jealous Hera<br>and drawn up by Zeus to wheel around the pole."
+    }
+  ];
+
+  /* ---- build svg strings ---- */
+  function rnd(seed){
+    var s = Math.sin(seed) * 43758.5453;
+    return s - Math.floor(s);
+  }
+
+  function buildStars(){
+    var out = "";
+    for(let i = 0; i < 340; i++){
+      var x = rnd(i * 12.9898) * TILE;
+      var y = rnd(i * 78.233) * TILE;
+      var r = 0.4 + rnd(i * 3.7) * 1.1;
+      var o = 0.18 + rnd(i * 5.1) * 0.5;
+      var hue = rnd(i * 9.4) > 0.75 ? "#cfd8ff" : "#eef1f8";
+      out += '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+r.toFixed(2)+'" fill="'+hue+'" opacity="'+o.toFixed(2)+'"/>';
+      if(rnd(i * 11.7) > 0.86){
+        out += '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(r*2.6).toFixed(2)+'" fill="'+hue+'" opacity="0.06"/>';
+      }
+    }
+    return out;
+  }
+
+  function buildFigures(){
+    var out = "";
+    chipHTML = "";
+    plqHTML = "";
+    for(let f = 0; f < FIGS.length; f++){
+      var g = FIGS[f];
+      out += '<g class="fig" id="fig-'+g.id+'" transform="translate('+g.x+','+g.y+')">';
+      out += '<g class="crawls">';
+      for(let e = 0; e < g.edges.length; e++){
+        var a = g.stars[g.edges[e][0]], b = g.stars[g.edges[e][1]];
+        out += '<line class="crawl" x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" style="animation-delay:'+(-e*0.9)+'s"/>';
+      }
+      out += '</g><g class="lits">';
+      for(let e2 = 0; e2 < g.edges.length; e2++){
+        var c = g.stars[g.edges[e2][0]], d = g.stars[g.edges[e2][1]];
+        out += '<line class="litline" x1="'+c[0]+'" y1="'+c[1]+'" x2="'+d[0]+'" y2="'+d[1]+'" pathLength="100" style="transition-delay:'+(e2*0.08)+'s"/>';
+      }
+      out += '</g><g class="starsG">';
+      for(let s = 0; s < g.stars.length; s++){
+        var st = g.stars[s];
+        var bright = st[3];
+        out += '<circle class="halo" cx="'+st[0]+'" cy="'+st[1]+'" r="'+(4+9*bright).toFixed(1)+'" fill="#aab8ff" opacity="'+(0.10+0.14*bright).toFixed(2)+'"/>';
+        out += '<circle class="star" cx="'+st[0]+'" cy="'+st[1]+'" r="'+(1.1+2.1*bright).toFixed(2)+'" fill="'+(bright>0.95?"#ffffff":"#e9edf8")+'" style="--o1:'+(0.55+0.25*bright).toFixed(2)+';--o2:1;animation-delay:'+(-(s*0.6)+f*0.3).toFixed(1)+'s"/>';
+        out += '<text class="lbl" x="'+(st[0]+7).toFixed(1)+'" y="'+(st[1]-6).toFixed(1)+'">'+st[2]+'</text>';
+      }
+      out += '</g></g>';
+      chipHTML += '<button class="nchip" id="chip-'+g.id+'" style="position:absolute;left:'+(g.x+g.chip[0])+'px;top:'+(g.y+g.chip[1])+'px">'+g.name+'</button>';
+      plqHTML += '<div class="plaque" id="plq-'+g.id+'" style="position:absolute;left:'+(g.x+g.stars[0][0]-12)+'px;top:'+(g.y-64)+'px"><div class="fig">'+g.name+'</div>'+g.myth+'</div>';
+    }
+    return out;
+  }
+
+  var bgTiles = "";
+  var chipHTML = "";
+  var plqHTML = "";
+  for(let ty = 0; ty < TILES; ty++){
+    for(let tx = 0; tx < TILES; tx++){
+      bgTiles += '<g class="tile" data-x="'+tx+'" data-y="'+ty+'" transform="translate('+(tx*TILE)+','+(ty*TILE)+')">'+buildStars()+'</g>';
+    }
+  }
+
+  svg.innerHTML =
+    '<g id="bgG" opacity="0.9">'+bgTiles+'</g>'+
+    '<g id="world">'+buildFigures()+'</g>';
+  chipInner.innerHTML = chipHTML;
+  plqInner.innerHTML = plqHTML;
+
+  var worldG = document.getElementById("world");
+  var tiles = Array.prototype.slice.call(document.querySelectorAll(".tile"));
+  var figEls = {};
+  for(let i = 0; i < FIGS.length; i++){
+    figEls[FIGS[i].id] = document.getElementById("fig-"+FIGS[i].id);
+  }
+
+  /* ---- state ---- */
+  var pan = { x: 0, y: 0 };
+  var targetPan = { x: 0, y: 0 };
+  var night = 0.3;
+  var litSet = {};
+  var allOn = false;
+  var dragging = false, dragStart = null;
+
+  function centerPan(){
+    targetPan.x = pan.x = (window.innerWidth - WORLD.w) / 2;
+    targetPan.y = pan.y = (window.innerHeight - WORLD.h) / 2;
+  }
+
+  function applyNight(){
+    var crawlO = Math.max(0.05, 0.55 * (1 - night * 0.95));
+    var litO = Math.max(0.12, 1 - night * 0.8);
+    var starO = Math.min(1, 0.65 + night * 0.6);
+    for(let id in figEls){
+      var fig = figEls[id];
+      var crawls = fig.querySelector(".crawls");
+      var lits = fig.querySelector(".lits");
+      var starsG = fig.querySelector(".starsG");
+      crawls.style.opacity = crawlO;
+      lits.style.opacity = litO;
+      starsG.style.opacity = starO;
+    }
+  }
+
+  function setLit(id, on){
+    litSet[id] = on;
+    figEls[id].classList.toggle("done", on);
+    document.getElementById("chip-"+id).classList.toggle("lit", on);
+    document.getElementById("plq-"+id).classList.toggle("show", on);
+  }
+
+  function toggle(id){
+    setLit(id, !litSet[id]);
+    syncAll();
+  }
+  function syncAll(){
+    allOn = true;
+    for(let i = 0; i < FIGS.length; i++){ if(!litSet[FIGS[i].id]) allOn = false; }
+    allBtn.classList.toggle("on", allOn);
+  }
+
+  for(let i = 0; i < FIGS.length; i++){
+    (function(g){
+      var btn = document.getElementById("chip-"+g.id);
+      btn.addEventListener("click", function(ev){ ev.stopPropagation(); toggle(g.id); });
+    })(FIGS[i]);
+  }
+  allBtn.addEventListener("click", function(){
+    for(let i = 0; i < FIGS.length; i++){ setLit(FIGS[i].id, !allOn ? true : false); }
+    /* ALL toggles every constellation lit; if all were lit, unlight all */
+    syncAll();
+  });
+
+  nightInput.addEventListener("input", function(){
+    night = nightInput.value / 100;
+    nval.textContent = String(nightInput.value);
+    applyNight();
+  });
+
+  /* drag pan: sky moves slowly toward the target */
+  svg.addEventListener("pointerdown", function(e){
+    if(e.target.closest(".nchip")) return;
+    dragging = true;
+    svg.classList.add("dragging");
+    dragStart = { x: e.clientX, y: e.clientY, px: targetPan.x, py: targetPan.y };
+    svg.setPointerCapture(e.pointerId);
+  });
+  svg.addEventListener("pointermove", function(e){
+    if(!dragging || !dragStart) return;
+    targetPan.x = dragStart.px + (e.clientX - dragStart.x);
+    targetPan.y = dragStart.py + (e.clientY - dragStart.y);
+  });
+  function endDrag(){
+    dragging = false;
+    svg.classList.remove("dragging");
+    dragStart = null;
+  }
+  svg.addEventListener("pointerup", endDrag);
+  svg.addEventListener("pointercancel", endDrag);
+  window.addEventListener("resize", function(){ svg.setAttribute("viewBox", "0 0 "+window.innerWidth+" "+window.innerHeight); });
+
+  /* ---- frame loop: slow pan easing + parallax background tiles ---- */
+  var lastT = 0;
+  function frame(now){
+    try{
+      var dt = Math.min(0.05, (now - lastT) * 0.001 || 0.016);
+      lastT = now;
+      var k = 1 - Math.pow(0.0008, dt);   /* slow ease toward target */
+      pan.x += (targetPan.x - pan.x) * k;
+      pan.y += (targetPan.y - pan.y) * k;
+      worldG.setAttribute("transform", "translate("+pan.x.toFixed(2)+","+pan.y.toFixed(2)+")");
+      chipInner.style.transform = "translate3d("+pan.x.toFixed(2)+"px,"+pan.y.toFixed(2)+"px,0)";
+      plqInner.style.transform = "translate3d("+pan.x.toFixed(2)+"px,"+pan.y.toFixed(2)+"px,0)";
+
+      /* parallax background: 0.35x pan, tiled */
+      var ox = pan.x * 0.35, oy = pan.y * 0.35;
+      for(let i = 0; i < tiles.length; i++){
+        var t = tiles[i];
+        var tx = parseInt(t.getAttribute("data-x"), 10);
+        var ty = parseInt(t.getAttribute("data-y"), 10);
+        var bx = ((tx * TILE - ox) % (TILE*TILES) + TILE*TILES) % (TILE*TILES) - TILE;
+        var by = ((ty * TILE - oy) % (TILE*TILES) + TILE*TILES) % (TILE*TILES) - TILE;
+        t.setAttribute("transform", "translate("+bx.toFixed(1)+","+by.toFixed(1)+")");
+        var W = window.innerWidth, H = window.innerHeight;
+        var vis = (bx + TILE > -40 && bx < W + 40 && by + TILE > -40 && by < H + 40);
+        t.style.display = vis ? "" : "none";
+      }
+    }catch(err){}
+    requestAnimationFrame(frame);
+  }
+
+  /* boot */
+  svg.setAttribute("viewBox", "0 0 "+window.innerWidth+" "+window.innerHeight);
+  centerPan();
+  night = nightInput.value / 100;
+  applyNight();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

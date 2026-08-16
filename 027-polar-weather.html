@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polar Weather Station - KP Console</title>
+<style>
+  :root{
+    --bg:#060913; --ink:#dfe6f2; --dim:#7d88a1; --faint:#46506a;
+    --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.16);
+    --green:#46ff9e; --violet:#7a5cff; --accent:#ff4d2e;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:var(--mono);
+    height:100dvh; overflow:hidden;
+    -webkit-user-select:none; user-select:none;
+  }
+  .console{display:flex; flex-direction:column; height:100dvh;}
+  .sky{position:relative; flex:0 0 60%; min-height:0;}
+  #sky{position:absolute; inset:0; width:100%; height:100%; display:block;}
+  .skyhud{
+    position:absolute; top:0; left:0; right:0;
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 14px;
+    font-size:clamp(8px,1.35vmin,11px);
+    letter-spacing:.30em; text-transform:uppercase;
+    color:var(--dim);
+    pointer-events:none;
+  }
+  .skyhud .pn{color:var(--faint);}
+  .skyhud .pn::before{content:""; display:inline-block; width:6px; height:6px;
+    border-radius:50%; background:var(--green); margin-right:8px; vertical-align:1px;
+    box-shadow:0 0 8px rgba(70,255,158,.8); animation:pulse 2.4s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .skyhud #clock{color:var(--ink); letter-spacing:.22em;}
+  .panel{
+    flex:1; min-height:0;
+    display:flex; flex-direction:column;
+    background:rgba(11,16,32,.60);
+    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    border-top:1px solid var(--line2);
+    padding:0 14px 12px;
+  }
+  .phead{
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding:10px 2px 8px;
+    border-bottom:1px solid var(--line);
+    font-size:clamp(9px,1.5vmin,12px);
+    letter-spacing:.34em; text-transform:uppercase;
+  }
+  .pname{color:var(--ink);}
+  .pname em{font-style:normal; color:var(--green);}
+  .ploc{color:var(--faint); letter-spacing:.22em; font-size:clamp(8px,1.3vmin,10px);}
+  .grid{
+    flex:1; min-height:0;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(2,1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    margin-top:10px;
+  }
+  .tile{
+    position:relative;
+    background:rgba(255,255,255,.022);
+    display:flex; flex-direction:column;
+    justify-content:space-between;
+    padding:clamp(8px,1.6vmin,14px) clamp(10px,1.8vmin,16px);
+    min-height:0; overflow:hidden;
+  }
+  .tlabel{
+    font-size:clamp(8px,1.3vmin,10px);
+    letter-spacing:.30em; text-transform:uppercase;
+    color:var(--faint);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .tdelta{letter-spacing:.14em; font-size:clamp(7px,1.2vmin,9px); color:var(--faint); transition:color .4s;}
+  .tdelta.up{color:var(--green);}
+  .tdelta.down{color:var(--violet);}
+  .tval{
+    display:flex; align-items:baseline; gap:6px;
+    font-size:clamp(20px,4.6vmin,44px);
+    letter-spacing:.04em; font-weight:600;
+    color:var(--ink);
+  }
+  .tval .odo{display:inline-flex;}
+  .dig{height:1em; overflow:hidden; line-height:1;}
+  .strip{display:block; transition:transform .55s cubic-bezier(.25,.75,.25,1);}
+  .ln{display:block; height:1em; line-height:1;}
+  .lit{line-height:1;}
+  .unit{font-size:clamp(9px,1.6vmin,13px); color:var(--dim); letter-spacing:.18em;}
+  .tspark{position:relative; flex:1; min-height:0; margin-top:2px;}
+  #spark{position:absolute; inset:0; width:100%; height:100%; display:block;}
+  .slider-row{
+    display:flex; align-items:center; gap:14px;
+    padding-top:10px;
+    font-size:clamp(8px,1.3vmin,10px);
+    letter-spacing:.30em; text-transform:uppercase; color:var(--faint);
+  }
+  .slider-row label{white-space:nowrap; color:var(--dim);}
+  .slider-row .kpv{color:var(--green); letter-spacing:.14em; min-width:3.2em; text-align:right;}
+  input[type=range]{
+    -webkit-appearance:none; appearance:none;
+    flex:1; height:22px; background:transparent; cursor:pointer;
+  }
+  input[type=range]:focus-visible{outline:1px solid var(--green); outline-offset:4px;}
+  input[type=range]::-webkit-slider-runnable-track{
+    height:2px; background:linear-gradient(90deg,var(--green),var(--violet));
+    opacity:.55; border-radius:1px;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:14px; height:14px; border-radius:50%;
+    background:var(--bg); border:2px solid var(--green);
+    margin-top:-6px;
+    box-shadow:0 0 10px rgba(70,255,158,.6);
+    transition:border-color .3s, box-shadow .3s;
+  }
+  input[type=range]::-moz-range-track{
+    height:2px; background:linear-gradient(90deg,var(--green),var(--violet));
+    opacity:.55; border-radius:1px;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:12px; height:12px; border-radius:50%;
+    background:var(--bg); border:2px solid var(--green);
+    box-shadow:0 0 10px rgba(70,255,158,.6);
+  }
+  @media (max-width:640px){
+    .grid{grid-template-columns:repeat(2,1fr); grid-template-rows:repeat(3,1fr);}
+    .tile.wide{grid-column:span 2;}
+    .phead{letter-spacing:.24em;}
+  }
+</style>
+</head>
+<body>
+<main class="console">
+  <section class="sky">
+    <canvas id="sky"></canvas>
+    <div class="skyhud">
+      <span class="pn">Polar Night - Dome 4</span>
+      <span id="clock">--:--:-- UTC</span>
+    </div>
+  </section>
+  <section class="panel">
+    <header class="phead">
+      <span class="pname">POLAR WEATHER <em>STATION</em></span>
+      <span class="ploc">79&deg;S 11&deg;E &middot; ALT 42M &middot; UTC</span>
+    </header>
+    <div class="grid">
+      <div class="tile">
+        <div class="tlabel"><span>TEMP</span><span class="tdelta" id="d-temp">&mdash; 0.0</span></div>
+        <div class="tval"><span class="odo" id="o-temp"></span><i class="unit">&deg;C</i></div>
+      </div>
+      <div class="tile">
+        <div class="tlabel"><span>WIND</span><span class="tdelta" id="d-wind">&mdash; 0.0</span></div>
+        <div class="tval"><span class="odo" id="o-wind"></span><i class="unit">KN</i></div>
+      </div>
+      <div class="tile">
+        <div class="tlabel"><span>KP INDEX</span><span class="tdelta" id="d-kp">LIVE</span></div>
+        <div class="tval"><span class="odo" id="o-kp"></span><i class="unit">SCALE</i></div>
+      </div>
+      <div class="tile">
+        <div class="tlabel"><span>UV INDEX</span><span class="tdelta" id="d-uv">&mdash; 0.0</span></div>
+        <div class="tval"><span class="odo" id="o-uv"></span><i class="unit">POLL</i></div>
+      </div>
+      <div class="tile">
+        <div class="tlabel"><span>OZONE</span><span class="tdelta" id="d-oz">&mdash; 0.0</span></div>
+        <div class="tval"><span class="odo" id="o-oz"></span><i class="unit">DU</i></div>
+      </div>
+      <div class="tile">
+        <div class="tlabel"><span>AURORA FORECAST</span><span class="tdelta" id="d-fc">+3H</span></div>
+        <div class="tspark"><canvas id="spark"></canvas></div>
+      </div>
+    </div>
+    <footer class="slider-row">
+      <label for="kp">KP Driver</label>
+      <input type="range" id="kp" min="0" max="9" step="0.5" value="6">
+      <span class="kpv" id="kpv">6.0</span>
+    </footer>
+  </section>
+</main>
+<script>
+(function(){
+'use strict';
+var skyCv=document.getElementById('sky');
+var sctx=skyCv.getContext('2d');
+var sparkCv=document.getElementById('spark');
+var pctx=sparkCv.getContext('2d');
+var clockEl=document.getElementById('clock');
+var kpInput=document.getElementById('kp');
+var kpvEl=document.getElementById('kpv');
+
+var GREEN=[70,255,158], VIOLET=[122,92,255];
+var stars=[], bandPts=[];
+var ribbons=[
+  {base:0.30, amp:0.09, freq:2.0, f2:5.1, sp:0.10, sp2:0.23, ph:0.4, hue:0.25, th:0.20},
+  {base:0.46, amp:0.12, freq:1.4, f2:4.2, sp:0.07, sp2:0.19, ph:2.6, hue:0.55, th:0.25},
+  {base:0.62, amp:0.07, freq:2.7, f2:6.3, sp:0.13, sp2:0.31, ph:4.8, hue:0.85, th:0.16}
+];
+
+var W=0, H=0, dpr=1, kp=6;
+var tv=-23.4, wv=12, ozv=312, uvv=0;
+var fc=[5.2,5.6,6.1,5.8,6.4,6.0,5.5,5.9,6.6,6.2,5.7,6.0];
+
+function clamp(v,lo,hi){ return v<lo?lo:(v>hi?hi:v); }
+function mixc(a,b,t){ return [Math.round(a[0]+(b[0]-a[0])*t), Math.round(a[1]+(b[1]-a[1])*t), Math.round(a[2]+(b[2]-a[2])*t)]; }
+function rgba(c,a){ return 'rgba('+c[0]+','+c[1]+','+c[2]+','+a.toFixed(3)+')'; }
+
+function buildOdom(el, spec){
+  el.innerHTML='';
+  var items=[];
+  var i,j;
+  for(i=0;i<spec.length;i++){
+    if(spec[i]==='d'){
+      var d=document.createElement('span'); d.className='dig';
+      var strip=document.createElement('span'); strip.className='strip';
+      for(j=0;j<10;j++){
+        var ln=document.createElement('span'); ln.className='ln'; ln.textContent=String(j);
+        strip.appendChild(ln);
+      }
+      d.appendChild(strip); el.appendChild(d);
+      items.push({t:'d', strip:strip, val:-1});
+    }else{
+      var s=document.createElement('span'); s.className='lit';
+      el.appendChild(s);
+      items.push({t:'c', span:s});
+    }
+  }
+  return function set(str){
+    var p=0;
+    for(i=0;i<items.length;i++){
+      var it=items[i];
+      if(it.t==='d'){
+        var ch=0;
+        while(p<str.length && (str.charCodeAt(p)<48 || str.charCodeAt(p)>57)) p++;
+        if(p<str.length){ ch=+str.charAt(p); p++; }
+        if(it.val!==ch){ it.val=ch; it.strip.style.transform='translateY('+(-ch)+'em)'; }
+      }else{
+        var c2=p<str.length ? str.charAt(p) : '';
+        p++;
+        if(it.span.textContent!==c2) it.span.textContent=c2;
+      }
+    }
+  };
+}
+
+var oTemp=buildOdom(document.getElementById('o-temp'), ['c','d','d','.','d']);
+var oWind=buildOdom(document.getElementById('o-wind'), ['d','d']);
+var oKp=buildOdom(document.getElementById('o-kp'), ['d','c','d']);
+var oUv=buildOdom(document.getElementById('o-uv'), ['d']);
+var oOz=buildOdom(document.getElementById('o-oz'), ['d','d','d']);
+var dTemp=document.getElementById('d-temp');
+var dWind=document.getElementById('d-wind');
+var dOz=document.getElementById('d-oz');
+var dUv=document.getElementById('d-uv');
+var dKp=document.getElementById('d-kp');
+
+function fmtTemp(){ return (tv<0?'-':'+')+Math.abs(tv).toFixed(1); }
+function fmtWind(){ return String(Math.round(wv)).length<2 ? '0'+Math.round(wv) : String(Math.round(wv)); }
+function fmtOz(){ return String(Math.round(ozv)); }
+function setDelta(el, diff, unit){
+  var a=Math.abs(diff);
+  if(a<0.05){ el.textContent='\u2014 0.0'; el.className='tdelta'; }
+  else if(diff>0){ el.textContent='\u25b2 '+a.toFixed(1); el.className='tdelta up'; }
+  else{ el.textContent='\u25bc '+a.toFixed(1); el.className='tdelta down'; }
+}
+
+function fit(){
+  dpr=clamp(window.devicePixelRatio||1, 1, 2);
+  var skyBox=skyCv.parentElement;
+  W=skyBox.clientWidth; H=skyBox.clientHeight;
+  if(W<10) W=10; if(H<10) H=10;
+  skyCv.width=Math.round(W*dpr); skyCv.height=Math.round(H*dpr);
+  sctx.setTransform(dpr,0,0,dpr,0,0);
+  var sparkBox=sparkCv.parentElement;
+  var w2=sparkBox.clientWidth||60, h2=sparkBox.clientHeight||40;
+  if(w2<10) w2=10; if(h2<10) h2=10;
+  sparkCv.width=Math.round(w2*dpr); sparkCv.height=Math.round(h2*dpr);
+  pctx.setTransform(dpr,0,0,dpr,0,0);
+  seedSky();
+  drawSpark(w2,h2);
+}
+window.addEventListener('resize', fit);
+
+function seedSky(){
+  var n=Math.round(W*H/2400), i;
+  if(n<40) n=40; if(n>500) n=500;
+  stars=[];
+  for(i=0;i<n;i++){
+    stars.push({x:Math.random()*W, y:Math.random()*H, r:0.4+Math.random()*1.1,
+                ph:Math.random()*6.283, sp:0.4+Math.random()*1.4, a:0.35+Math.random()*0.55});
+  }
+  bandPts=[];
+  for(i=0;i<110;i++){
+    bandPts.push({x:(Math.random()-0.5)*2.3, y:(Math.random()-0.5)*0.42,
+                  r:0.3+Math.random()*0.9, a:0.03+Math.random()*0.11});
+  }
+}
+
+function drawMilkyWay(){
+  sctx.save();
+  sctx.translate(W*0.5, H*0.40);
+  sctx.rotate(-0.42);
+  var bw=W*1.5, bh=H*0.55;
+  var g=sctx.createLinearGradient(0,-bh/2,0,bh/2);
+  g.addColorStop(0,'rgba(150,160,215,0)');
+  g.addColorStop(0.45,'rgba(165,172,225,0.085)');
+  g.addColorStop(0.55,'rgba(165,172,225,0.085)');
+  g.addColorStop(1,'rgba(150,160,215,0)');
+  sctx.fillStyle=g;
+  sctx.fillRect(-bw/2,-bh/2,bw,bh);
+  var i;
+  for(i=0;i<bandPts.length;i++){
+    var p=bandPts[i];
+    sctx.fillStyle='rgba(210,216,245,'+p.a.toFixed(3)+')';
+    sctx.beginPath();
+    sctx.arc(p.x*W*0.75, p.y*H, p.r, 0, 6.283);
+    sctx.fill();
+  }
+  sctx.restore();
+}
+
+function drawStars(t){
+  var i;
+  for(i=0;i<stars.length;i++){
+    var s=stars[i];
+    var tw=0.55+0.45*Math.sin(t*s.sp+s.ph);
+    sctx.fillStyle='rgba(226,232,255,'+(s.a*tw).toFixed(3)+')';
+    sctx.beginPath();
+    sctx.arc(s.x, s.y, s.r, 0, 6.283);
+    sctx.fill();
+  }
+}
+
+function ribbonY(r, x, t){
+  var u=x/W;
+  var n1=Math.sin(u*Math.PI*2*r.freq + t*r.sp + r.ph);
+  var n2=Math.sin(u*Math.PI*2*r.f2 + t*r.sp2 + r.ph*1.7);
+  return H*(r.base + r.amp*(n1*0.72 + n2*0.28));
+}
+function ribbonTh(r, x, t){
+  var u=x/W;
+  var w=Math.sin(u*Math.PI*2*0.9 + t*0.05 + r.ph);
+  return H*(0.5 + 0.55*(kp/9)) * r.th * (0.85 + 0.35*w);
+}
+
+function drawRibbon(r, t, glowPass){
+  var step=Math.max(4, W/110);
+  var alpha=(0.10 + 0.52*(kp/9)) * (glowPass ? 0.22 : 1);
+  if(alpha<0.008) return;
+  var topC=mixc(GREEN,VIOLET,r.hue);
+  var midC=mixc(GREEN,VIOLET,r.hue*0.45);
+  var i, x, yMin=H, y;
+  sctx.beginPath();
+  var first=true;
+  for(x=0; x<=W+step; x+=step){
+    y=ribbonY(r,x,t);
+    if(first){ sctx.moveTo(x,y); first=false; }
+    else sctx.lineTo(x,y);
+    if(y<yMin) yMin=y;
+  }
+  for(x=W; x>=0; x-=step){
+    y=ribbonY(r,x,t);
+    var th=ribbonTh(r,x,t)*(glowPass?1.9:1);
+    sctx.lineTo(x, y+th);
+  }
+  sctx.closePath();
+  var grad=sctx.createLinearGradient(0,yMin,0,yMin+H*0.42*(0.5+0.55*(kp/9)));
+  grad.addColorStop(0, rgba(topC, alpha));
+  grad.addColorStop(0.45, rgba(midC, alpha*0.8));
+  grad.addColorStop(1, rgba(GREEN, alpha*0.08));
+  sctx.fillStyle=grad;
+  sctx.fill();
+}
+
+function drawSpark(w,h){
+  pctx.clearRect(0,0,w,h);
+  pctx.strokeStyle='rgba(255,255,255,0.10)';
+  pctx.lineWidth=1;
+  pctx.beginPath();
+  pctx.moveTo(0, h-4.5);
+  pctx.lineTo(w, h-4.5);
+  pctx.stroke();
+  var n=fc.length, i, x, y;
+  var grad=pctx.createLinearGradient(0,0,w,0);
+  grad.addColorStop(0, rgba(GREEN,0.95));
+  grad.addColorStop(1, rgba(VIOLET,0.95));
+  pctx.strokeStyle=grad;
+  pctx.lineWidth=1.6;
+  pctx.lineJoin='round';
+  pctx.beginPath();
+  for(i=0;i<n;i++){
+    x=(i/(n-1))*(w-8)+4;
+    y=h-5-(fc[i]/9)*(h-14);
+    if(i===0) pctx.moveTo(x,y); else pctx.lineTo(x,y);
+  }
+  pctx.stroke();
+  var gx=(w-8)+4;
+  pctx.fillStyle='rgba(255,255,255,0.9)';
+  pctx.beginPath();
+  pctx.arc(gx, h-5-(fc[n-1]/9)*(h-14), 2.2, 0, 6.283);
+  pctx.fill();
+}
+
+function drawSky(t){
+  sctx.clearRect(0,0,W,H);
+  var bg=sctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#04060f');
+  bg.addColorStop(0.55,'#060913');
+  bg.addColorStop(1,'#0a0e1d');
+  sctx.fillStyle=bg;
+  sctx.fillRect(0,0,W,H);
+  drawMilkyWay();
+  drawStars(t);
+  var i;
+  for(i=0;i<ribbons.length;i++) drawRibbon(ribbons[i], t, true);
+  for(i=0;i<ribbons.length;i++) drawRibbon(ribbons[i], t, false);
+}
+
+function drift(){
+  var pT=tv, pW=wv, pOz=ozv, pUv=uvv;
+  tv=clamp(tv+(Math.random()-0.5)*0.7, -30, -15);
+  wv=clamp(wv+(Math.random()-0.5)*3.2, 2, 30);
+  ozv=clamp(ozv+(Math.random()-0.5)*9, 260, 360);
+  uvv=Math.random()<0.25 ? 1 : 0;
+  oTemp(fmtTemp());
+  oWind(fmtWind());
+  oOz(fmtOz());
+  oUv(String(uvv));
+  setDelta(dTemp, tv-pT);
+  setDelta(dWind, wv-pW);
+  setDelta(dOz, ozv-pOz);
+  setDelta(dUv, uvv-pUv);
+  fc.shift();
+  fc.push(clamp(kp+(Math.random()-0.5)*3.4, 0, 9));
+  var box=sparkCv.parentElement;
+  drawSpark(box.clientWidth||60, box.clientHeight||40);
+}
+
+function applyKp(){
+  kp=parseFloat(kpInput.value);
+  kpvEl.textContent=kp.toFixed(1);
+  oKp(String(Math.floor(kp))+'.'+String(Math.round(kp*10)%10));
+  dKp.textContent='LIVE';
+  dKp.className='tdelta up';
+  var box=sparkCv.parentElement;
+  drawSpark(box.clientWidth||60, box.clientHeight||40);
+}
+kpInput.addEventListener('input', applyKp);
+
+function tickClock(){
+  var d=new Date();
+  function pad(n){ return n<10 ? '0'+n : String(n); }
+  clockEl.textContent=pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds())+' UTC';
+}
+
+var lastT=performance.now();
+function frame(t){
+  try{
+    var dt=(t-lastT)/1000;
+    lastT=t;
+    if(dt>0.1) dt=0.1;
+    if(dt<0) dt=0;
+    drawSky(t/1000);
+  }catch(err){ /* keep the loop alive */ }
+  requestAnimationFrame(frame);
+}
+
+fit();
+oTemp(fmtTemp());
+oWind(fmtWind());
+oOz(fmtOz());
+oUv('0');
+applyKp();
+tickClock();
+setInterval(tickClock, 500);
+setInterval(drift, 3000);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

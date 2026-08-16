@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>TERRAIN ATLAS — 012</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; overflow: hidden; background: #0d1a12;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color: #9fe6b8; -webkit-font-smoothing: antialiased;
+  }
+  #c { position: fixed; inset: 0; width: 100vw; height: 100dvh; display: block; touch-action: none; cursor: grab; }
+  .vignette {
+    position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 44%, transparent 52%, rgba(4,10,7,.6) 100%);
+  }
+  .hud { position: fixed; z-index: 2; pointer-events: none; user-select: none; }
+  .tl { top: clamp(10px, 2vh, 22px); left: clamp(12px, 2vw, 26px); }
+  .title { font-size: clamp(14px, 2vw, 21px); letter-spacing: .44em; color: #d7f2e1; font-weight: 500; }
+  .sub { font-size: 8px; letter-spacing: .3em; opacity: .5; margin-top: 7px; }
+  .coords { font-size: clamp(10px, 1.4vw, 12px); letter-spacing: .14em; margin-top: 12px; opacity: .9; color: #bfe9cf; }
+  .tr { top: clamp(10px, 2vh, 22px); right: clamp(12px, 2vw, 26px); }
+  .compass {
+    width: clamp(46px, 6vw, 58px); height: clamp(46px, 6vw, 58px); border-radius: 50%;
+    position: relative; border: 1px solid rgba(159,230,184,.35);
+    background:
+      radial-gradient(circle, rgba(13,26,18,.88) 56%, rgba(13,26,18,.3) 70%, transparent 74%),
+      repeating-conic-gradient(rgba(159,230,184,.55) 0deg 1.4deg, transparent 1.4deg 30deg);
+    box-shadow: 0 0 20px rgba(0,0,0,.4);
+  }
+  .compass .n { position: absolute; top: 3px; left: 50%; transform: translateX(-50%); font-size: 8px; letter-spacing: .1em; color: #d7f2e1; }
+  .compass .needle {
+    position: absolute; left: 50%; top: 50%; width: 2px; height: 66%;
+    background: linear-gradient(#ff6b57 50%, #d7f2e1 50%);
+    transform: translate(-50%, -50%); border-radius: 1px;
+  }
+  .bl { left: clamp(12px, 2vw, 26px); bottom: clamp(10px, 2vh, 22px); }
+  .hint { font-size: 8px; letter-spacing: .3em; opacity: .48; }
+  .legend { display: flex; align-items: center; gap: 5px; margin-top: 9px; }
+  .sw { width: 15px; height: 9px; display: inline-block; }
+  .s0 { background: rgba(31,74,49,.95); }
+  .s1 { background: rgba(47,104,66,.9); }
+  .s2 { background: rgba(122,106,52,.85); }
+  .s3 { background: rgba(176,138,64,.9); }
+  .lg-lbl { font-size: 7px; letter-spacing: .26em; opacity: .55; margin-left: 7px; }
+  .br { right: clamp(12px, 2vw, 26px); bottom: clamp(10px, 2vh, 22px); text-align: right; }
+  .scalebar { display: flex; align-items: flex-end; gap: 9px; }
+  #sbar {
+    width: 90px; height: 9px; opacity: .85;
+    background:
+      linear-gradient(#9fe6b8,#9fe6b8) top / 100% 1px no-repeat,
+      linear-gradient(#9fe6b8,#9fe6b8) 0 0 / 1px 100% no-repeat,
+      linear-gradient(#9fe6b8,#9fe6b8) 100% 0 / 1px 100% no-repeat;
+  }
+  #slab { font-size: 8px; letter-spacing: .2em; }
+  .zoom { font-size: 8px; letter-spacing: .2em; opacity: .5; margin-top: 7px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="vignette"></div>
+
+<div class="hud tl">
+  <div class="title">TERRAIN ATLAS</div>
+  <div class="sub">GENERATIVE TOPOGRAPHIC SURVEY · SHEET 012</div>
+  <div class="coords" id="coords">···</div>
+</div>
+
+<div class="hud tr">
+  <div class="compass"><span class="n">N</span><div class="needle"></div></div>
+</div>
+
+<div class="hud bl">
+  <div class="hint">DRAG · PAN&emsp;&emsp;WHEEL · ZOOM</div>
+  <div class="legend">
+    <span class="sw s0"></span><span class="sw s1"></span><span class="sw s2"></span><span class="sw s3"></span>
+    <span class="lg-lbl">ELEVATION BANDS · 12 CONTOUR INTERVALS</span>
+  </div>
+</div>
+
+<div class="hud br">
+  <div class="scalebar"><div id="sbar"></div><span id="slab">1 KM</span></div>
+  <div class="zoom" id="zlab">1.00×</div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const elCoords = document.getElementById('coords');
+  const elSbar = document.getElementById('sbar');
+  const elSlab = document.getElementById('slab');
+  const elZoom = document.getElementById('zlab');
+
+  let W = 0, H = 0, DPR = 1;
+  function fit(){
+    W = window.innerWidth; H = window.innerHeight;
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.max(1, Math.round(W * DPR));
+    cv.height = Math.max(1, Math.round(H * DPR));
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', fit);
+
+  const PERIOD = 48;   // integer-lattice wrap: terrain tiles forever
+  const FREQ = 0.01;   // base noise frequency per world unit
+  const CELL = 10;     // screen-px sampling cell
+  const LEVELS = 12;   // contour elevation levels
+  const KMPU = 0.02;   // km per world unit (for the fake scale)
+
+  const state = {
+    z: 1, offX: 0, offY: 0,
+    auto: true, dragging: false,
+    dragX: 0, dragY: 0
+  };
+
+  function iwrap(v, m){ v = v % m; return v < 0 ? v + m : v; }
+
+  function hash(ix, iy){
+    let n = Math.imul(ix, 374761393) ^ Math.imul(iy, 668265263);
+    n = Math.imul(n ^ (n >>> 13), 1103515245);
+    n ^= n >>> 16;
+    return (n >>> 0) / 4294967296;
+  }
+
+  function vnoise(x, y){
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const sx = xf * xf * (3 - 2 * xf);
+    const sy = yf * yf * (3 - 2 * yf);
+    const x0 = iwrap(xi, PERIOD), x1 = iwrap(xi + 1, PERIOD);
+    const y0 = iwrap(yi, PERIOD), y1 = iwrap(yi + 1, PERIOD);
+    const a = hash(x0, y0), b = hash(x1, y0);
+    const c = hash(x0, y1), d = hash(x1, y1);
+    return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+  }
+
+  function fbm(x, y){
+    let sum = 0, amp = 0.55, f = 1, norm = 0;
+    for (let o = 0; o < 5; o++){
+      sum += amp * vnoise(x * f + o * 19.7, y * f + o * 7.3);
+      norm += amp;
+      amp *= 0.5;
+      f *= 2;
+    }
+    return sum / norm;
+  }
+
+  // marching squares, integer edge keys: corner bits 1=TL 2=TR 4=BR 8=BL
+  // edges: 0=top 1=right 2=bottom 3=left, listed in crossing pairs
+  const CASE = [
+    null, [0,3], [0,1], [1,3], [1,2],
+    [0,1, 2,3], [0,2], [1,2], [2,3],
+    [0,2], [0,3, 1,2], [1,2], [1,3],
+    [2,3], [0,3], null
+  ];
+
+  const BAND_FILL = [
+    'rgba(31,74,49,0.34)',
+    'rgba(47,104,66,0.20)',
+    'rgba(122,106,52,0.16)',
+    'rgba(176,138,64,0.24)'
+  ];
+
+  function edgeT(a, b, L){
+    const d = b - a;
+    if (d > 1e-6 || d < -1e-6) return (L - a) / d;
+    return 0.5;
+  }
+
+  function render(){
+    const z = state.z, offX = state.offX, offY = state.offY;
+    ctx.fillStyle = '#0d1a12';
+    ctx.fillRect(0, 0, W, H);
+
+    const i0 = Math.floor(-offX / CELL) - 1;
+    const j0 = Math.floor(-offY / CELL) - 1;
+    const i1 = Math.ceil((W - offX) / CELL) + 1;
+    const j1 = Math.ceil((H - offY) / CELL) + 1;
+    const nw = i1 - i0 + 1, nh = j1 - j0 + 1;
+    if (nw < 3 || nh < 3 || nw * nh > 120000) return;
+
+    const hs = new Float32Array(nw * nh);
+    for (let j = 0; j < nh; j++){
+      const ny = (((j0 + j) * CELL + offY) / z) * FREQ;
+      for (let i = 0; i < nw; i++){
+        const nx = (((i0 + i) * CELL + offX) / z) * FREQ;
+        hs[j * nw + i] = fbm(nx, ny);
+      }
+    }
+
+    // four elevation bands, translucent green (low) to ochre (high)
+    const bands = [new Path2D(), new Path2D(), new Path2D(), new Path2D()];
+    for (let j = 0; j < nh - 1; j++){
+      for (let i = 0; i < nw - 1; i++){
+        const h00 = hs[j * nw + i], h10 = hs[j * nw + i + 1];
+        const h01 = hs[(j + 1) * nw + i], h11 = hs[(j + 1) * nw + i + 1];
+        const b = Math.min(3, ((h00 + h10 + h01 + h11) * 0.25 * 4) | 0);
+        const x = (i0 + i) * CELL + offX, y = (j0 + j) * CELL + offY;
+        bands[b].rect(x, y, CELL + 0.6, CELL + 0.6);
+      }
+    }
+    for (let b = 0; b < 4; b++){
+      ctx.fillStyle = BAND_FILL[b];
+      ctx.fill(bands[b]);
+    }
+
+    // 12 contour levels, thin lines, one Path2D per level
+    ctx.lineWidth = 1;
+    for (let k = 0; k < LEVELS; k++){
+      const L = (k + 0.5) / LEVELS;
+      const p = new Path2D();
+      for (let j = 0; j < nh - 1; j++){
+        for (let i = 0; i < nw - 1; i++){
+          const h00 = hs[j * nw + i], h10 = hs[j * nw + i + 1];
+          const h01 = hs[(j + 1) * nw + i], h11 = hs[(j + 1) * nw + i + 1];
+          if (h00 < L && h10 < L && h01 < L && h11 < L) continue;
+          if (h00 >= L && h10 >= L && h01 >= L && h11 >= L) continue;
+          const key = (h00 >= L ? 1 : 0) | (h10 >= L ? 2 : 0) | (h11 >= L ? 4 : 0) | (h01 >= L ? 8 : 0);
+          const seg = CASE[key];
+          if (!seg) continue;
+          const x = (i0 + i) * CELL + offX, y = (j0 + j) * CELL + offY;
+          const tT = edgeT(h00, h10, L), tR = edgeT(h10, h11, L);
+          const tB = edgeT(h01, h11, L), tL = edgeT(h00, h01, L);
+          for (let s = 0; s < seg.length; s += 2){
+            const e1 = seg[s], e2 = seg[s + 1];
+            let ax, ay, bx, by;
+            if (e1 === 0){ ax = x + tT * CELL; ay = y; }
+            else if (e1 === 1){ ax = x + CELL; ay = y + tR * CELL; }
+            else if (e1 === 2){ ax = x + tB * CELL; ay = y + CELL; }
+            else { ax = x; ay = y + tL * CELL; }
+            if (e2 === 0){ bx = x + tT * CELL; by = y; }
+            else if (e2 === 1){ bx = x + CELL; by = y + tR * CELL; }
+            else if (e2 === 2){ bx = x + tB * CELL; by = y + CELL; }
+            else { bx = x; by = y + tL * CELL; }
+            p.moveTo(ax, ay);
+            p.lineTo(bx, by);
+          }
+        }
+      }
+      ctx.strokeStyle = '#9fe6b8';
+      ctx.globalAlpha = (k === 0 || k === LEVELS - 1) ? 0.85 : 0.48;
+      ctx.stroke(p);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function fmtCoord(v, hemi){
+    const d = Math.floor(v);
+    const m = Math.floor((v - d) * 60);
+    return d + '\u00B0' + String(m).padStart(2, '0') + '\u2032 ' + hemi;
+  }
+
+  function updateHud(){
+    const offX = state.offX, offY = state.offY, z = state.z;
+    const lon = iwrap(offX * 0.02, 360);
+    let lat = iwrap(offY * 0.02, 180);
+    const ns = lat <= 90 ? 'N' : 'S';
+    if (lat > 90) lat = 180 - lat;
+    elCoords.textContent = fmtCoord(lon, 'E') + '  \u00B7  ' + fmtCoord(lat, ns);
+
+    const pxPerKm = z / KMPU;
+    const choices = [0.5, 1, 2, 5, 10, 20, 50, 100];
+    let km = 1;
+    for (let i = 0; i < choices.length; i++){
+      if (choices[i] * pxPerKm <= 170) km = choices[i];
+    }
+    elSbar.style.width = Math.max(12, km * pxPerKm).toFixed(1) + 'px';
+    elSlab.textContent = km < 1 ? String(km * 1000) + ' M' : String(km) + ' KM';
+    elZoom.textContent = z.toFixed(2) + '\u00D7 ZOOM';
+  }
+
+  let last = performance.now();
+  function frame(now){
+    let dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.1) dt = 0.1;
+    if (state.auto){
+      state.offX += 7 * dt;
+      state.offY += 4 * dt;
+    }
+    try {
+      render();
+      updateHud();
+    } catch (e) { /* guard: keep the loop alive */ }
+    requestAnimationFrame(frame);
+  }
+
+  cv.addEventListener('pointerdown', function(e){
+    state.auto = false;
+    state.dragging = true;
+    state.dragX = e.clientX; state.dragY = e.clientY;
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    cv.style.cursor = 'grabbing';
+  });
+  cv.addEventListener('pointermove', function(e){
+    if (!state.dragging) return;
+    state.offX += e.clientX - state.dragX;
+    state.offY += e.clientY - state.dragY;
+    state.dragX = e.clientX; state.dragY = e.clientY;
+  });
+  function endDrag(){
+    if (state.dragging){ state.dragging = false; cv.style.cursor = 'grab'; }
+  }
+  cv.addEventListener('pointerup', endDrag);
+  cv.addEventListener('pointercancel', endDrag);
+
+  cv.addEventListener('wheel', function(e){
+    e.preventDefault();
+    state.auto = false;
+    const nz = Math.min(3, Math.max(0.4, state.z * Math.exp(-e.deltaY * 0.0012)));
+    const wx = (e.clientX - state.offX) / state.z;
+    const wy = (e.clientY - state.offY) / state.z;
+    state.offX = e.clientX - wx * nz;
+    state.offY = e.clientY - wy * nz;
+    state.z = nz;
+  }, { passive: false });
+
+  fit();
+  updateHud();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

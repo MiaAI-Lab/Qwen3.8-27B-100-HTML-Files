@@ -1,0 +1,11 @@
+=== 013 ===
+013-marble-ink.html
+MARBLE INK - scroll paper-marbling. Long scroll page (#f5f0e6 paper) with a fixed full-viewport canvas behind: curl-noise flow field drives thousands of thin ink strokes (3 inks: #1e2a4a, #c0392b, #e8b13f) that marble across the sheet; as the user scrolls, the field's angle rotates (scrollY -> rotation + shear) so each of the 4 text sections reveals differently-marbled patterns. Four translucent paper cards hold short poetic paragraphs. Right edge: scroll progress bar. Deterministic seed. Strokes drawn once into a persistent canvas - only new strokes added as scroll progresses.
+
+=== 014 ===
+014-vector-sky.html
+VECTOR SKY - 1978 vector arcade game. BG #04070f; neon green #3dff8a + white HUD only. Title state: 'INSERT COIN' blink + blocky 'VECTOR SKY' type; any key starts. Gameplay: triangle ship at bottom (mouse X or arrow keys), descending diamond enemies, space/click fires vector bolts; score top-left, 3 lives as tiny triangles top-right; on hit: screen flash + 500ms score freeze. All shapes STROKED with glow (shadowBlur), no fills. Hi-score kept in localStorage. Game-over state shows score + 'PRESS ANY KEY'. Keep it playable and fair.
+
+=== 015 ===
+015-koi-zen.html
+KOI ZEN - zen koi pond, full-bleed. Pond #0e2a2f->#071a1e with slow concentric ripple rings. 7 koi: bezier capsule bodies, two flapping bezier tail fins (phase sine), each steering toward a wandering target re-picked every 6-14s, avoiding edges. Colors: white #f2efe6, orange #e2572b, black #191b1c, and 2-tone koi with arc bands. Click = feed: 8 flake particles fall, koi within 120px steer to it, soft ripple + optional WebAudio plink. Top-left vertical small-caps 'KOI / ZEN / POND'. Slow, meditative, beautiful tails.

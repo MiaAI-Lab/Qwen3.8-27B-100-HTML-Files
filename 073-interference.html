@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>INTERFERENCE TANK</title>
+<style>
+  :root{
+    --pool:#0d1a24; --line:#1b3446; --ink:#dcecf4; --dim:#6d8b9c;
+    --accent:#5fd4c4; --amber:#e8b04a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--pool); color:var(--ink);
+    font-family:system-ui, -apple-system, "Segoe UI", sans-serif;
+    display:flex; flex-direction:column; min-height:100dvh;
+    overflow:hidden;
+  }
+  header{
+    display:flex; align-items:baseline; gap:1em;
+    padding:clamp(.7rem,2vw,1.1rem) clamp(.9rem,3vw,1.6rem) 0;
+  }
+  h1{
+    font-size:clamp(1rem,2.6vw,1.5rem); font-weight:600;
+    letter-spacing:.32em; text-transform:uppercase;
+  }
+  .sub{
+    font-family:ui-monospace, "SF Mono", Menlo, monospace;
+    font-size:clamp(.6rem,1.4vw,.72rem); letter-spacing:.22em; color:var(--dim);
+  }
+  #tankwrap{
+    position:relative; flex:1; margin:clamp(.5rem,1.5vw,1rem) clamp(.6rem,2.5vw,1.4rem);
+    border:1px solid var(--line); border-radius:14px;
+    overflow:hidden;
+    box-shadow:inset 0 0 40px rgba(0,0,0,.5), 0 0 0 1px rgba(95,212,196,.06);
+    background:radial-gradient(ellipse at 50% 40%, #10222f 0%, #0a1520 70%, #081019 100%);
+    min-height:0;
+  }
+  canvas{position:absolute; inset:0; width:100%; height:100%; display:block; cursor:crosshair}
+  .hud{
+    position:absolute; left:12px; top:10px; z-index:3;
+    font-family:ui-monospace, "SF Mono", Menlo, monospace;
+    font-size:clamp(.55rem,1.3vw,.68rem); letter-spacing:.2em; color:var(--accent);
+    background:rgba(8,18,26,.55); border:1px solid rgba(95,212,196,.25);
+    padding:.45em .8em; border-radius:6px; pointer-events:none;
+  }
+  .hint{
+    position:absolute; right:12px; bottom:10px; z-index:3;
+    font-family:ui-monospace, "SF Mono", Menlo, monospace;
+    font-size:clamp(.55rem,1.2vw,.65rem); letter-spacing:.14em; color:var(--dim);
+    pointer-events:none; text-align:right;
+  }
+  footer{
+    display:flex; flex-wrap:wrap; gap:.6rem 1.2rem; align-items:center;
+    padding:.55rem clamp(.9rem,3vw,1.6rem) clamp(.7rem,2vw,1.1rem);
+    border-top:1px solid var(--line); background:rgba(13,26,36,.6);
+  }
+  .ctl{display:flex; align-items:center; gap:.6em}
+  .ctl label{
+    font-family:ui-monospace, "SF Mono", Menlo, monospace;
+    font-size:.62rem; letter-spacing:.22em; color:var(--dim); text-transform:uppercase;
+  }
+  .ctl output{
+    font-family:ui-monospace, "SF Mono", Menlo, monospace;
+    font-size:.62rem; color:var(--accent); min-width:3.4em; text-align:right;
+  }
+  input[type=range]{
+    -webkit-appearance:none; appearance:none;
+    width:clamp(90px,18vw,170px); height:4px; border-radius:2px;
+    background:linear-gradient(90deg, var(--accent), #2a5560); outline:none; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:var(--ink); border:2px solid var(--accent); cursor:grab;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:12px; height:12px; border-radius:50%;
+    background:var(--ink); border:2px solid var(--accent); cursor:grab;
+  }
+  button{
+    font-family:ui-monospace, "SF Mono", Menlo, monospace;
+    font-size:.66rem; letter-spacing:.24em; text-transform:uppercase;
+    color:var(--ink); background:transparent;
+    border:1px solid var(--line); border-radius:6px;
+    padding:.55em 1.1em; cursor:pointer; transition:border-color .2s, color .2s, background .2s;
+  }
+  button:hover{border-color:var(--accent); color:var(--accent)}
+  button.on{border-color:var(--amber); color:var(--amber); background:rgba(232,176,74,.08)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Interference Tank</h1>
+  <span class="sub">PHYS-104 / WAVE LAB</span>
+</header>
+
+<div id="tankwrap">
+  <canvas id="tank"></canvas>
+  <div class="hud" id="hud">INTERFERENCE &mdash; 2 SOURCES, LIVE</div>
+  <div class="hint">drag orbs &middot; click water = add source &middot; click source = remove &middot; space = pause</div>
+</div>
+
+<footer>
+  <div class="ctl">
+    <label for="freq">Frequency</label>
+    <input id="freq" type="range" min="4" max="40" value="16">
+    <output id="freqv">16.0</output>
+  </div>
+  <div class="ctl">
+    <label for="amp">Amplitude</label>
+    <input id="amp" type="range" min="10" max="100" value="65">
+    <output id="ampv">0.65</output>
+  </div>
+  <div class="ctl">
+    <label for="spd">Wave speed</label>
+    <input id="spd" type="range" min="40" max="220" value="110">
+    <output id="spdv">110</output>
+  </div>
+  <button id="pause" aria-pressed="false">Pause</button>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var canvas = document.getElementById("tank");
+  var wrap = document.getElementById("tankwrap");
+  var hud = document.getElementById("hud");
+  var ctx = canvas.getContext("2d");
+  var W = 0, H = 0, DPR = 1;
+
+  var state = {
+    freq: 16,        // rings per second per source
+    amp: 0.65,       // stroke alpha scale
+    speed: 110,      // px/sec radius growth (base, pre-DPR)
+    paused: false,
+    sources: [],
+    t: 0,
+    lastNow: 0
+  };
+
+  function fit(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    var r = wrap.getBoundingClientRect();
+    W = Math.max(1, Math.round(r.width));
+    H = Math.max(1, Math.round(r.height));
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.max(1, Math.round(H * DPR));
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener("resize", fit);
+
+  function makeSource(x, y){
+    return { x: x, y: y, phase: 0, grab: false };
+  }
+
+  function seedSources(){
+    state.sources = [];
+    state.sources.push(makeSource(W * 0.32, H * 0.5));
+    state.sources.push(makeSource(W * 0.68, H * 0.5));
+  }
+
+  function ringPeriod(){ return 1 / state.freq; }
+
+  function update(dt){
+    if (state.paused) return;
+    state.t += dt;
+    for (var i = 0; i < state.sources.length; i++){
+      var s = state.sources[i];
+      s.phase = (s.phase + dt / ringPeriod()) % 1;
+    }
+  }
+
+  function drawRings(s){
+    // number of live rings: enough to cover max radius with one extra margin
+    var maxR = Math.hypot(Math.max(s.x, W - s.x), Math.max(s.y, H - s.y));
+    var spacing = state.speed * ringPeriod();
+    if (spacing < 4) spacing = 4;
+    var n = Math.ceil(maxR / spacing) + 1;
+    var crest = "rgba(150,225,255,";
+    var trough = "rgba(20,50,70,";
+    ctx.lineWidth = 1.4;
+    for (var k = 0; k < n; k++){
+      // k=0 is the newest ring; each ring grew for (phase + k) periods
+      var r = (s.phase + k) * spacing;
+      if (r > maxR + spacing) break;
+      if (r < 0.5) continue;
+      var age = r / maxR;
+      var a = Math.max(0, state.amp * (1 - age)) * 0.55;
+      if (a < 0.004) continue;
+      // crest ring
+      ctx.strokeStyle = crest + a.toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, r, 0, 6.2831853);
+      ctx.stroke();
+      // faint alternating dark (trough) ring just inside
+      var tr = r - spacing * 0.5;
+      if (tr > 1){
+        var ta = Math.max(0, state.amp * (1 - tr / maxR)) * 0.5;
+        ctx.strokeStyle = trough + ta.toFixed(3) + ")";
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, tr, 0, 6.2831853);
+        ctx.stroke();
+      }
+    }
+  }
+
+  function drawOrb(s, isPrimary){
+    var pulse = 0.5 + 0.5 * Math.sin(state.t * 3 + s.x * 0.05);
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 5.5 + pulse * 1.5, 0, 6.2831853);
+    ctx.fillStyle = isPrimary ? "rgba(95,212,196,.95)" : "rgba(232,176,74,.95)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 10 + pulse * 3, 0, 6.2831853);
+    ctx.strokeStyle = isPrimary ? "rgba(95,212,196,.35)" : "rgba(232,176,74,.35)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  function render(){
+    ctx.clearRect(0, 0, W, H);
+    // subtle grid so the pool reads as lab apparatus
+    ctx.strokeStyle = "rgba(27,52,70,.5)";
+    ctx.lineWidth = 1;
+    var step = 48;
+    ctx.beginPath();
+    for (var gx = step; gx < W; gx += step){ ctx.moveTo(gx + 0.5, 0); ctx.lineTo(gx + 0.5, H); }
+    for (var gy = step; gy < H; gy += step){ ctx.moveTo(0, gy + 0.5); ctx.lineTo(W, gy + 0.5); }
+    ctx.stroke();
+
+    // additive blend so overlapping trains create moire bands for free
+    ctx.globalCompositeOperation = "lighter";
+    for (var i = 0; i < state.sources.length; i++){
+      drawRings(state.sources[i]);
+    }
+    ctx.globalCompositeOperation = "source-over";
+
+    for (var j = 0; j < state.sources.length; j++){
+      drawOrb(state.sources[j], j < 2);
+    }
+  }
+
+  function updateHud(){
+    var word = state.paused ? "HOLD" : "LIVE";
+    var n = state.sources.length;
+    hud.textContent = "INTERFERENCE \u2014 " + n + (n === 1 ? " SOURCE, " : " SOURCES, ") + word;
+  }
+
+  function frame(now){
+    try{
+      var dt = Math.min(0.05, (now - state.lastNow) / 1000 || 0);
+      state.lastNow = now;
+      update(dt);
+      render();
+      updateHud();
+    }catch(e){ /* guard: never let a frame kill the loop */ }
+    requestAnimationFrame(frame);
+  }
+
+  // pointer: drag existing source; else click empty water adds one (max 4)
+  var dragIndex = -1;
+  function pointerPos(e){
+    var r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  function hitSource(p){
+    for (var i = state.sources.length - 1; i >= 0; i--){
+      var s = state.sources[i];
+      if (Math.hypot(p.x - s.x, p.y - s.y) < 18) return i;
+    }
+    return -1;
+  }
+  canvas.addEventListener("pointerdown", function(e){
+    var p = pointerPos(e);
+    var i = hitSource(p);
+    if (i >= 0){
+      dragIndex = i;
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = "grabbing";
+    } else {
+      dragIndex = "new";
+      canvas.setPointerCapture(e.pointerId);
+    }
+    e.preventDefault();
+  });
+  canvas.addEventListener("pointermove", function(e){
+    if (dragIndex === -1) return;
+    var p = pointerPos(e);
+    p.x = Math.max(4, Math.min(W - 4, p.x));
+    p.y = Math.max(4, Math.min(H - 4, p.y));
+    if (typeof dragIndex === "number" && state.sources[dragIndex]){
+      state.sources[dragIndex].x = p.x;
+      state.sources[dragIndex].y = p.y;
+    }
+  });
+  canvas.addEventListener("pointerup", function(e){
+    var p = pointerPos(e);
+    if (typeof dragIndex === "number" && dragIndex >= 0){
+      var s = state.sources[dragIndex];
+      // if it was barely moved and it's beyond the two primaries -> remove
+      if (s && Math.hypot(p.x - s.x, p.y - s.y) < 3 && dragIndex >= 2){
+        state.sources.splice(dragIndex, 1);
+      }
+    } else if (dragIndex === "new"){
+      var i2 = hitSource(p);
+      if (i2 >= 0 && i2 >= 2){
+        state.sources.splice(i2, 1);
+      } else if (i2 < 0 && state.sources.length < 4){
+        state.sources.push(makeSource(p.x, p.y));
+      }
+    }
+    dragIndex = -1;
+    canvas.style.cursor = "crosshair";
+    updateHud();
+  });
+
+  // controls
+  var freq = document.getElementById("freq");
+  var amp = document.getElementById("amp");
+  var spd = document.getElementById("spd");
+  var freqv = document.getElementById("freqv");
+  var ampv = document.getElementById("ampv");
+  var spdv = document.getElementById("spdv");
+  var pauseBtn = document.getElementById("pause");
+
+  freq.addEventListener("input", function(){
+    state.freq = Number(freq.value);
+    freqv.textContent = state.freq.toFixed(1);
+  });
+  amp.addEventListener("input", function(){
+    state.amp = Number(amp.value) / 100;
+    ampv.textContent = state.amp.toFixed(2);
+  });
+  spd.addEventListener("input", function(){
+    state.speed = Number(spd.value);
+    spdv.textContent = String(state.speed);
+  });
+  function togglePause(){
+    state.paused = !state.paused;
+    pauseBtn.classList.toggle("on", state.paused);
+    pauseBtn.setAttribute("aria-pressed", String(state.paused));
+    pauseBtn.textContent = state.paused ? "Resume" : "Pause";
+  }
+  pauseBtn.addEventListener("click", togglePause);
+  window.addEventListener("keydown", function(e){
+    if (e.code === "Space" && e.target === document.body){
+      e.preventDefault();
+      togglePause();
+    }
+  });
+
+  fit();
+  seedSources();
+  state.lastNow = performance.now();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>098 Molecule Spin</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #0e1116;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #cfd6de;
+  }
+  #gridbg {
+    position: fixed; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  #stage {
+    position: fixed; inset: 0;
+    cursor: grab; touch-action: none;
+  }
+  #stage.drag { cursor: grabbing; }
+  .atom {
+    position: absolute; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    will-change: left, top, width;
+  }
+  .atom::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    box-shadow: inset 0 -6px 14px rgba(0,0,0,0.45);
+  }
+  .bond {
+    position: absolute; height: 3px;
+    background: linear-gradient(90deg, rgba(150,164,182,0.75), rgba(150,164,182,0.55));
+    border-radius: 2px; transform-origin: 0 50%;
+    will-change: left, top, width, transform;
+  }
+  .lbl {
+    position: absolute;
+    font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.06em;
+    background: rgba(14,17,22,0.85);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: #e8edf3;
+    padding: 2px 7px; border-radius: 999px;
+    transform: translate(-50%, -170%);
+    pointer-events: none; white-space: nowrap;
+    will-change: left, top;
+  }
+  .lbl .n { color: #8fa0b3; font-weight: 400; margin-left: 4px; }
+  #hud {
+    position: fixed; top: 18px; left: 20px; pointer-events: none;
+    text-transform: uppercase; letter-spacing: 0.22em;
+    font-size: clamp(10px, 1.6vw, 13px); color: #93a0b0;
+  }
+  #hud b { color: #eef3f9; font-weight: 600; }
+  #hud .sub {
+    display: block; margin-top: 5px; letter-spacing: 0.3em;
+    font-size: 0.82em; color: #5c6675; font-family: ui-monospace, monospace;
+  }
+  #bar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: linear-gradient(transparent, rgba(8,10,14,0.9) 40%);
+  }
+  .chip {
+    font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.05em; color: #b7c1cd;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    padding: 8px 14px; border-radius: 999px; cursor: pointer;
+    transition: background 0.25s, border-color 0.25s, color 0.25s;
+    user-select: none;
+  }
+  .chip:hover { background: rgba(255,255,255,0.12); }
+  .chip.on { color: #0e1116; background: #dfe7f0; border-color: #dfe7f0; }
+  .chip.ghost { color: #7f8b9a; }
+  #spinwrap {
+    display: flex; align-items: center; gap: 8px;
+    font: 600 11px ui-monospace, monospace; letter-spacing: 0.12em; color: #7f8b9a;
+  }
+  #spin {
+    -webkit-appearance: none; appearance: none;
+    width: clamp(90px, 18vw, 160px); height: 3px; border-radius: 2px;
+    background: rgba(255,255,255,0.18); outline: none; cursor: pointer;
+  }
+  #spin::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #dfe7f0; border: none;
+    box-shadow: 0 0 8px rgba(223,231,240,0.5);
+  }
+  #spin::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #dfe7f0; border: none;
+  }
+  @media (max-width: 560px) {
+    #hud { top: 12px; left: 14px; }
+    #bar { gap: 8px; padding: 10px 12px; }
+    .chip { padding: 7px 11px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div id="gridbg"></div>
+<div id="stage"></div>
+<div id="hud">
+  <b id="cap">MOLECULE / C2H5OH - 9 ATOMS, LIVE</b>
+  <span class="sub">css-3d · drag to spin · 098</span>
+</div>
+<div id="bar">
+  <span class="chip" data-m="h2o">H2O</span>
+  <span class="chip" data-m="ch4">CH4</span>
+  <span class="chip on" data-m="etoh">C2H5OH</span>
+  <span id="spinwrap">SPIN <input id="spin" type="range" min="0" max="100" value="55"></span>
+  <span class="chip ghost" id="pause">PAUSE</span>
+  <span class="chip on" id="labels">LABELS</span>
+</div>
+<script>
+(function () {
+  'use strict';
+  var stage = document.getElementById('stage');
+  var cap = document.getElementById('cap');
+  var spin = document.getElementById('spin');
+  var pauseBtn = document.getElementById('pause');
+  var labelsBtn = document.getElementById('labels');
+  var SCALE = 46, PERSP = 440;
+  var rotX = -0.35, rotY = 0.7;
+  var vx = 0, vy = 0;
+  var paused = false, showLabels = true;
+  var dragging = false, lx = 0, ly = 0;
+  var cx = 0, cy = 0;
+  var current = 'etoh';
+  var atomEls = [], bondEls = [], lblEls = [];
+
+  var MOL = {
+    h2o: {
+      name: 'H2O', label: 'H2O',
+      atoms: [
+        { e: 'O', x: 0, y: 0, z: 0 },
+        { e: 'H', x: -0.95, y: 0.88, z: 0.28 },
+        { e: 'H', x: 0.95, y: 0.88, z: -0.28 }
+      ],
+      bonds: [[0, 1], [0, 2]]
+    },
+    ch4: {
+      name: 'CH4', label: 'CH4',
+      atoms: [
+        { e: 'C', x: 0, y: 0, z: 0 },
+        { e: 'H', x: 1.0, y: 1.0, z: 1.0 },
+        { e: 'H', x: 1.0, y: -1.0, z: -1.0 },
+        { e: 'H', x: -1.0, y: 1.0, z: -1.0 },
+        { e: 'H', x: -1.0, y: -1.0, z: 1.0 }
+      ],
+      bonds: [[0, 1], [0, 2], [0, 3], [0, 4]]
+    },
+    etoh: {
+      name: 'C2H5OH', label: 'C2H5OH',
+      atoms: [
+        { e: 'C', x: 0, y: 0, z: 0 },
+        { e: 'O', x: 1.45, y: 0.85, z: 0 },
+        { e: 'C', x: 2.9, y: 0.35, z: 0 },
+        { e: 'H', x: -0.95, y: -0.75, z: 0.75 },
+        { e: 'H', x: -0.95, y: 0.75, z: 0.75 },
+        { e: 'H', x: -0.5, y: 0, z: -1.45 },
+        { e: 'H', x: 3.5, y: 1.25, z: 0.45 },
+        { e: 'H', x: 3.5, y: -0.55, z: 0.45 },
+        { e: 'H', x: 2.15, y: 1.55, z: 0.55 }
+      ],
+      bonds: [[0, 1], [1, 2], [0, 3], [0, 4], [0, 5], [2, 6], [2, 7], [1, 8]]
+    }
+  };
+
+  var STYLE = {
+    C: { r: 26, grad: 'radial-gradient(circle at 32% 30%, #7c828e, #4a4d55 55%, #22242a 100%)' },
+    O: { r: 23, grad: 'radial-gradient(circle at 32% 30%, #f2908d, #d63a3a 55%, #77201f 100%)' },
+    H: { r: 14, grad: 'radial-gradient(circle at 32% 30%, #ffffff, #f4f4f2 55%, #b4b4ad 100%)' }
+  };
+
+  function clearStage() {
+    stage.innerHTML = '';
+    atomEls = []; bondEls = []; lblEls = [];
+  }
+
+  function build(key) {
+    clearStage();
+    var mol = MOL[key];
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < mol.atoms.length; i++) {
+      var a = mol.atoms[i];
+      var d = document.createElement('div');
+      d.className = 'atom';
+      d.style.background = STYLE[a.e].grad;
+      d._z = 0;
+      frag.appendChild(d);
+      atomEls.push(d);
+    }
+    for (var b = 0; b < mol.bonds.length; b++) {
+      var bd = document.createElement('div');
+      bd.className = 'bond';
+      frag.appendChild(bd);
+      bondEls.push(bd);
+    }
+    for (var j = 0; j < mol.atoms.length; j++) {
+      var el = document.createElement('div');
+      el.className = 'lbl';
+      el.innerHTML = mol.atoms[j].e + '<span class="n">' + mol.name + '_' + (j + 1) + '</span>';
+      frag.appendChild(el);
+      lblEls.push(el);
+    }
+    stage.appendChild(frag);
+    cap.textContent = 'MOLECULE / ' + mol.name + ' - ' + mol.atoms.length + ' ATOMS, LIVE';
+  }
+
+  function layout() {
+    cx = window.innerWidth / 2;
+    cy = window.innerHeight * 0.46;
+  }
+
+  function proj(a) {
+    var x = a.x, y = a.y, z = a.z;
+    var cy1 = Math.cos(rotY), sy1 = Math.sin(rotY);
+    var x1 = x * cy1 - z * sy1;
+    var z1 = x * sy1 + z * cy1;
+    var cx1 = Math.cos(rotX), sx1 = Math.sin(rotX);
+    var y2 = y * cx1 - z1 * sx1;
+    var z2 = y * sx1 + z1 * cx1;
+    var s = PERSP / (PERSP - z2 * SCALE);
+    return { x: cx + x1 * SCALE * s, y: cy + y2 * SCALE * s, s: s, z: z2 };
+  }
+
+  function frame() {
+    window.requestAnimationFrame(frame);
+    try {
+      var auto = (parseInt(spin.value, 10) / 100) * 0.0065;
+      if (!paused) {
+        if (!dragging) {
+          rotY += auto + vx;
+          rotX += vy;
+          vx *= 0.94; vy *= 0.94;
+          if (Math.abs(vx) < 0.00002) vx = 0;
+          if (Math.abs(vy) < 0.00002) vy = 0;
+        }
+      }
+      var mol = MOL[current];
+      var items = [];
+      var i;
+      for (i = 0; i < mol.atoms.length; i++) {
+        var p = proj(mol.atoms[i]);
+        var d = atomEls[i];
+        var r = STYLE[mol.atoms[i].e].r * p.s;
+        d.style.left = p.x + 'px';
+        d.style.top = p.y + 'px';
+        d.style.width = r * 2 + 'px';
+        d.style.height = r * 2 + 'px';
+        items.push({ el: d, z: p.z });
+        var lp = lblEls[i];
+        lp.style.left = p.x + 'px';
+        lp.style.top = (p.y - STYLE[mol.atoms[i].e].r * p.s * 0.55) + 'px';
+        items.push({ el: lp, z: p.z });
+      }
+      for (i = 0; i < mol.bonds.length; i++) {
+        var p1 = proj(mol.atoms[mol.bonds[i][0]]);
+        var p2 = proj(mol.atoms[mol.bonds[i][1]]);
+        var bd = bondEls[i];
+        var dx = p2.x - p1.x, dy = p2.y - p1.y;
+        var len = Math.sqrt(dx * dx + dy * dy);
+        var ang = Math.atan2(dy, dx) * 180 / Math.PI;
+        bd.style.left = p1.x + 'px';
+        bd.style.top = p1.y + 'px';
+        bd.style.width = len + 'px';
+        bd.style.height = Math.max(2, 3.2 * ((p1.s + p2.s) / 2)) + 'px';
+        bd.style.transform = 'rotate(' + ang + 'deg)';
+        items.push({ el: bd, z: (p1.z + p2.z) / 2 });
+      }
+      items.sort(function (a, b) { return a.z - b.z; });
+      for (i = 0; i < items.length; i++) {
+        items[i].el.style.zIndex = String(i + 1);
+      }
+      var off = !showLabels;
+      for (i = 0; i < lblEls.length; i++) {
+        lblEls[i].style.display = off ? 'none' : 'block';
+      }
+    } catch (e) {
+      /* keep the loop alive */
+    }
+  }
+
+  stage.addEventListener('pointerdown', function (ev) {
+    dragging = true;
+    stage.classList.add('drag');
+    lx = ev.clientX; ly = ev.clientY;
+    vx = 0; vy = 0;
+    if (stage.setPointerCapture) {
+      try { stage.setPointerCapture(ev.pointerId); } catch (e) {}
+    }
+  });
+  window.addEventListener('pointermove', function (ev) {
+    if (!dragging) return;
+    var dx = ev.clientX - lx, dy = ev.clientY - ly;
+    rotY += dx * 0.0055;
+    rotX += dy * 0.0055;
+    vx = dx * 0.00045;
+    vy = dy * 0.00045;
+    lx = ev.clientX; ly = ev.clientY;
+  });
+  window.addEventListener('pointerup', function () {
+    dragging = false;
+    stage.classList.remove('drag');
+  });
+
+  var chips = document.querySelectorAll('.chip[data-m]');
+  for (var c = 0; c < chips.length; c++) {
+    (function (chip) {
+      chip.addEventListener('click', function () {
+        current = chip.getAttribute('data-m');
+        for (var k = 0; k < chips.length; k++) chips[k].classList.remove('on');
+        chip.classList.add('on');
+        rotX = -0.35; rotY = 0.7; vx = 0; vy = 0;
+        build(current);
+      });
+    })(chips[c]);
+  }
+  pauseBtn.addEventListener('click', function () {
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'RESUME' : 'PAUSE';
+    pauseBtn.classList.toggle('on', paused);
+    pauseBtn.classList.toggle('ghost', !paused);
+  });
+  labelsBtn.addEventListener('click', function () {
+    showLabels = !showLabels;
+    labelsBtn.classList.toggle('on', showLabels);
+  });
+
+  window.addEventListener('resize', layout);
+  layout();
+  build(current);
+  frame();
+})();
+</script>
+</body>
+</html>

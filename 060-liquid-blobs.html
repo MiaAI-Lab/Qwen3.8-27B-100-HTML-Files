@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>060 - Liquid Blobs</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    height: 100dvh;
+    overflow: hidden;
+    background: #0d1017;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-user-select: none; user-select: none;
+  }
+  #c { position: absolute; inset: 0; display: block; touch-action: none; }
+  .hud { position: absolute; z-index: 3; pointer-events: none; }
+  .caption {
+    top: clamp(14px, 3vh, 26px); left: 0; right: 0;
+    text-align: center;
+    color: #8fe8ff;
+    font-size: clamp(10px, 1.6vw, 13px);
+    letter-spacing: .5em;
+    text-transform: uppercase;
+    text-shadow: 0 0 18px rgba(90, 220, 255, 0.55);
+  }
+  .caption b { color: #ffffff; font-weight: 700; }
+  .caption .sub {
+    display: block; margin-top: 7px;
+    color: #55738c;
+    font-size: clamp(9px, 1.25vw, 11px);
+    letter-spacing: .34em;
+    text-shadow: none;
+  }
+  .panel {
+    left: 50%; bottom: clamp(12px, 2.8vh, 26px);
+    transform: translateX(-50%);
+    pointer-events: auto;
+    display: flex; align-items: center; gap: clamp(12px, 2.6vw, 24px);
+    padding: 13px clamp(16px, 2.6vw, 24px);
+    background: rgba(13, 18, 28, 0.78);
+    border: 1px solid rgba(110, 190, 255, 0.2);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 26px rgba(40, 140, 255, 0.14), 0 14px 40px rgba(0, 0, 0, 0.55);
+    max-width: 92vw;
+  }
+  .lbl {
+    color: #6fa8d8; font-size: 10px;
+    letter-spacing: .3em; text-transform: uppercase;
+  }
+  .lbl.gold { color: #ffd98a; }
+  .val {
+    color: #d9f4ff; font-family: ui-monospace, monospace;
+    font-size: 11px; min-width: 52px; text-align: right;
+  }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: clamp(96px, 22vw, 170px); height: 4px;
+    background: linear-gradient(90deg, #2bd9a8, #7a5cff);
+    border-radius: 2px; outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: #eafcff; border: 2px solid #2bd9a8;
+    box-shadow: 0 0 12px rgba(43, 217, 168, 0.8);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 15px; height: 15px; border-radius: 50%;
+    background: #eafcff; border: 2px solid #2bd9a8;
+    box-shadow: 0 0 12px rgba(43, 217, 168, 0.8);
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud caption">
+  <b>7 BLOBS</b> &ndash; LIQUID FIELD
+  <span class="sub">the pink one follows your pointer</span>
+</div>
+<div class="hud panel">
+  <span class="lbl">Viscosity</span>
+  <input id="visc" type="range" min="0" max="100" value="38" step="1">
+  <span class="val" id="viscVal">jelly</span>
+</div>
+<script>
+(function () {
+  'use strict';
+  var TAU = Math.PI * 2;
+  var canvas = document.getElementById('c');
+  var ctx = canvas.getContext('2d');
+  var viscInput = document.getElementById('visc');
+  var viscVal = document.getElementById('viscVal');
+
+  var W = 0, H = 0, DPR = 1;
+  var blobs = [];
+  var motes = [];
+  var pointer = { x: 0, y: 0, active: false };
+  var visc = 0.38;
+  var time = 0;
+  var off = null, offCtx = null;
+
+  var COLORS = [
+    [0.45, 0.92, 1.0],
+    [0.30, 0.85, 0.70],
+    [0.48, 0.55, 1.0],
+    [0.80, 0.45, 1.0],
+    [1.0, 0.55, 0.42],
+    [0.98, 0.85, 0.40],
+    [1.0, 0.48, 0.78]
+  ];
+
+  function fit() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = Math.max(1, window.innerWidth);
+    H = Math.max(1, window.innerHeight);
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    off = document.createElement('canvas');
+    off.width = Math.max(1, Math.round(W * 0.5));
+    off.height = Math.max(1, Math.round(H * 0.5));
+    offCtx = off.getContext('2d');
+    offCtx.scale(0.5, 0.5);
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  for (let i = 0; i < 24; i++) {
+    motes.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: 0.8 + Math.random() * 1.8,
+      sp: 6 + Math.random() * 14,
+      a: 0.04 + Math.random() * 0.09,
+      ph: Math.random() * TAU
+    });
+  }
+
+  function makeBlobs() {
+    blobs = [];
+    for (let i = 0; i < 7; i++) {
+      blobs.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        vx: 0, vy: 0,
+        r: 40 + Math.random() * 50,
+        col: COLORS[i],
+        phase: i * 0.9 + Math.random() * 0.7,
+        fx: 0.18 + Math.random() * 0.14,
+        fy: 0.18 + Math.random() * 0.14,
+        ax: 0.14 + Math.random() * 0.16,
+        ay: 0.14 + Math.random() * 0.16,
+        hueShift: 0,
+        target: 0
+      });
+    }
+  }
+  makeBlobs();
+
+  function physics(dt) {
+    time += dt;
+    var k = 0.9 + visc * 22;
+    var dampF = 1 - Math.min(0.9, 0.10 + visc * 1.3) * dt;
+    for (let i = 0; i < blobs.length; i++) {
+      var b = blobs[i];
+      var px = W / 2 + Math.sin(time * b.fx + b.phase) * W * b.ax;
+      var py = H / 2 + Math.sin(time * b.fy + b.phase * 1.7) * H * b.ay;
+      if (i === 6 && pointer.active) { px = pointer.x; py = pointer.y; }
+      b.vx += (px - b.x) * k * dt;
+      b.vy += (py - b.y) * k * dt;
+      b.vx *= dampF;
+      b.vy *= dampF;
+      var sp = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+      var max = 520 + 380 * visc;
+      if (sp > max) { b.vx *= max / sp; b.vy *= max / sp; }
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      var m = b.r * 0.5;
+      if (b.x < m) { b.x = m; b.vx *= -0.6; }
+      if (b.x > W - m) { b.x = W - m; b.vx *= -0.6; }
+      if (b.y < m) { b.y = m; b.vy *= -0.6; }
+      if (b.y > H - m) { b.y = H - m; b.vy *= -0.6; }
+      b.hueShift = Math.sin(time * 0.07 + i * 1.1) * 0.14;
+    }
+    for (let i = 0; i < motes.length; i++) {
+      var mo = motes[i];
+      mo.y -= mo.sp * dt * 0.4;
+      mo.x += Math.sin(time * 0.6 + mo.ph) * 4 * dt;
+      if (mo.y < -4) {
+        mo.y = H + 4;
+        mo.x = Math.random() * W;
+      }
+    }
+  }
+
+  function blobAlpha(c) {
+    return 'rgba(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' + Math.round(c[2] * 255) + ',0.030)';
+  }
+
+  function draw() {
+    var oc = offCtx;
+    oc.clearRect(0, 0, W, H);
+    oc.globalCompositeOperation = 'lighter';
+    var rings = 60;
+    for (let i = 0; i < blobs.length; i++) {
+      var b = blobs[i];
+      var r = b.r * (1 + b.hueShift * 0.35);
+      var col = blobAlpha([
+        Math.max(0, Math.min(1, b.col[0] + b.hueShift)),
+        Math.max(0, Math.min(1, b.col[1] + b.hueShift * 0.6)),
+        Math.max(0, Math.min(1, b.col[2] - b.hueShift * 0.5))
+      ]);
+      oc.fillStyle = col;
+      for (let j = 0; j < rings; j++) {
+        var t = j / rings;
+        var rr = r * (0.12 + 0.88 * Math.sqrt(1 - t * t));
+        var spread = r * 0.30 * t;
+        var ox = Math.sin(t * 6.28 + b.phase + i) * spread;
+        var oy = Math.cos(t * 4.19 + b.phase * 1.3 + i) * spread;
+        oc.beginPath();
+        oc.arc(b.x + ox, b.y + oy, Math.max(0.5, rr), 0, TAU);
+        oc.fill();
+      }
+      oc.fillStyle = 'rgba(255,255,255,0.10)';
+      oc.beginPath();
+      oc.arc(b.x - r * 0.18, b.y - r * 0.22, r * 0.42, 0, TAU);
+      oc.fill();
+    }
+    oc.globalCompositeOperation = 'source-over';
+
+    ctx.fillStyle = '#0d1017';
+    ctx.fillRect(0, 0, W, H);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(off, 0, 0, off.width, off.height, 0, 0, W, H);
+
+    /* subtle contrast pass: a second faint additive pass lifts fused cores
+       out of the mid-tones without blowing highlights */
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.16;
+    ctx.drawImage(off, 0, 0, off.width, off.height, 0, 0, W, H);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+
+    /* pointer marker: soft ring showing where the attractor is pulling */
+    if (pointer.active) {
+      var pr = 26 + Math.sin(time * 3.1) * 3;
+      var pg = ctx.createRadialGradient(pointer.x, pointer.y, 0, pointer.x, pointer.y, pr);
+      pg.addColorStop(0, 'rgba(255,160,210,0.30)');
+      pg.addColorStop(0.7, 'rgba(255,120,190,0.10)');
+      pg.addColorStop(1, 'rgba(255,120,190,0)');
+      ctx.fillStyle = pg;
+      ctx.beginPath();
+      ctx.arc(pointer.x, pointer.y, pr, 0, TAU);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(pointer.x, pointer.y, 4.5, 0, TAU);
+      ctx.strokeStyle = 'rgba(255,220,240,0.75)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = '#bcd8ff';
+    for (let i = 0; i < motes.length; i++) {
+      var mo = motes[i];
+      ctx.globalAlpha = mo.a * (0.7 + 0.3 * Math.sin(time * 1.4 + mo.ph));
+      ctx.beginPath();
+      ctx.arc(mo.x, mo.y, mo.r, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    var g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.72);
+    g.addColorStop(0, 'rgba(13,16,23,0)');
+    g.addColorStop(1, 'rgba(5,7,11,0.55)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function frame(now) {
+    try {
+      if (!last) last = now;
+      var dt = Math.min(0.033, (now - last) / 1000);
+      last = now;
+      physics(dt);
+      draw();
+    } catch (err) {
+      /* guard: a thrown frame must not kill the loop */
+    }
+    requestAnimationFrame(frame);
+  }
+  var last = 0;
+  requestAnimationFrame(frame);
+
+  function setPointer(e) {
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+    pointer.active = true;
+  }
+  window.addEventListener('pointermove', setPointer);
+  window.addEventListener('pointerdown', setPointer);
+  document.addEventListener('pointerleave', function () { pointer.active = false; });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) pointer.active = false; });
+
+  function viscLabel(v) {
+    if (v < 0.2) return 'jelly';
+    if (v < 0.45) return 'slime';
+    if (v < 0.7) return 'honey';
+    return 'syrup';
+  }
+  viscInput.addEventListener('input', function () {
+    visc = Number(viscInput.value) / 100;
+    viscVal.textContent = viscLabel(visc) + ' ' + Math.round(visc * 100) + '%';
+  });
+  viscVal.textContent = viscLabel(visc) + ' ' + Math.round(visc * 100) + '%';
+})();
+</script>
+</body>
+</html>

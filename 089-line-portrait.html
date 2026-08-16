@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PORTRAIT NO. 7 - Line Study</title>
+<style>
+  :root {
+    --ink: #1c1a17;
+    --paper: #f4efe4;
+    --frame: #cfc6b4;
+    --dim: #8d8474;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    min-height: 100dvh;
+    background: #e9e2d2;
+    background-image:
+      radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.5), rgba(255,255,255,0) 60%),
+      repeating-linear-gradient(45deg, rgba(0,0,0,0.012) 0 2px, rgba(0,0,0,0) 2px 4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(12px, 2.5vw, 32px);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .sheet {
+    width: min(92vw, 560px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .frame {
+    border: 1px solid var(--frame);
+    outline: 1px solid var(--frame);
+    outline-offset: 5px;
+    background: var(--paper);
+    padding: clamp(14px, 3vw, 26px);
+    position: relative;
+    box-shadow: 0 18px 40px -18px rgba(60,50,30,0.35);
+  }
+  .tag {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    font-size: 10px;
+    letter-spacing: 0.34em;
+    color: var(--dim);
+    text-transform: uppercase;
+    z-index: 2;
+  }
+  #svgbox { line-height: 0; }
+  #svgbox svg { width: 100%; height: auto; display: block; }
+  .stk {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: stroke 0.6s ease;
+  }
+  .stk.ghost { stroke-width: 1.1; opacity: 0.75; }
+  .grid {
+    stroke: var(--ink);
+    stroke-width: 0.7;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    fill: none;
+  }
+  .grid circle, .grid ellipse, .grid line { stroke: var(--ink); }
+  .gridon .grid { opacity: 0.1; }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+  }
+  .btn {
+    font: inherit;
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--dim);
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  }
+  .btn:hover { background: rgba(28,26,23,0.08); }
+  .btn:active { transform: translateY(1px); }
+  .btn[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  .chips { display: flex; gap: 8px; align-items: center; }
+  .chips .lbl { font-size: 10px; letter-spacing: 0.3em; color: var(--dim); text-transform: uppercase; }
+  .chip {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.25);
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .chip:hover { transform: scale(1.12); }
+  .chip[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
+  .cap {
+    font-size: 11px;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: var(--dim);
+    text-align: center;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  .cap b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <div class="frame" id="frame">
+    <span class="tag">Portrait No. 7</span>
+    <div id="svgbox"></div>
+  </div>
+  <div class="controls">
+    <button class="btn" id="varBtn" type="button">Variation</button>
+    <span class="chips">
+      <span class="lbl">Ink</span>
+      <button class="chip" id="ink-sumi" type="button" aria-pressed="true" style="background:#1c1a17" data-ink="#1c1a17"></button>
+      <button class="chip" id="ink-sepia" type="button" aria-pressed="false" style="background:#7a5a3a" data-ink="#7a5a3a"></button>
+      <button class="chip" id="ink-indigo" type="button" aria-pressed="false" style="background:#2f3f8f" data-ink="#2f3f8f"></button>
+    </span>
+    <button class="btn" id="gridBtn" type="button" aria-pressed="false">Grid</button>
+  </div>
+  <p class="cap"><b>Line Study 07</b> &mdash; 80 Strokes</p>
+</main>
+<script>
+(() => {
+"use strict";
+const box = document.getElementById("svgbox");
+const frame = document.getElementById("frame");
+const varBtn = document.getElementById("varBtn");
+const gridBtn = document.getElementById("gridBtn");
+const chips = Array.prototype.slice.call(document.querySelectorAll(".chip"));
+
+let seed = 7;
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/* Stroke data: each entry = { g: 0|1 (1 = ghost/auxiliary), segs: [ [x0,y0,c1x,c1y,c2x,c2y,x1,y1] ... ] }
+   First point of first segment is the M. Jitter is applied to every control point (±~12% of local span). */
+const D = [
+  { segs: [[268,158,292,214,286,306,244,356],[244,356,224,382,176,382,156,356],[156,356,114,306,108,214,132,158]] },           /* jaw */
+  { g:1, segs: [[132,158,120,132,118,108,126,84]] },                                                                          /* temple L */
+  { g:1, segs: [[268,158,280,132,282,108,274,84]] },                                                                          /* temple R */
+  { g:1, segs: [[176,384,174,404,172,420,166,436]] },                                                                          /* neck L */
+  { g:1, segs: [[224,384,226,404,228,420,234,436]] },                                                                          /* neck R */
+  { segs: [[116,472,150,450,180,440,200,439]] },                                                                              /* collar L */
+  { segs: [[284,472,250,450,220,440,200,439]] },                                                                              /* collar R */
+  { segs: [[134,232,144,216,176,214,186,230]] },                                                                              /* eye L upper */
+  { segs: [[136,238,148,252,174,252,185,238]] },                                                                              /* eye L lower */
+  { g:1, segs: [[138,224,150,210,174,208,184,222]] },                                                                         /* eyelid L */
+  { g:1, segs: [[134,228,131,224,128,222,128,220]] },
+  { g:1, segs: [[142,222,139,218,137,215,137,213]] },
+  { g:1, segs: [[152,219,150,215,149,213,149,210]] },
+  { g:1, segs: [[164,218,163,215,163,212,163,209]] },
+  { g:1, segs: [[176,220,176,217,176,214,176,211]] },
+  { segs: [[214,230,224,214,256,216,266,232]] },                                                                              /* eye R upper */
+  { segs: [[215,238,226,252,252,252,264,238]] },                                                                              /* eye R lower */
+  { g:1, segs: [[216,222,226,208,250,210,262,224]] },                                                                         /* eyelid R */
+  { g:1, segs: [[266,228,269,225,271,223,272,220]] },
+  { g:1, segs: [[258,222,261,218,263,215,263,213]] },
+  { g:1, segs: [[248,219,250,215,251,213,251,210]] },
+  { g:1, segs: [[236,218,237,215,237,212,237,209]] },
+  { g:1, segs: [[224,220,224,217,224,214,224,211]] },
+  { segs: [[128,204,142,190,172,186,188,196]] },                                                                              /* brow L */
+  { segs: [[212,196,228,186,258,190,272,204]] },                                                                              /* brow R */
+  { segs: [[198,232,196,256,194,276,192,296]] },                                                                              /* nose bridge */
+  { segs: [[192,296,186,304,186,308,192,310]] },                                                                              /* nose alae L */
+  { segs: [[192,296,198,306,204,308,206,302]] },                                                                              /* nose alae R */
+  { g:1, segs: [[184,302,181,301,180,300,179,299]] },
+  { g:1, segs: [[206,302,209,301,210,300,211,299]] },
+  { segs: [[168,338,178,330,188,330,196,334],[196,334,204,330,214,330,224,338]] },                                           /* lips */
+  { g:1, segs: [[166,338,164,337,162,337,160,336]] },
+  { g:1, segs: [[226,338,228,337,230,337,232,336]] },
+  { g:1, segs: [[196,316,195,322,195,326,196,330]] },                                                                         /* philtrum */
+  { segs: [[126,84,112,120,116,164,132,196]] },                                                                               /* hair 1 */
+  { segs: [[138,74,120,112,118,158,136,190]] },                                                                               /* hair 2 */
+  { segs: [[152,66,132,104,130,150,146,186]] },                                                                               /* hair 3 */
+  { segs: [[168,60,148,98,144,142,158,180]] },                                                                               /* hair 4 */
+  { segs: [[186,56,166,94,160,136,172,176]] },                                                                               /* hair 5 */
+  { segs: [[204,54,186,92,182,134,192,174]] },                                                                               /* hair 6 */
+  { segs: [[222,56,206,94,204,134,214,176]] },                                                                               /* hair 7 */
+  { segs: [[240,60,226,98,226,140,236,180]] },                                                                               /* hair 8 */
+  { segs: [[256,66,244,104,246,146,258,186]] },                                                                               /* hair 9 */
+  { segs: [[270,74,262,112,266,154,276,190]] },                                                                               /* hair 10 */
+  { segs: [[282,84,278,120,286,160,292,196]] },                                                                               /* hair 11 */
+  { segs: [[196,52,190,74,188,84,196,92]] },                                                                                 /* hair 12 */
+  { g:1, segs: [[156,176,176,168,224,168,244,176]] },                                                                         /* forehead 1 */
+  { g:1, segs: [[164,160,182,152,218,152,236,160]] },                                                                         /* forehead 2 */
+  { g:1, segs: [[172,146,186,138,214,138,228,146]] },                                                                         /* forehead 3 */
+  { g:1, segs: [[166,132,184,124,216,124,234,132]] },                                                                         /* forehead aux */
+  { segs: [[130,226,118,232,118,258,130,266]] },                                                                              /* ear L */
+  { g:1, segs: [[132,196,128,210,128,218,130,226]] },                                                                         /* sideburn L */
+  { g:1, segs: [[268,196,272,210,272,218,270,226]] },                                                                         /* sideburn R */
+  { segs: [[140,268,146,276,152,280,158,280]] },                                                                             /* cheek L */
+  { segs: [[136,280,142,288,150,294,158,294]] },
+  { segs: [[140,294,146,300,152,304,158,304]] },
+  { segs: [[146,310,152,316,158,318,164,316]] },
+  { segs: [[150,324,156,330,162,332,168,330]] },
+  { segs: [[156,340,162,344,168,346,174,344]] },
+  { g:1, segs: [[144,254,150,260,156,264,162,264]] },
+  { g:1, segs: [[138,240,144,246,150,248,156,248]] },
+  { segs: [[260,268,254,276,248,280,242,280]] },                                                                             /* cheek R */
+  { segs: [[264,280,258,288,250,294,242,294]] },
+  { segs: [[260,294,254,300,248,304,242,304]] },
+  { segs: [[254,310,248,316,242,318,236,316]] },
+  { segs: [[250,324,244,330,238,332,232,330]] },
+  { segs: [[244,340,238,344,232,346,226,344]] },
+  { g:1, segs: [[256,254,250,260,244,264,238,264]] },
+  { g:1, segs: [[262,240,256,246,250,248,244,248]] },
+  { g:1, segs: [[138,276,136,274,134,273,132,272]] },
+  { g:1, segs: [[134,288,132,286,130,285,128,284]] },
+  { g:1, segs: [[262,276,264,274,266,273,268,272]] },
+  { g:1, segs: [[266,288,268,286,270,285,272,284]] },
+  { g:1, segs: [[196,368,193,372,192,376,192,380],[192,380,193,383,194,384,196,384]] },                                       /* chin */
+  { g:1, segs: [[186,400,185,410,184,415,182,420]] },
+  { g:1, segs: [[214,400,215,410,216,415,218,420]] },
+  { g:1, segs: [[160,344,168,356,180,362,192,364]] }
+];
+
+function f1(n) { return Math.round(n * 10) / 10; }
+
+function buildPath(stroke, rng) {
+  const J = 0.12 * 34;
+  let d = "M" + f1(stroke.segs[0][0] + (rng() - 0.5) * 2 * J) + " " +
+          f1(stroke.segs[0][1] + (rng() - 0.5) * 2 * J);
+  const segs = stroke.segs;
+  for (let s = 0; s < segs.length; s++) {
+    d += " C" + f1(segs[s][2] + (rng() - 0.5) * 2 * 0.12 * 34) + " " +
+              f1(segs[s][3] + (rng() - 0.5) * 2 * 0.12 * 34) + " " +
+              f1(segs[s][4] + (rng() - 0.5) * 2 * 0.12 * 34) + " " +
+              f1(segs[s][5] + (rng() - 0.5) * 2 * 0.12 * 34) + " " +
+              f1(segs[s][6] + (rng() - 0.5) * 2 * 0.12 * 34) + " " +
+              f1(segs[s][7] + (rng() - 0.5) * 2 * 0.12 * 34);
+  }
+  return d;
+}
+
+function gridSvg() {
+  let s = "";
+  s += '<g class="grid">';
+  s += '<ellipse cx="200" cy="248" rx="96" ry="128"/>';
+  s += '<circle cx="160" cy="234" r="34"/>';
+  s += '<circle cx="240" cy="234" r="34"/>';
+  s += '<circle cx="196" cy="340" r="30"/>';
+  s += '<line x1="196" y1="48" x2="196" y2="444"/>';
+  s += '<line x1="92" y1="234" x2="308" y2="234"/>';
+  s += '<line x1="110" y1="338" x2="282" y2="338"/>';
+  s += '<circle cx="200" cy="356" r="58"/>';
+  s += '</g>';
+  return s;
+}
+
+function buildSvg() {
+  const rng = mulberry32(seed * 2654435761 % 2147483647);
+  let s = '<svg viewBox="0 0 400 520" aria-label="generative line portrait">';
+  s += gridSvg();
+  for (let i = 0; i < D.length; i++) {
+    const d = buildPath(D[i], rng);
+    s += '<path class="stk' + (D[i].g ? " ghost" : "") + '" d="' + d + '"/>';
+  }
+  s += '</svg>';
+  return s;
+}
+
+function animate() {
+  const paths = Array.prototype.slice.call(box.querySelectorAll("path.stk"));
+  const N = paths.length;
+  const dur = 5;
+  const maxDelay = 7;
+  try {
+    for (let i = 0; i < N; i++) {
+      const p = paths[i];
+      const L = p.getTotalLength();
+      p.style.strokeDasharray = String(L);
+      p.style.strokeDashoffset = String(L);
+      p.getBoundingClientRect(); /* force style flush */
+      const delay = (i / N) * maxDelay;
+      p.style.transition = "stroke-dashoffset " + dur + "s cubic-bezier(0.45,0.05,0.25,1) " + delay.toFixed(3) + "s, stroke 0.6s ease";
+      p.style.strokeDashoffset = "0";
+    }
+  } catch (err) { /* getTotalLength can throw on detached nodes */ }
+}
+
+function redraw() {
+  box.innerHTML = buildSvg();
+  animate();
+}
+
+varBtn.addEventListener("click", function () {
+  seed = Math.floor(Math.random() * 100000) + 1;
+  redraw();
+});
+
+chips.forEach(function (c) {
+  c.addEventListener("click", function () {
+    chips.forEach(function (o) { o.setAttribute("aria-pressed", "false"); });
+    c.setAttribute("aria-pressed", "true");
+    document.documentElement.style.setProperty("--ink", c.getAttribute("data-ink"));
+  });
+});
+
+gridBtn.addEventListener("click", function () {
+  const on = frame.classList.toggle("gridon");
+  gridBtn.setAttribute("aria-pressed", on ? "true" : "false");
+});
+
+redraw();
+})();
+</script>
+</body>
+</html>

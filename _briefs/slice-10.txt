@@ -1,0 +1,11 @@
+=== 028 ===
+028-synthwave-horizon.html
+SYNTHWAVE HORIZON - perspective neon grid floor: lines #ff2e88 converging to vanishing point, scrolling toward viewer; huge sun #ffd76f->#ff2e88 gradient with horizontal slice gaps sitting on the horizon; jagged mountain silhouette #1a0b2e mid-ground; fog band at horizon. Mouse: subtle parallax (mountains shift, sun scales slightly). SPEED slider drives grid scroll rate; optional WebAudio engine hum (gesture-created). Title 'NEON / DRIVE' italic gradient-text (background-clip), wide tracking, top center.
+
+=== 029 ===
+029-ink-bloom.html
+INK BLOOM - ink drops in water. Dark #0b0d12; each click drops ink: 300-600 particles burst in a ring, advected by a slowly time-evolving 2-octave curl-noise field, fading over 8-14s with long soft trails (translucent bg fade rect, no full clear). Ink color cycles a palette (indigo #3b4fd8, gold #e0b13f, crimson #c22e3a, teal #2fa3a3) per drop. Auto-drops one every 4s until first user interaction. Vignette + faint grain overlay. Meditative, fluid, premium. Keep particle budget under 4000 live.
+
+=== 030 ===
+030-iso-room.html
+ISO ROOM - cozy isometric interior, one room: 8x8 iso floor tiles, two walls; furniture: bed, desk with monitor (screen shows a tiny scrolling pixel 'video'), lamp with glow, plant, rug, window with night sky + moon. DAY/NIGHT toggle swaps window sky, lamp glow, monitor brightness. Hover a furniture piece: it lifts 4px and shows a small label chip ('desk - 4 items'). Click the lamp: flicker + glow pulse. Palette: cream walls #f2e8d8, walnut #7a5a3a, night blue #1c2440. Draw in canvas with iso projection math; soft shadows under furniture.

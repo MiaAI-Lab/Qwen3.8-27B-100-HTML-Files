@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>100 The Hundred</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #0d0d10;
+    color: #c8ccd6;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100dvh;
+    display: flex; flex-direction: column;
+    overflow-x: hidden;
+  }
+  #top {
+    padding: 18px 22px 12px;
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 6px;
+  }
+  #cap {
+    text-transform: uppercase; letter-spacing: 0.26em;
+    font: 600 clamp(12px, 2vw, 15px) system-ui;
+    color: #e8ebf2;
+  }
+  #cap span { color: #6f7684; font-weight: 400; }
+  #count {
+    font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.2em; color: #8a92a2;
+    text-transform: uppercase;
+  }
+  #count b { color: #e8ebf2; }
+  #grid {
+    flex: 1;
+    width: min(96vw, 1100px);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 2px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .tile {
+    position: relative;
+    background: #0d0d10;
+    aspect-ratio: 1;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .tile canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), filter 0.35s;
+  }
+  .tile:hover canvas {
+    transform: scale(1.08);
+    filter: brightness(1.15);
+  }
+  .tile .chip {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 4px 0;
+    text-align: center;
+    font: 600 9px ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: #dfe3ec;
+    background: rgba(13,13,16,0.82);
+    border-top: 1px solid rgba(255,255,255,0.14);
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+  }
+  .tile:hover .chip { opacity: 1; transform: translateY(0); }
+  .tile.ghost canvas { opacity: 0.15; }
+  #foot {
+    text-align: center;
+    padding: 18px 16px 26px;
+    font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.34em; text-transform: uppercase;
+    color: #5f6675;
+  }
+  #foot b { color: #a7aebd; }
+  #lb {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(6,6,9,0.86);
+    backdrop-filter: blur(6px);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  #lb.open { opacity: 1; pointer-events: auto; }
+  #lb canvas {
+    width: min(74vmin, 460px); height: min(74vmin, 460px);
+    border: 1px solid rgba(255,255,255,0.14);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+  }
+  #lbTitle {
+    font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.24em; text-transform: uppercase;
+    color: #e8ebf2;
+  }
+  #lbTitle span { color: #79818f; }
+  #close {
+    font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.14em;
+    color: #dfe3ec;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 10px 22px; border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.25s, border-color 0.25s;
+  }
+  #close:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.4); }
+  #lbBg {
+    position: absolute; inset: 0; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div id="top">
+  <div id="cap">100/100 <span>· the hundred · gallery finale</span></div>
+  <div id="count">RENDERING <b id="prog">0</b>/100</div>
+</div>
+<div id="grid"></div>
+<div id="foot">THE HUNDRED - A GALLERY OF ONE HUNDRED GENERATIVE ARTS - <b>FIN.</b></div>
+<div id="lb">
+  <div id="lbBg"></div>
+  <div id="lbTitle">ART</div>
+  <canvas id="lbCv" width="512" height="512"></canvas>
+  <button id="close">CLOSE</button>
+</div>
+<script>
+(function () {
+  'use strict';
+  var grid = document.getElementById('grid');
+  var prog = document.getElementById('prog');
+  var lb = document.getElementById('lb');
+  var lbCv = document.getElementById('lbCv');
+  var lbCtx = lbCv.getContext('2d');
+  var lbTitle = document.getElementById('lbTitle');
+  var lbOpen = false;
+  var lbIdx = 0;
+  var lbRaf = 0;
+  var TILE = 320;
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function pad3(n) {
+    var s = String(n);
+    while (s.length < 3) s = '0' + s;
+    return s;
+  }
+
+  var FAMILIES = [
+    { name: 'MESH', bg: '#101318', draw: meshDraw },
+    { name: 'RINGS', bg: '#12101a', draw: ringsDraw },
+    { name: 'DOTS', bg: '#0f1512', draw: dotsDraw },
+    { name: 'WAVES', bg: '#101418', draw: wavesDraw },
+    { name: 'TRIS', bg: '#151210', draw: trisDraw },
+    { name: 'FLOW', bg: '#0e1214', draw: flowDraw },
+    { name: 'BURST', bg: '#131015', draw: burstDraw },
+    { name: 'CHECK', bg: '#101014', draw: checkDraw },
+    { name: 'BLOBS', bg: '#0f1416', draw: blobsDraw },
+    { name: 'BARS', bg: '#121216', draw: barsDraw }
+  ];
+
+  function meshDraw(ctx, S, rnd, t) {
+    var n = 5 + Math.floor(rnd() * 3);
+    var hues = [210, 170, 260, 190];
+    for (var i = 0; i < n; i++) {
+      var x = S * (0.15 + rnd() * 0.7) + Math.sin(t * 0.6 + i * 1.7) * S * 0.03;
+      var y = S * (0.15 + rnd() * 0.7) + Math.cos(t * 0.5 + i * 2.1) * S * 0.03;
+      var r = S * (0.22 + rnd() * 0.24);
+      var h = hues[i % hues.length];
+      var g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, 'hsla(' + h + ',70%,' + (52 + Math.sin(t + i) * 6) + '%,0.85)');
+      g.addColorStop(1, 'hsla(' + h + ',70%,45%,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, 6.2832);
+      ctx.fill();
+    }
+  }
+
+  function ringsDraw(ctx, S, rnd, t) {
+    var cx = S * (0.35 + rnd() * 0.3);
+    var cy = S * (0.35 + rnd() * 0.3);
+    var n = 7 + Math.floor(rnd() * 4);
+    for (var i = 0; i < n; i++) {
+      var r = (i + 1) / n * S * 0.62 + Math.sin(t * 0.8 + i * 0.9) * 3;
+      var h = 275 + i * 4;
+      ctx.strokeStyle = 'hsla(' + h + ',65%,' + (60 + i * 2) + '%,' + (0.9 - i * 0.04) + ')';
+      ctx.lineWidth = 2 + (n - i) * 0.35;
+      ctx.setLineDash([S * 0.05, S * 0.03]);
+      ctx.lineDashOffset = t * 12 + i * 8;
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(4, r), 0, 6.2832);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#e8d9ff';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3.5, 0, 6.2832);
+    ctx.fill();
+  }
+
+  function dotsDraw(ctx, S, rnd, t) {
+    var m = 11;
+    var cell = S / m;
+    for (var i = 0; i < m; i++) {
+      for (var j = 0; j < m; j++) {
+        if (rnd() < 0.32) continue;
+        var rr = cell * (0.12 + rnd() * 0.3);
+        var a = 0.45 + 0.5 * Math.abs(Math.sin(t * 0.9 + i * 0.6 + j * 0.4));
+        ctx.fillStyle = 'rgba(88,214,152,' + a.toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.arc((i + 0.5) * cell, (j + 0.5) * cell, rr, 0, 6.2832);
+        ctx.fill();
+      }
+    }
+  }
+
+  function wavesDraw(ctx, S, rnd, t) {
+    var layers = 5;
+    for (var L = layers - 1; L >= 0; L--) {
+      var amp = S * 0.05 + rnd() * S * 0.05;
+      var base = S * (0.3 + L * 0.13);
+      var ph = t * (0.7 + L * 0.18) + L * 2;
+      var h = 205 + L * 14;
+      ctx.fillStyle = 'hsla(' + h + ',' + (55 + L * 6) + '%,' + (40 + L * 9) + '%,0.9)';
+      ctx.beginPath();
+      ctx.moveTo(0, S);
+      for (var x = 0; x <= S; x += 6) {
+        var y = base + Math.sin(x * 0.028 + ph) * amp + Math.sin(x * 0.011 - ph * 0.6) * amp * 0.4;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(S, S);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function trisDraw(ctx, S, rnd, t) {
+    var m = 8;
+    var cell = S / m;
+    var cols = ['#e8a34a', '#2c2f38', '#f4d8a8'];
+    var cx = rnd() * m, cy = rnd() * m;
+    for (var i = 0; i < m; i++) {
+      for (var j = 0; j < m; j++) {
+        var up = (i + j) % 2 === 0;
+        var d = Math.sqrt((i - cx) * (i - cx) + (j - cy) * (j - cy)) / m;
+        var bri = 0.35 + 0.65 * Math.abs(Math.sin(t * 1.1 - d * 5));
+        var c = cols[Math.floor(rnd() * cols.length)];
+        ctx.globalAlpha = Math.min(1, bri + 0.1);
+        ctx.fillStyle = c;
+        ctx.beginPath();
+        if (up) {
+          ctx.moveTo(i * cell, j * cell + cell);
+          ctx.lineTo((i + 1) * cell, j * cell + cell);
+          ctx.lineTo((i + 0.5) * cell, j * cell);
+        } else {
+          ctx.moveTo(i * cell, j * cell);
+          ctx.lineTo((i + 1) * cell, j * cell);
+          ctx.lineTo((i + 0.5) * cell, j * cell + cell);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function flowDraw(ctx, S, rnd, t) {
+    var lines = 56;
+    ctx.lineWidth = 1.4;
+    for (var i = 0; i < lines; i++) {
+      var x = rnd() * S, y = rnd() * S;
+      var ang = rnd() * 6.2832;
+      var h = 150 + rnd() * 50;
+      ctx.strokeStyle = 'hsla(' + h + ',60%,64%,0.55)';
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      for (var s2 = 0; s2 < 22; s2++) {
+        ang = Math.sin(x * 0.02 + t * 0.5) * 1.4 + Math.cos(y * 0.022 - t * 0.3) * 1.4 + ang * 0.85;
+        x += Math.cos(ang) * 5;
+        y += Math.sin(ang) * 5;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function burstDraw(ctx, S, rnd, t) {
+    var cx = S / 2, cy = S / 2;
+    var n = 14 + Math.floor(rnd() * 6);
+    var rot = t * 0.25;
+    for (var i = 0; i < n; i++) {
+      var a = i / n * 6.2832 + rot;
+      var len = S * (0.18 + rnd() * 0.26) * (1 + 0.12 * Math.sin(t * 1.4 + i));
+      var h = 300 + (i % 3) * 18;
+      ctx.strokeStyle = 'hsla(' + h + ',70%,64%,0.85)';
+      ctx.lineWidth = i % 3 === 0 ? 3 : 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * S * 0.08, cy + Math.sin(a) * S * 0.08);
+      ctx.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len);
+      ctx.stroke();
+      ctx.fillStyle = 'hsla(' + h + ',80%,74%,0.9)';
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a) * len, cy + Math.sin(a) * len, 2.6, 0, 6.2832);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#f2d9ff';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6, 0, 6.2832);
+    ctx.fill();
+  }
+
+  function checkDraw(ctx, S, rnd, t) {
+    var m = 8;
+    var cell = S / m;
+    var cx = S * (0.3 + rnd() * 0.4);
+    var cy = S * (0.3 + rnd() * 0.4);
+    for (var i = 0; i < m; i++) {
+      for (var j = 0; j < m; j++) {
+        var on = (i + j) % 2 === 0;
+        var d = Math.sqrt((i * cell + cell / 2 - cx) * (i * cell + cell / 2 - cx) +
+                          (j * cell + cell / 2 - cy) * (j * cell + cell / 2 - cy)) / (S * 0.72);
+        var sw = 0.5 + 0.5 * Math.sin(t * 0.9 - d * 4.5);
+        var a = on ? 0.85 * (1 - d * 0.75) * sw + 0.06 : 0.1 + 0.12 * sw;
+        ctx.fillStyle = on ? 'rgba(226,196,116,' + Math.max(0, Math.min(1, a)).toFixed(3) + ')'
+                           : 'rgba(90,98,118,' + Math.max(0, Math.min(1, a)).toFixed(3) + ')';
+        ctx.fillRect(i * cell + 1, j * cell + 1, cell - 2, cell - 2);
+      }
+    }
+  }
+
+  function blobsDraw(ctx, S, rnd, t) {
+    var n = 3 + Math.floor(rnd() * 2);
+    var cols = ['rgba(240,110,80,0.5)', 'rgba(60,200,190,0.45)', 'rgba(244,220,120,0.4)'];
+    for (var i = 0; i < n; i++) {
+      var bx = S * (0.28 + rnd() * 0.44);
+      var by = S * (0.28 + rnd() * 0.44);
+      var R = S * (0.16 + rnd() * 0.16);
+      var pts = [];
+      var m = 8;
+      for (var k = 0; k < m; k++) {
+        var a = k / m * 6.2832;
+        var rr = R * (1 + 0.28 * Math.sin(a * 2 + t * 0.8 + i * 1.6) + 0.14 * Math.sin(a * 3 - t * 0.5));
+        pts.push({ x: bx + Math.cos(a) * rr, y: by + Math.sin(a) * rr });
+      }
+      ctx.fillStyle = cols[i % cols.length];
+      ctx.beginPath();
+      ctx.moveTo((pts[0].x + pts[m - 1].x) / 2, (pts[0].y + pts[m - 1].y) / 2);
+      for (var q = 0; q < m; q++) {
+        var p1 = pts[q], p2 = pts[(q + 1) % m];
+        ctx.quadraticCurveTo(p1.x, p1.y, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function barsDraw(ctx, S, rnd, t) {
+    var n = 9 + Math.floor(rnd() * 4);
+    var bh = S / (n + 2);
+    var cols = ['#e0563f', '#f0a24a', '#8a93a8', '#d8d3c4'];
+    for (var i = 0; i < n; i++) {
+      var w0 = S * (0.2 + rnd() * 0.6);
+      var x0 = rnd() * S * 0.25;
+      var w = w0 * (0.8 + 0.25 * Math.sin(t * 0.7 + i * 1.3));
+      var x = x0 + Math.sin(t * 0.4 + i) * S * 0.03;
+      ctx.fillStyle = cols[i % cols.length];
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(x, (i + 1) * bh, Math.max(8, w), bh * 0.62, bh * 0.3);
+      } else {
+        ctx.rect(x, (i + 1) * bh, Math.max(8, w), bh * 0.62);
+      }
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function paintArt(target, size, famIdx, seed, t, label) {
+    var ctx = target;
+    var fam = FAMILIES[famIdx];
+    var rnd = mulberry32(seed);
+    ctx.fillStyle = fam.bg;
+    ctx.fillRect(0, 0, size, size);
+    fam.draw(ctx, size, rnd, t);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = '600 ' + Math.round(size * 0.035) + 'px ui-monospace, monospace';
+    ctx.fillText(label, size * 0.04, size * 0.075);
+  }
+
+  var tiles = [];
+  for (var i = 0; i < 100; i++) {
+    (function (idx) {
+      var fam = Math.floor(idx / 10);
+      var seed = idx + 7;
+      var el = document.createElement('div');
+      el.className = 'tile ghost';
+      var c = document.createElement('canvas');
+      c.width = TILE;
+      c.height = TILE;
+      var chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = FAMILIES[fam].name + ' · ' + pad3(idx + 1);
+      el.appendChild(c);
+      el.appendChild(chip);
+      grid.appendChild(el);
+      tiles.push({ el: el, cv: c, fam: fam, seed: seed });
+      el.addEventListener('click', function () { openLb(idx); });
+    })(i);
+  }
+
+  var done = 0;
+  for (var k = 0; k < 100; k++) {
+    (function (idx) {
+      setTimeout(function () {
+        try {
+          var t = tiles[idx];
+          paintArt(t.cv.getContext('2d'), TILE, t.fam, t.seed, t.seed * 0.37, pad3(idx + 1));
+          t.el.classList.remove('ghost');
+        } catch (e) {}
+        done++;
+        prog.textContent = String(done);
+        if (done === 100) {
+          document.getElementById('count').innerHTML = 'RENDERED <b>100</b>/100 · 10 FAMILIES × 10 SEEDS';
+        }
+      }, idx * 20);
+    })(k);
+  }
+
+  function openLb(idx) {
+    lbIdx = idx;
+    var t = tiles[idx];
+    lbTitle.innerHTML = FAMILIES[t.fam].name + ' <span>· ' + pad3(idx + 1) + ' · LIVE</span>';
+    lb.classList.add('open');
+    lbOpen = true;
+    if (!lbRaf) lbRaf = requestAnimationFrame(lbFrame);
+  }
+  function closeLb() {
+    lbOpen = false;
+    lb.classList.remove('open');
+  }
+  function lbFrame(now) {
+    lbRaf = lbOpen ? requestAnimationFrame(lbFrame) : 0;
+    if (!lbOpen) return;
+    try {
+      var t = tiles[lbIdx];
+      paintArt(lbCtx, 512, t.fam, t.seed, now * 0.001 + t.seed * 0.13, pad3(lbIdx + 1));
+    } catch (e) {}
+  }
+  document.getElementById('close').addEventListener('click', closeLb);
+  document.getElementById('lbBg').addEventListener('click', closeLb);
+  window.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') closeLb();
+  });
+})();
+</script>
+</body>
+</html>

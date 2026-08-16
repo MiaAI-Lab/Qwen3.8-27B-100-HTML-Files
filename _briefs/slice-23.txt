@@ -1,0 +1,11 @@
+=== 067 ===
+067-starfield-warp.html
+STARFIELD WARP - artful classic warp. 900 stars projected in 3D (z-depth -> screen), 3 color tiers by depth: white, warm #ffd9a0, cool #7fa8ff. WARP slider 0->1: 0 = slow drift, 1 = streaks (draw line from previous to current position, length proportional to speed). Pointer eases the vanishing focus point toward the cursor. 'EVENT HORIZON' button: white flash pulse, all stars streak inward then respawn outside. Static subtle nebula (two large radial gradients) behind. HUD: 'VELOCITY 0.42C' live. Caption 'STARFIELD / WARP-9'.
+
+=== 068 ===
+068-quilt-grid.html
+GENERATIVE QUILT - 8x8 patchwork in a wood frame (#7a5a3a, 24px border). Each patch = one of 14 SVG motifs (flying geenes, half-square triangle, pinwheel, log cabin, circle-in-square, zigzag, diamond-in-diamond, plus block...) in 5 fabric colors (rust #c25a3a, cream #f2e8d5, indigo #2f3f8f, sage #7a9e8f, mustard #e0b13f), seeded-random but with an adjacent-contrast rule (no identical color pairs across seams). Hover a patch: it lifts (scale 1.06 + shadow) with a motif-name chip. RE-SEW button: new seed, patches flip in staggered (rotateX). STITCH toggle overlays dashed seam lines. Caption 'QUILT 8x8 - 14 MOTIFS'.
+
+=== 069 ===
+069-leaf-storm.html
+LEAF STORM - autumn wind. 140 leaves (canvas: small bezier leaf shapes, 6 colors #d05a2e, #e08a2e, #c23a2e, #a85a2e, #e0b13f, #8a3d33) falling through a curl-noise wind field with horizontal bias from the WIND slider (0-1), each spinning + flapping (rotation oscillation); two depth layers (far small/alpha .6, near large). Pointer = gust source: leaves within 200px get pushed away and spin faster. Ground: accumulating pile (height map, max 80px) - leaves settle and slowly fade into it. BG pale #f2e8d5 sky with a low #ffd27a sun. Caption 'LEAVES / 140 - WIND 0.4'.

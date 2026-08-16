@@ -1,0 +1,9 @@
+TITLE: ISO Room — A Cozy Isometric Interior
+
+PROMPT: ISO ROOM - cozy isometric interior, one room: 8x8 iso floor tiles, two walls; furniture: bed, desk with monitor (screen shows a tiny scrolling pixel 'video'), lamp with glow, plant, rug, window with night sky + moon. DAY/NIGHT toggle swaps window sky, lamp glow, monitor brightness. Hover a furniture piece: it lifts 4px and shows a small label chip ('desk - 4 items'). Click the lamp: flicker + glow pulse. Palette: cream walls #f2e8d8, walnut #7a5a3a, night blue #1c2440. Draw in canvas with iso projection math; soft shadows under furniture.
+
+DESCRIPTION: A single cozy room rendered on canvas with true isometric projection math: an 8x8 checkered walnut floor, two cream walls meeting at the back corner, and a window with a day/night sky and crescent moon. Furniture is built from iso boxes — a bed with duvet and pillows, a desk carrying a monitor whose little pixel screen scrolls like a tiny video, a swaying potted plant, a flat-woven rug, and a table lamp with a warm radial glow. Every piece casts a soft elliptical shadow. A monospace HUD with tracked-caps caption sits along the bottom edge.
+
+TECHNIQUES: isometric projection (diamond floor tiles, 2:1 box faces), painter's-order depth sorting, soft radial-gradient contact shadows, procedural pixel 'video' scrolling on the monitor screen, swaying plant leaves via quadratic curves, flicker/glow-pulse lamp physics, day-night crossfade with lerped state, hover lift with bounding-box picking, label chip UI drawn in canvas.
+
+INTERACTION: DAY/NIGHT toggle button swaps the window sky (sun vs moon), lamp glow and monitor brightness. Hovering any furniture piece lifts it 4px and shows a small label chip (e.g. 'desk - 4 items'). Clicking the lamp triggers a brief flicker plus a glow pulse.

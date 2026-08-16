@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1, user-scalable=no">
+<title>VECTOR SKY — 1978</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: #04070f;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    cursor: crosshair;
+  }
+  #c {
+    position: fixed;
+    left: 0; top: 0;
+    width: 100%; height: 100dvh;
+    display: block;
+  }
+  .hud {
+    position: fixed;
+    left: clamp(10px, 2vw, 22px);
+    bottom: clamp(8px, 1.8vh, 16px);
+    z-index: 3;
+    font-size: clamp(0.58rem, 1.6vw, 0.72rem);
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: rgba(61, 255, 138, 0.5);
+    pointer-events: none;
+  }
+  .hud b { color: rgba(255, 255, 255, 0.72); font-weight: 700; }
+  .scan {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.16) 0 1px, transparent 1px 3px);
+    mix-blend-mode: multiply;
+  }
+  .vignette {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 42%, transparent 55%, rgba(1, 3, 8, 0.65) 100%);
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="scan" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+<div class="hud">Vector Sky <b>· 014 ·</b> 1978</div>
+<script>
+(function () {
+  "use strict";
+  var canvas = document.getElementById("c");
+  var ctx = canvas.getContext("2d");
+  var NEON = "#3dff8a";
+  var WHITE = "#eafff2";
+  var W = 0, H = 0, DPR = 1;
+
+  var STATE_TITLE = 0, STATE_PLAY = 1, STATE_OVER = 2;
+  var state = STATE_TITLE;
+  var score = 0, lives = 3, hi = 0;
+  var freezeUntil = 0, now = 0;
+  var shipX = 0, shipY = 0;
+  var bolts = [];
+  var enemies = [];
+  var sparks = [];
+  var flashA = 0;
+  var spawnGap = 1100, spawnTimer = 0;
+  var fireGap = 240, fireReady = 0;
+  var keys = { left: false, right: false };
+  var mouseHeld = false, lastMouseX = -1;
+  var starT = 0;
+  var stars = [];
+
+  function loadHi() {
+    try {
+      hi = parseInt(window.localStorage.getItem("vs1978.hi"), 10) || 0;
+    } catch (e) { hi = 0; }
+  }
+  function saveHi() {
+    try { window.localStorage.setItem("vs1978.hi", String(hi)); } catch (e) {}
+  }
+
+  function fit() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+  }
+
+  function makeStars() {
+    stars.length = 0;
+    for (let i = 0; i < 46; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        s: 0.5 + Math.random() * 1.4,
+        p: Math.random() * 6.28
+      });
+    }
+  }
+
+  function reset() {
+    score = 0;
+    lives = 3;
+    bolts.length = 0;
+    enemies.length = 0;
+    sparks.length = 0;
+    spawnGap = 1050;
+    spawnTimer = 600;
+    fireReady = 0;
+    flashA = 0;
+    shipX = W / 2;
+    shipY = H - 70;
+  }
+
+  function start() {
+    reset();
+    state = STATE_PLAY;
+  }
+
+  function gameOver() {
+    if (score > hi) { hi = score; saveHi(); }
+    state = STATE_OVER;
+  }
+
+  function spawnEnemy() {
+    let x = 60 + Math.random() * Math.max(40, W - 120);
+    let r = 13 + Math.random() * 10;
+    let vy = 0.035 + Math.random() * 0.05 + Math.min(0.05, (score / 40000));
+    enemies.push({
+      x: x, y: -r - 10, r: r, vy: vy,
+      wob: Math.random() * 6.28,
+      wobAmp: 0.02 + Math.random() * 0.03,
+      wobF: 0.0006 + Math.random() * 0.0008
+    });
+  }
+
+  function fire() {
+    if (now < fireReady || state !== STATE_PLAY) return;
+    fireReady = now + fireGap;
+    bolts.push({ x: shipX, y: shipY - 14, vy: -0.95 });
+    sparks.push({ x: shipX, y: shipY - 16, a: 0.5, r: 4 });
+  }
+
+  function addSparks(x, y, n, big) {
+    for (let i = 0; i < n; i++) {
+      let a = Math.random() * 6.283;
+      let sp = 0.02 + Math.random() * (big ? 0.09 : 0.05);
+      sparks.push({
+        x: x, y: y,
+        dx: Math.cos(a) * sp, dy: Math.sin(a) * sp,
+        a: 1, r: big ? 3 : 2
+      });
+    }
+  }
+
+  function onKey(e, down) {
+    if (e.type === "keydown") {
+      if (state === STATE_TITLE) { start(); return; }
+      if (state === STATE_OVER) { if (down) { start(); } return; }
+      if (e.code === "ArrowLeft" || e.code === "KeyA") keys.left = true;
+      if (e.code === "ArrowRight" || e.code === "KeyD") keys.right = true;
+      if (e.code === "Space") { e.preventDefault(); fire(); }
+      if (e.code === "ArrowLeft" || e.code === "ArrowRight") e.preventDefault();
+    } else {
+      if (e.code === "ArrowLeft" || e.code === "KeyA") keys.left = false;
+      if (e.code === "ArrowRight" || e.code === "KeyD") keys.right = false;
+    }
+  }
+
+  window.addEventListener("keydown", function (e) { onKey(e, true); });
+  window.addEventListener("keyup", function (e) { onKey(e, false); });
+  window.addEventListener("pointermove", function (e) {
+    lastMouseX = e.clientX;
+    if (state === STATE_PLAY) shipX = clampX(e.clientX);
+  });
+  window.addEventListener("pointerdown", function (e) {
+    if (state === STATE_TITLE) { start(); return; }
+    if (state === STATE_OVER) { start(); return; }
+    mouseHeld = true;
+    if (state === STATE_PLAY) { shipX = clampX(e.clientX); fire(); }
+  });
+  window.addEventListener("pointerup", function () { mouseHeld = false; });
+  window.addEventListener("resize", fit);
+
+  function clampX(x) {
+    let m = 26;
+    return x < m ? m : (x > W - m ? W - m : x);
+  }
+
+  function step(dt) {
+    starT += dt;
+    for (let i = 0; i < stars.length; i++) {
+      stars[i].y += stars[i].s * dt * 0.012;
+      if (stars[i].y > H + 2) { stars[i].y = -2; stars[i].x = Math.random() * W; }
+    }
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      let p = sparks[i];
+      p.x += p.dx * dt;
+      p.y += p.dy * dt;
+      p.a -= dt * 0.0016;
+      if (p.a <= 0) sparks.splice(i, 1);
+    }
+    if (flashA > 0) flashA = Math.max(0, flashA - dt * 0.0022);
+
+    if (state !== STATE_PLAY) return;
+
+    let spd = 0.42;
+    if (keys.left) shipX -= spd * dt;
+    if (keys.right) shipX += spd * dt;
+    if (mouseHeld && lastMouseX >= 0) shipX = clampX(lastMouseX);
+    shipX = clampX(shipX);
+    shipY = H - 70;
+    if (now - fireReady > fireGap && mouseHeld) fire();
+
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      spawnEnemy();
+      spawnGap = Math.max(430, 1050 - score * 0.045);
+      spawnTimer = spawnGap;
+    }
+
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      let en = enemies[i];
+      en.y += en.vy * dt;
+      en.wob += en.wobF * dt;
+      en.x += Math.sin(en.wob) * en.wobAmp * dt;
+      if (en.y - en.r > H + 30) { enemies.splice(i, 1); continue; }
+      let hit = Math.abs(en.x - shipX) < en.r + 11 && Math.abs(en.y - shipY) < en.r + 9;
+      if (hit) {
+        enemies.splice(i, 1);
+        addSparks(en.x, en.y, 26, true);
+        flashA = 1;
+        lives -= 1;
+        freezeUntil = now + 500;
+        for (let b = bolts.length - 1; b >= 0; b--) {
+          let bl = bolts[b];
+          addSparks(bl.x, bl.y, 4, false);
+          bolts.splice(b, 1);
+        }
+        if (lives <= 0) gameOver();
+        continue;
+      }
+      for (let b = bolts.length - 1; b >= 0; b--) {
+        let bl = bolts[b];
+        if (bl.y < en.y - en.r - 6) {
+          bolts.splice(b, 1);
+          continue;
+        }
+        let ddx = bl.x - en.x, ddy = bl.y - en.y;
+        if (ddx * ddx + ddy * ddy < en.r * en.r + 36) {
+          bolts.splice(b, 1);
+          addSparks(en.x, en.y, 14, false);
+          enemies.splice(i, 1);
+          let frozen = now < freezeUntil;
+          if (!frozen) score += 100 + (Math.floor(en.r / 4) * 25);
+          break;
+        }
+      }
+    }
+  }
+
+  function drawPoly(x, y, r, rot, sides) {
+    ctx.beginPath();
+    for (let i = 0; i <= sides; i++) {
+      let a = rot + (i / sides) * 6.28318;
+      let px = x + Math.cos(a) * r;
+      let py = y + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  function drawShip() {
+    ctx.strokeStyle = NEON;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = NEON;
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.moveTo(shipX, shipY - 15);
+    ctx.lineTo(shipX + 12, shipY + 11);
+    ctx.lineTo(shipX, shipY + 4);
+    ctx.lineTo(shipX - 12, shipY + 11);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  function drawHud() {
+    ctx.font = "700 15px ui-monospace, Menlo, Consolas, monospace";
+    ctx.textBaseline = "top";
+    ctx.strokeStyle = WHITE;
+    ctx.lineWidth = 1.4;
+    ctx.shadowColor = WHITE;
+    ctx.shadowBlur = 6;
+    ctx.textAlign = "left";
+    let sTxt = "SCORE " + String(score).padStart(6, "0");
+    ctx.strokeText(sTxt, 18, 16);
+    ctx.fillText(sTxt, 18, 16);
+    let hiTxt = "HI " + String(Math.max(hi, score)).padStart(6, "0");
+    ctx.strokeText(hiTxt, 18, 36);
+    ctx.fillText(hiTxt, 18, 36);
+    ctx.textAlign = "right";
+    for (let i = 0; i < lives; i++) {
+      let x = W - 22 - i * 26, y = 26;
+      ctx.beginPath();
+      ctx.moveTo(x, y - 8);
+      ctx.lineTo(x + 7, y + 6);
+      ctx.lineTo(x - 7, y + 6);
+      ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.textAlign = "left";
+    ctx.shadowBlur = 0;
+  }
+
+  function blink(v) { return Math.floor(starT / 520) % 2 === 0 ? 1 : 0.25; }
+
+  function drawCenterText(txt, y, size, alpha, color) {
+    ctx.font = "700 " + size + "px ui-monospace, Menlo, Consolas, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 18 * alpha;
+    ctx.globalAlpha = alpha;
+    ctx.strokeText(txt, W / 2, y);
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.textAlign = "left";
+  }
+
+  function drawTitle() {
+    let a = 0.55 + 0.45 * Math.sin(starT * 0.003);
+    let sub = "A VECTOR ARCADE TRIBUTE - 1978";
+    drawCenterText(sub, H * 0.24, Math.min(11, (W - 60) / (sub.length * 0.66)), 0.6, WHITE);
+    let big = "VECTOR SKY";
+    let bigSize = Math.min(42, (W - 24) / (big.length * 0.62));
+    drawCenterText(big, H * 0.43 - bigSize * 0.09, bigSize, 0.38, NEON);
+    drawCenterText(big, H * 0.43 + bigSize * 0.09, bigSize, 0.38, NEON);
+    drawCenterText(big, H * 0.43, bigSize, 0.95, NEON);
+    let b = blink(now);
+    let ic = "INSERT COIN";
+    drawCenterText(ic, H * 0.58, Math.min(20, (W - 60) / (ic.length * 0.66)), b, WHITE);
+    let pk = "PRESS ANY KEY";
+    drawCenterText(pk, H * 0.65, Math.min(13, (W - 60) / (pk.length * 0.66)), 0.55 + 0.3 * a, NEON);
+    let ctl = "ARROWS / MOUSE MOVE   SPACE FIRE";
+    drawCenterText(ctl, H * 0.72, Math.min(10, (W - 60) / (ctl.length * 0.66)), 0.4, WHITE);
+  }
+
+  function drawOver() {
+    drawCenterText("GAME OVER", H * 0.38, 26, 0.95, NEON);
+    drawCenterText("SCORE " + String(score).padStart(6, "0"), H * 0.47, 15, 0.85, WHITE);
+    let hiNow = score >= hi;
+    drawCenterText(hiNow ? "NEW HI-SCORE" : "HI " + String(hi).padStart(6, "0"), H * 0.54, 13, hiNow ? blink(now) : 0.7, hiNow ? NEON : WHITE);
+    drawCenterText("PRESS ANY KEY", H * 0.63, 12, blink(now), WHITE);
+  }
+
+  function render() {
+    ctx.fillStyle = "#04070f";
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = "rgba(61,255,138,0.14)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < stars.length; i++) {
+      let st = stars[i];
+      let tw = 0.35 + 0.65 * Math.abs(Math.sin(starT * 0.001 + st.p));
+      ctx.globalAlpha = tw * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(st.x, st.y);
+      ctx.lineTo(st.x, st.y + st.s * 1.6);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = "rgba(61,255,138,0.10)";
+    ctx.beginPath();
+    ctx.moveTo(0, H - 40);
+    ctx.lineTo(W, H - 40);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, H - 44);
+    ctx.lineTo(W, H - 44);
+    ctx.stroke();
+
+    if (state !== STATE_TITLE) {
+      ctx.strokeStyle = NEON;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = NEON;
+      ctx.shadowBlur = 10;
+      for (let i = 0; i < bolts.length; i++) {
+        let bl = bolts[i];
+        ctx.beginPath();
+        ctx.moveTo(bl.x, bl.y);
+        ctx.lineTo(bl.x, bl.y - 14);
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    if (state !== STATE_TITLE) {
+      for (let i = 0; i < enemies.length; i++) {
+        let en = enemies[i];
+        ctx.strokeStyle = NEON;
+        ctx.lineWidth = 1.8;
+        ctx.shadowColor = NEON;
+        ctx.shadowBlur = 12;
+        drawPoly(en.x, en.y, en.r, Math.PI / 4 + starT * 0.0006, 4);
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.55;
+        drawPoly(en.x, en.y, en.r * 0.45, -Math.PI / 4 - starT * 0.001, 4);
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    for (let i = 0; i < sparks.length; i++) {
+      let p = sparks[i];
+      ctx.strokeStyle = WHITE;
+      ctx.globalAlpha = p.a;
+      ctx.lineWidth = 1.4;
+      ctx.shadowColor = WHITE;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + p.dx * 60, p.y + p.dy * 60);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+
+    if (state === STATE_PLAY) {
+      drawShip();
+      drawHud();
+    }
+
+    if (state === STATE_TITLE) drawTitle();
+    if (state === STATE_OVER) { drawHud(); drawOver(); }
+
+    if (flashA > 0) {
+      ctx.fillStyle = "rgba(234,255,242," + (flashA * 0.34).toFixed(3) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  let last = 0;
+  function frame(t) {
+    requestAnimationFrame(frame);
+    try {
+      now = t;
+      let dt = last ? Math.min(48, t - last) : 16.7;
+      last = t;
+      step(dt);
+      render();
+    } catch (err) {
+      /* frame guard */
+    }
+  }
+
+  loadHi();
+  fit();
+  makeStars();
+  shipX = W / 2;
+  shipY = H - 70;
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

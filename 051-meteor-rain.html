@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>051 — Meteor Rain</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100dvh;overflow:hidden;background:#050810}
+  body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#aab6d6}
+  canvas#sky{position:fixed;inset:0;width:100vw;height:100dvh;display:block;cursor:crosshair}
+  .hud{
+    position:fixed;left:0;right:0;bottom:0;pointer-events:none;
+    display:flex;align-items:flex-end;justify-content:space-between;
+    padding:clamp(14px,3vh,28px) clamp(16px,3vw,36px);
+    background:linear-gradient(180deg,transparent,rgba(5,8,16,.55));
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  .hud .cap{font-size:11px;letter-spacing:.34em;color:#8fa0c8}
+  .hud .cap b{color:#dfe8ff;font-weight:600}
+  .hud .cnt{text-align:right}
+  .hud .cnt .lbl{font-size:9px;letter-spacing:.3em;color:#5a6a94;margin-bottom:4px}
+  .hud .cnt .num{font-size:clamp(18px,2.6vw,26px);color:#dfe8ff;font-weight:700;letter-spacing:.04em}
+  .hud .cnt .num em{font-style:normal;font-size:10px;color:#5a6a94;letter-spacing:.2em;margin-left:8px}
+  .focusTag{
+    position:fixed;top:clamp(14px,3vh,26px);left:50%;transform:translateX(-50%);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:10px;letter-spacing:.4em;color:#ffb454;opacity:0;
+    transition:opacity .5s ease;pointer-events:none;
+  }
+  .focusTag.on{opacity:.9}
+  .hint{
+    position:fixed;top:clamp(14px,3vh,26px);right:clamp(16px,3vw,36px);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:9px;letter-spacing:.24em;color:#46547c;pointer-events:none;
+    transition:opacity 1.2s ease;
+  }
+</style>
+</head>
+<body>
+<canvas id="sky" aria-label="Night sky with falling meteors"></canvas>
+<div class="focusTag" id="focusTag">FOCUS &mdash; TIME DILATED 0.3&times;</div>
+<div class="hint" id="hint">HOLD TO FOCUS</div>
+<div class="hud">
+  <div class="cap"><b>PERSEIDS</b> &mdash; ACTIVE</div>
+  <div class="cnt">
+    <div class="lbl">STREAKS TONIGHT</div>
+    <div class="num"><span id="cnt">0</span><em>SPOTTED</em></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var canvas=document.getElementById("sky");
+  var ctx=canvas.getContext("2d");
+  var cntEl=document.getElementById("cnt");
+  var focusTag=document.getElementById("focusTag");
+  var hintEl=document.getElementById("hint");
+
+  var W=0,H=0,DPR=1;
+  var stars=[];
+  var meteors=[];
+  var streaks=0;
+  var nextSpawn=0;
+  var timeScale=1;        // eased 1 <-> 0.3
+  var timeScaleTarget=1;
+  var holding=false;
+  var tGlobal=0;
+  var lastTs=0;
+
+  var RADIANT={x:-0.06,y:-0.10}; // fixed upper-left radiant (can be off-screen)
+
+  function fit(){
+    DPR=Math.min(window.devicePixelRatio||1,2);
+    W=window.innerWidth;H=window.innerHeight;
+    canvas.width=Math.round(W*DPR);
+    canvas.height=Math.round(H*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    seedStars();
+    // hard reset frame so the milky way band is crisp after resize
+    ctx.fillStyle="#050810";
+    ctx.fillRect(0,0,W,H);
+  }
+
+  // horizon glow + vignette, redrawn each frame under the meteors
+  // faint crescent moon, upper right — a fixed light source in the composition
+  function drawMoon(){
+    var mx=W*0.84,my=H*0.2,md=Math.min(W,H)*0.055;
+    var mg=ctx.createRadialGradient(mx,my,md*0.2,mx,my,md*3.2);
+    mg.addColorStop(0,"rgba(200,214,245,0.30)");
+    mg.addColorStop(1,"rgba(200,214,245,0)");
+    ctx.fillStyle=mg;
+    ctx.beginPath();ctx.arc(mx,my,md*3.2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="rgba(216,226,248,0.85)";
+    ctx.beginPath();ctx.arc(mx,my,md,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#070b16";
+    ctx.beginPath();ctx.arc(mx-md*0.38,my-md*0.14,md*0.92,0,Math.PI*2);ctx.fill();
+  }
+  function drawAtmosphere(){
+    var hg=ctx.createLinearGradient(0,H*0.7,0,H);
+    hg.addColorStop(0,"rgba(20,30,58,0)");
+    hg.addColorStop(1,"rgba(30,44,84,0.10)");
+    ctx.fillStyle=hg;
+    ctx.fillRect(0,H*0.7,W,H*0.3);
+    var vg=ctx.createRadialGradient(W*0.5,H*0.45,Math.min(W,H)*0.3,W*0.5,H*0.5,Math.max(W,H)*0.75);
+    vg.addColorStop(0,"rgba(5,8,16,0)");
+    vg.addColorStop(1,"rgba(3,5,11,0.55)");
+    ctx.fillStyle=vg;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  function rnd(a,b){return a+Math.random()*(b-a);}
+
+  function seedStars(){
+    stars=[];
+    var n=200;
+    for(let i=0;i<n;i++){
+      stars.push({
+        x:Math.random()*W,
+        y:Math.random()*H,
+        r:rnd(0.4,1.5),
+        a:rnd(0.25,0.95),
+        tw:rnd(0.4,2.2),
+        ph:rnd(0,Math.PI*2)
+      });
+    }
+  }
+
+  function pickColor(){
+    // warm bias with occasional blue-white
+    var v=Math.random();
+    if(v<0.12)return {r:255,g:180,b:84};   // fireball-ish warm
+    if(v<0.4)return {r:223,g:232,b:255};
+    if(v<0.7)return {r:200,g:214,b:255};
+    return {r:235,g:240,b:255};
+  }
+
+  function spawnMeteor(){
+    // originate from the radiant, travel across the sky
+    var m={
+      rare:Math.random()<0.125,
+      x:RADIANT.x*W+rnd(-30,120),
+      y:RADIANT.y*H+rnd(-30,120),
+      len:rnd(120,320),
+      speed:rnd(800,1400),
+      w:2.2,
+      alpha:0,
+      life:0,
+      maxLife:rnd(1.1,1.9),
+      curve:0,
+      color:pickColor(),
+      fireball:false
+    };
+    m.fireball=m.rare;
+    if(m.fireball){
+      m.color={r:255,g:180,b:84};
+      m.len*=2.2;
+      m.speed*=0.85;
+      m.w=3.4;
+      m.curve=rnd(-0.25,0.25);
+      m.maxLife=rnd(1.6,2.4);
+    }
+    // ensure target direction: pick an exit point on right/bottom so it always crosses view
+    var tx=m.x>W*0.7?W+rnd(50,200):rnd(W*0.6,W*1.2);
+    var ty=m.y>H*0.6?H+rnd(40,160):rnd(H*0.5,H*1.15);
+    var dx=tx-m.x,dy=ty-m.y;
+    var dist=Math.hypot(dx,dy)||1;
+    m.vx=dx/dist;
+    m.vy=dy/dist;
+    meteors.push(m);
+    streaks++;
+    cntEl.textContent=String(streaks);
+  }
+
+  function drawSky(){
+    // persistence: low-alpha fade rect over previous frame
+    ctx.fillStyle="rgba(5,8,16,0.16)";
+    ctx.fillRect(0,0,W,H);
+    drawMoon();
+    // milky-way band
+    ctx.save();
+    ctx.globalAlpha=0.05;
+    var g=ctx.createLinearGradient(0,H*0.15,W,H*0.9);
+    g.addColorStop(0,"rgba(120,140,200,0)");
+    g.addColorStop(0.45,"rgba(160,180,230,1)");
+    g.addColorStop(0.55,"rgba(190,190,240,1)");
+    g.addColorStop(1,"rgba(120,140,200,0)");
+    ctx.fillStyle=g;
+    ctx.beginPath();
+    ctx.moveTo(0,H*0.25);
+    ctx.bezierCurveTo(W*0.3,H*0.15,W*0.6,H*0.6,W,H*0.75);
+    ctx.lineTo(W,H*0.9);
+    ctx.bezierCurveTo(W*0.6,H*0.74,W*0.3,H*0.3,0,H*0.42);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    // static stars with gentle twinkle
+    for(let i=0;i<stars.length;i++){
+      var s=stars[i];
+      var a=s.a*(0.6+0.4*Math.sin(tGlobal*s.tw+s.ph));
+      ctx.fillStyle="rgba(220,230,255,"+a.toFixed(3)+")";
+      ctx.beginPath();
+      ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fill();
+    }
+    drawAtmosphere();
+  }
+
+  function drawMeteors(dt){
+    for(let i=meteors.length-1;i>=0;i--){
+      var m=meteors[i];
+      m.life+=dt;
+      // fade in/out envelope
+      var env;
+      if(m.life<0.25)env=m.life/0.25;
+      else if(m.life>m.maxLife-0.5)env=Math.max(0,(m.maxLife-m.life)/0.5);
+      else env=1;
+      m.alpha=env;
+      m.x+=m.vx*m.speed*dt;
+      m.y+=m.vy*m.speed*dt;
+      if(m.curve!==0){
+        // slight curved path for fireballs
+        var perp={x:-m.vy,y:m.vx};
+        var bend=m.curve*Math.sin(m.life*1.6)*30*dt;
+        m.x+=perp.x*bend;
+        m.y+=perp.y*bend;
+      }
+      var fade=0.72; // persistence
+      var scale=m.fireball?3:1;
+      var len=m.len*(0.9+0.25*(1-timeScale)); // streaks lengthen in focus
+      var tx=m.x-m.vx*len;
+      var ty=m.y-m.vy*len;
+      var grd=ctx.createLinearGradient(m.x,m.y,tx,ty);
+      var c=m.color;
+      grd.addColorStop(0,"rgba("+c.r+","+c.g+","+c.b+","+(0.95*m.alpha).toFixed(3)+")");
+      grd.addColorStop(0.25,"rgba("+c.r+","+c.g+","+c.b+","+(0.45*m.alpha).toFixed(3)+")");
+      grd.addColorStop(1,"rgba(90,111,168,0)");
+      ctx.strokeStyle=grd;
+      ctx.lineWidth=m.w*scale;
+      ctx.lineCap="round";
+      ctx.beginPath();
+      ctx.moveTo(m.x,m.y);
+      ctx.lineTo(tx,ty);
+      ctx.stroke();
+      // bright head
+      ctx.fillStyle="rgba(223,232,255,"+(m.alpha*0.95).toFixed(3)+")";
+      ctx.beginPath();
+      ctx.arc(m.x,m.y,(m.fireball?4.5:2.4)*scale,0,Math.PI*2);
+      ctx.fill();
+      if(m.fireball){
+        var hg=ctx.createRadialGradient(m.x,m.y,0,m.x,m.y,26);
+        hg.addColorStop(0,"rgba(255,180,84,"+(0.5*m.alpha).toFixed(3)+")");
+        hg.addColorStop(1,"rgba(255,180,84,0)");
+        ctx.fillStyle=hg;
+        ctx.beginPath();ctx.arc(m.x,m.y,26,0,Math.PI*2);ctx.fill();
+      }
+      // cull
+      var out=m.life>=m.maxLife||m.x<-150||m.y<-150||m.x>W+250||m.y>H+250;
+      if(out){meteors.splice(i,1);}
+    }
+  }
+
+  function frame(ts){
+    if(!lastTs)lastTs=ts;
+    var raw=Math.min(0.05,(ts-lastTs)/1000);
+    lastTs=ts;
+    // ease timeScale toward target
+    timeScale+=(timeScaleTarget-timeScale)*0.08;
+    var dt=raw*timeScale;
+    tGlobal+=raw;
+    // spawn cadence: 12-24 per minute -> 0.2-0.5/s; slower while focused
+    if(tGlobal>=nextSpawn){
+      spawnMeteor();
+      var rate=rnd(12,24)/60; // per second
+      nextSpawn=tGlobal+1/rate;
+    }
+    drawSky();
+    drawMeteors(dt);
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener("resize",fit);
+  canvas.addEventListener("pointerdown",function(e){
+    holding=true;
+    timeScaleTarget=0.3;
+    focusTag.classList.add("on");
+    hintEl.style.opacity="0";
+  });
+  window.addEventListener("pointerup",function(){
+    holding=false;
+    timeScaleTarget=1;
+    focusTag.classList.remove("on");
+  });
+  canvas.addEventListener("pointerleave",function(){
+    holding=false;
+    timeScaleTarget=1;
+    focusTag.classList.remove("on");
+  });
+
+  fit();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

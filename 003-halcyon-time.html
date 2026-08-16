@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<title>Halcyon — Time, kept beautifully</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:#f4f1ea;
+  color:#17181a;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.serif{font-family:Georgia,"Times New Roman",serif}
+/* ---- top bar ---- */
+.top{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:20px clamp(20px,5vw,64px);
+  border-bottom:1px solid rgba(23,24,26,.18);
+  position:sticky;top:0;z-index:20;
+  background:rgba(244,241,234,.9);
+  backdrop-filter:blur(8px);
+}
+.brand{font-size:12px;letter-spacing:.42em;text-transform:uppercase;font-weight:600}
+.brand span{color:#a67c4f}
+.nav{display:flex;gap:26px}
+.nav a{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:rgba(23,24,26,.62);text-decoration:none;transition:color .3s}
+.nav a:hover{color:#a67c4f}
+@media(max-width:560px){.nav{display:none}}
+/* ---- hero ---- */
+.hero{
+  min-height:calc(100dvh - 61px);
+  display:grid;
+  grid-template-rows:auto 1fr auto;
+  gap:clamp(10px,2.5vh,28px);
+  padding:clamp(28px,6vh,64px) clamp(20px,5vw,64px) clamp(22px,4vh,44px);
+  text-align:center;
+}
+.eyebrow{font-size:10px;letter-spacing:.46em;text-transform:uppercase;color:#a67c4f}
+h1{
+  font-size:clamp(38px,7vw,84px);
+  font-weight:400;
+  line-height:1.04;
+  letter-spacing:.005em;
+  margin-top:14px;
+}
+h1 em{font-style:italic;color:#a67c4f}
+.hero-sub{max-width:46ch;margin:18px auto 0;font-size:13px;line-height:1.8;color:rgba(23,24,26,.66)}
+/* ---- the watch ---- */
+.watch-zone{display:grid;place-items:center;padding:clamp(8px,2vh,20px) 0}
+.watch-wrap{position:relative;width:clamp(240px,42vw,380px);aspect-ratio:1}
+.halo{
+  position:absolute;inset:-22%;
+  background:radial-gradient(circle at 50% 46%,rgba(166,124,79,.22),rgba(166,124,79,.07) 46%,transparent 70%);
+  filter:blur(6px);
+}
+.floor-shadow{
+  position:absolute;left:8%;right:8%;bottom:-9%;height:14%;
+  background:radial-gradient(50% 50% at 50% 50%,rgba(23,24,26,.28),transparent 72%);
+  filter:blur(10px);
+}
+.watch{
+  position:relative;width:100%;height:100%;
+  border-radius:50%;
+  background:linear-gradient(160deg,#fbf9f3 0%,#efe9dc 58%,#e5ddcb 100%);
+  border:1px solid rgba(23,24,26,.22);
+  box-shadow:
+    0 2px 4px rgba(23,24,26,.14),
+    0 26px 60px -18px rgba(23,24,26,.34),
+    inset 0 2px 6px rgba(255,255,255,.8),
+    inset 0 -14px 30px rgba(166,124,79,.16);
+}
+.bezel{
+  position:absolute;inset:5.5%;
+  border-radius:50%;
+  border:1px solid rgba(166,124,79,.5);
+  box-shadow:inset 0 1px 2px rgba(255,255,255,.9),inset 0 -2px 4px rgba(166,124,79,.2);
+}
+.tick{position:absolute;left:50%;top:50%;width:2px;height:calc(50% - 11.5%);transform-origin:top left}
+.tick i{position:absolute;left:0;bottom:0;background:#17181a;display:block}
+.tick.min i{width:1px;height:6.5%}
+.tick.hr i{width:2px;height:9.5%;background:#a67c4f}
+.brand-mark{
+  position:absolute;left:50%;top:29%;transform:translate(-50%,-50%);
+  font-size:11px;letter-spacing:.4em;text-transform:uppercase;font-weight:600;color:#17181a;
+  text-indent:.4em;
+}
+.brand-sub{
+  position:absolute;left:50%;top:38.5%;transform:translate(-50%,-50%);
+  font-size:7px;letter-spacing:.5em;text-transform:uppercase;color:rgba(23,24,26,.5);
+  text-indent:.5em;
+}
+.hand{position:absolute;left:50%;top:50%;transform-origin:0 0;border-radius:99px}
+.hand.hour{width:3.2%;height:24%;background:#17181a;margin:0 0 0 -1.6%}
+.hand.minute{width:2.4%;height:33%;background:#17181a;margin:0 0 0 -1.2%}
+.hand.second{width:.9%;height:38%;background:#a67c4f;margin:0 0 0 -.45%;box-shadow:0 0 6px rgba(166,124,79,.4)}
+.hub{
+  position:absolute;left:50%;top:50%;width:7%;aspect-ratio:1;transform:translate(-50%,-50%);
+  border-radius:50%;background:radial-gradient(circle at 35% 35%,#d8b98e,#a67c4f 70%);
+  box-shadow:0 1px 3px rgba(23,24,26,.4);
+}
+.crown{
+  position:absolute;right:-4.2%;top:50%;transform:translateY(-50%);
+  width:7.5%;aspect-ratio:1;border-radius:50%;
+  background:linear-gradient(140deg,#d8b98e,#a67c4f 60%,#8a643d);
+  border:1px solid rgba(23,24,26,.25);
+  box-shadow:0 2px 5px rgba(23,24,26,.25);
+}
+.hero-foot{display:flex;justify-content:center;gap:clamp(14px,4vw,44px);font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:rgba(23,24,26,.55)}
+.hero-foot b{font-weight:600;color:#a67c4f}
+/* ---- spec section ---- */
+.spec{
+  display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);
+  gap:clamp(28px,5vw,72px);
+  padding:clamp(56px,9vh,110px) clamp(20px,5vw,64px);
+  border-top:1px solid rgba(23,24,26,.14);
+}
+@media(max-width:820px){.spec{grid-template-columns:1fr}}
+.sec-label{font-size:10px;letter-spacing:.44em;text-transform:uppercase;color:#a67c4f;margin-bottom:10px}
+h2{font-size:clamp(26px,3.4vw,40px);font-weight:400;line-height:1.15;margin-bottom:26px}
+.rows{border-top:1px solid rgba(23,24,26,.3)}
+.row{
+  display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr) minmax(0,.5fr);
+  gap:14px;align-items:baseline;
+  padding:15px 2px;
+  border-bottom:1px solid rgba(23,24,26,.14);
+  opacity:0;transform:translateY(18px);
+  transition:opacity .7s ease,transform .7s cubic-bezier(.2,.8,.25,1);
+}
+.row.in{opacity:1;transform:none}
+.row .k{font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:rgba(23,24,26,.6)}
+.row .v{font-size:14px;line-height:1.6}
+.row .n{font-size:11px;letter-spacing:.2em;color:#a67c4f;text-align:right;font-variant-numeric:tabular-nums}
+.copy{padding-top:6px}
+.copy p{font-size:14px;line-height:1.95;color:rgba(23,24,26,.75);margin-bottom:22px;max-width:42ch}
+.price-row{display:flex;align-items:baseline;gap:12px;margin-bottom:26px}
+.price{font-size:clamp(30px,3.4vw,42px);font-weight:400}
+.price-note{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:rgba(23,24,26,.55)}
+.reserve{
+  position:relative;overflow:hidden;isolation:isolate;
+  display:inline-block;
+  border:1px solid #a67c4f;
+  background:transparent;color:#a67c4f;
+  font-size:11px;letter-spacing:.4em;text-transform:uppercase;font-weight:600;
+  padding:16px 34px 16px 38px;
+  cursor:pointer;
+  transition:color .45s ease;
+}
+.reserve::before{
+  content:"";position:absolute;inset:0;z-index:-1;
+  background:#a67c4f;
+  transform:scaleX(0);transform-origin:left center;
+  transition:transform .55s cubic-bezier(.7,0,.2,1);
+}
+.reserve:hover,.reserve:focus-visible{color:#f7f3ea}
+.reserve:hover::before,.reserve:focus-visible::before{transform:scaleX(1)}
+.reserve:active{color:#f7f3ea}
+.reserve[aria-pressed="true"]{color:#f7f3ea}
+.reserve[aria-pressed="true"]::before{transform:scaleX(1)}
+.reserve-note{margin-top:14px;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:rgba(23,24,26,.48)}
+.reserve-note.done{color:#a67c4f}
+/* ---- footer ---- */
+footer{
+  border-top:1px solid rgba(23,24,26,.18);
+  padding:clamp(34px,6vh,56px) clamp(20px,5vw,64px) 30px;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,.6fr);
+  gap:26px;
+}
+@media(max-width:820px){footer{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){footer{grid-template-columns:1fr}}
+.fcol h3{font-size:10px;letter-spacing:.4em;text-transform:uppercase;color:rgba(23,24,26,.6);margin-bottom:14px;font-weight:600}
+.fcol p,.fcol a{font-size:11px;line-height:2.1;color:rgba(23,24,26,.55);text-decoration:none;letter-spacing:.04em}
+.fcol a{display:block}
+.fcol a:hover{color:#a67c4f}
+.fine{font-size:9px;letter-spacing:.26em;text-transform:uppercase;color:rgba(23,24,26,.42);padding-bottom:6px}
+@media (prefers-reduced-motion:reduce){
+  .row{transition:none;opacity:1;transform:none}
+  .reserve::before{transition:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand serif">HALCY<span>O</span>N</div>
+  <nav class="nav">
+    <a href="#spec">Collection</a>
+    <a href="#spec">Movement</a>
+    <a href="#reserve">Reserve</a>
+    <a href="#colophon">Atelier</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div>
+    <div class="eyebrow">Halcyon &middot; N&ordm; 003 &middot; The First</div>
+    <h1 class="serif">Time, kept <em>beautifully.</em></h1>
+    <p class="hero-sub">A hand-finished watch for the hours that matter. Brass, ivory and one bronze accent — nothing else, nothing dark, nothing rushed.</p>
+  </div>
+
+  <div class="watch-zone">
+    <div class="watch-wrap" id="watchWrap">
+      <div class="halo"></div>
+      <div class="floor-shadow"></div>
+      <div class="watch">
+        <div class="bezel"></div>
+        <div id="ticks"></div>
+        <div class="brand-mark serif">Halcyon</div>
+        <div class="brand-sub">automatic</div>
+        <div class="hand hour" id="handH"></div>
+        <div class="hand minute" id="handM"></div>
+        <div class="hand second" id="handS"></div>
+        <div class="hub"></div>
+      </div>
+      <div class="crown"></div>
+    </div>
+  </div>
+
+  <div class="hero-foot">
+    <span><b>01</b> &middot; Ivory dial</span>
+    <span><b>02</b> &middot; Sweep second</span>
+    <span><b>03</b> &middot; Real time</span>
+  </div>
+</section>
+
+<section class="spec" id="spec">
+  <div>
+    <div class="sec-label">The Specification</div>
+    <h2 class="serif">Six details, kept honest.</h2>
+    <div class="rows" id="rows">
+      <div class="row"><span class="k">Case</span><span class="v">38 mm brushed bronze, domed crystal</span><span class="n">I</span></div>
+      <div class="row"><span class="k">Dial</span><span class="v">Ivory grand-feu enamel, applied bronze indices</span><span class="n">II</span></div>
+      <div class="row"><span class="k">Movement</span><span class="v">Hand-wound calibre H-01, 62 h reserve</span><span class="n">III</span></div>
+      <div class="row"><span class="k">Hands</span><span class="v">Sweep second on a bronze leaf; ink hours</span><span class="n">IV</span></div>
+      <div class="row"><span class="k">Strap</span><span class="v">Vegetable-tanned calf, ivory waxed thread</span><span class="n">V</span></div>
+      <div class="row"><span class="k">Water</span><span class="v">5 atm — rain is fine, rivers are not</span><span class="n">VI</span></div>
+    </div>
+  </div>
+  <div class="copy" id="reserve">
+    <div class="sec-label">The Piece</div>
+    <h2 class="serif">N&ordm; 003, of two hundred.</h2>
+    <p>Each Halcyon is assembled by one watchmaker in eight days. The dial is fired ivory, the hands are drawn bronze leaf, and the seconds sweep rather than step — so the watch behaves like time does: continuously, quietly, without apology.</p>
+    <div class="price-row">
+      <span class="price serif">CHF 18&middot;400</span>
+      <span class="price-note">incl. atelier care</span>
+    </div>
+    <button class="reserve" id="reserveBtn" type="button" aria-pressed="false">Reserve</button>
+    <p class="reserve-note" id="reserveNote">Held for 48 hours &middot; no payment today</p>
+  </div>
+</section>
+
+<footer id="colophon">
+  <div class="fcol">
+    <h3>Atelier</h3>
+    <p>Quai des Horlogers 9<br>Geneva, Switzerland<br>By appointment, mornings only</p>
+  </div>
+  <div class="fcol">
+    <h3>Correspondence</h3>
+    <a href="#">care@halcyon.example</a>
+    <a href="#">+41 22 000 03 00</a>
+    <a href="#">Journal, quarterly</a>
+  </div>
+  <div class="fcol">
+    <h3>The House</h3>
+    <p>Founded 1987<br>Two hundred pieces a year<br>Every number signed</p>
+  </div>
+  <div class="fcol">
+    <h3>Colophon</h3>
+    <p class="fine">003 &middot; halcyon-time<br>daylight editorial<br>ivory / ink / bronze</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  /* ---- build the dial: 60 ticks, majors every 5 ---- */
+  var ticksEl=document.getElementById("ticks");
+  var html="";
+  for(let i=0;i<60;i++){
+    var major=(i%5===0);
+    html+='<div class="tick '+(major?"hr":"min")+'" style="transform:rotate('+i*6+'deg)"><i></i></div>';
+  }
+  ticksEl.innerHTML=html;
+
+  /* ---- hands: real time, sweeping second ---- */
+  var handH=document.getElementById("handH");
+  var handM=document.getElementById("handM");
+  var handS=document.getElementById("handS");
+
+  function poseHands(){
+    var now=new Date();
+    var ms=now.getMilliseconds();
+    var s=now.getSeconds()+ms/1000;
+    var m=now.getMinutes()+s/60;
+    var h=(now.getHours()%12)+m/60;
+    handS.style.transform="rotate("+(s*6).toFixed(3)+"deg)";
+    handM.style.transform="rotate("+(m*6).toFixed(3)+"deg)";
+    handH.style.transform="rotate("+(h*30).toFixed(3)+"deg)";
+  }
+  poseHands();
+  var rafId=0;
+  function loop(){
+    try{poseHands();}catch(e){}
+    rafId=requestAnimationFrame(loop);
+  }
+  rafId=requestAnimationFrame(loop);
+
+  /* ---- staggered spec reveal on scroll ---- */
+  var rows=Array.prototype.slice.call(document.querySelectorAll(".row"));
+  function revealAll(){
+    for(let i=0;i<rows.length;i++){
+      rows[i].classList.add("in");
+    }
+  }
+  if("IntersectionObserver" in window){
+    var seen=0;
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(en.isIntersecting){
+          var el=en.target;
+          el.style.transitionDelay=(seen*90)+"ms";
+          seen+=1;
+          el.classList.add("in");
+          io.unobserve(el);
+        }
+      });
+    },{threshold:0.3});
+    rows.forEach(function(r){io.observe(r);});
+    /* safety: if the section is already in view at boot, stagger anyway */
+    setTimeout(function(){
+      var pending=rows.filter(function(r){return !r.classList.contains("in");});
+      if(pending.length===0)return;
+      var first=pending[0].getBoundingClientRect();
+      if(first.top<window.innerHeight*0.9)revealRemaining();
+    },300);
+    function revealRemaining(){
+      var pending=rows.filter(function(r){return !r.classList.contains("in");});
+      for(let i=0;i<pending.length;i++){
+        (function(el,idx){
+          setTimeout(function(){el.classList.add("in");},idx*90);
+        })(pending[i],i);
+      }
+    }
+  }else{
+    revealAll();
+  }
+
+  /* ---- reserve button: state toggle + note ---- */
+  var btn=document.getElementById("reserveBtn");
+  var note=document.getElementById("reserveNote");
+  btn.addEventListener("click",function(){
+    var on=btn.getAttribute("aria-pressed")==="true";
+    btn.setAttribute("aria-pressed",on?"false":"true");
+    btn.textContent=on?"Reserve":"Reserved";
+    note.classList.toggle("done",!on);
+    note.textContent=on?"Held for 48 hours \u00B7 no payment today":"Held \u2014 the atelier will write this week";
+  });
+})();
+</script>
+</body>
+</html>

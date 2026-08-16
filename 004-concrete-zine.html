@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ISSUE 07 — CONCRETE POETRY</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-snap-type: y mandatory; }
+body {
+  background: #101010;
+  color: #f2f0ec;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  cursor: crosshair;
+  overflow-x: hidden;
+}
+::selection { background: #ff3b30; color: #000; }
+
+.hud {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 99;
+  height: 34px;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0 14px;
+  background: #101010;
+  border-bottom: 2px solid #ff3b30;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase;
+  color: #f2f0ec;
+  pointer-events: none;
+}
+.hud .pg { color: #ff3b30; }
+
+.page { position: relative; min-height: 100dvh; overflow: hidden; scroll-snap-align: start; }
+
+/* ---------- PAGE 01 : COVER ---------- */
+.p1 { background: #101010; }
+.topbar {
+  position: absolute; top: 34px; left: 0; right: 0;
+  display: flex; height: 44px;
+  border-bottom: 3px solid #f2f0ec;
+}
+.topbar .cell {
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 11px;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden;
+}
+.c-w { background: #f2f0ec; color: #101010; flex: 1.2; }
+.c-r {
+  background: #ff3b30; color: #101010; flex: 0.55;
+  transition: background 80ms linear, color 80ms linear;
+}
+.c-r:hover { background: #000; color: #ff3b30; }
+.c-b { background: #101010; color: #f2f0ec; flex: 1; border-left: 3px solid #f2f0ec; }
+
+.loud {
+  position: absolute; top: 12vh; left: -1.6vw;
+  font-size: clamp(64px, 20vw, 430px);
+  font-weight: 800; line-height: 0.78; letter-spacing: -0.045em;
+  color: #f2f0ec; white-space: nowrap;
+  text-shadow: 0.05em 0.05em 0 #ff3b30;
+}
+.loud:hover { text-shadow: 0.09em 0.09em 0 #ff3b30; }
+.loud-sub {
+  position: absolute; top: calc(12vh + 16.5vw); left: 0.4vw;
+  display: flex; gap: 10px; align-items: stretch;
+}
+.chip {
+  background: #f2f0ec; color: #101010;
+  padding: 6px 10px; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.22em; text-transform: uppercase;
+}
+.chip.r { background: #ff3b30; transition: background 80ms linear, color 80ms linear; }
+.chip.r:hover { background: #000; color: #ff3b30; }
+
+.vstrip {
+  position: absolute; right: 1.6vw; top: 14vh;
+  writing-mode: vertical-rl;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px; letter-spacing: 0.5em; text-transform: uppercase;
+  color: #f2f0ec; opacity: 0.85;
+}
+
+.manifesto {
+  position: absolute; left: 5vw; bottom: 9vh;
+  width: min(44vw, 430px);
+  background: #f2f0ec; color: #101010;
+  padding: 18px 20px;
+  transform: rotate(-1.3deg);
+  box-shadow: 10px 10px 0 #ff3b30;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(14px, 1.4vw, 18px); line-height: 1.5;
+}
+.manifesto .kick {
+  display: block; margin-bottom: 8px;
+  font-family: system-ui, sans-serif;
+  font-weight: 800; font-size: 10px;
+  letter-spacing: 0.3em; text-transform: uppercase;
+  color: #ff3b30;
+}
+
+.barcode {
+  position: absolute; right: 10vw; bottom: 7vh;
+  width: 150px; padding: 10px 12px 7px;
+  background: #f2f0ec;
+  transform: rotate(1.6deg);
+  box-shadow: 8px 8px 0 #000;
+}
+.barcode .bars { display: flex; align-items: stretch; gap: 3px; height: 58px; }
+.barcode .bars i { display: block; background: #101010; }
+.barcode .num {
+  margin-top: 6px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 9px; letter-spacing: 0.26em; text-transform: uppercase;
+  color: #101010;
+}
+
+.sticker {
+  position: absolute; left: min(46vw, 470px); bottom: 24vh;
+  width: clamp(96px, 15vw, 180px);
+  aspect-ratio: 1 / 1;
+  display: flex; align-items: center; justify-content: center;
+  background: #ff3b30; color: #f2f0ec;
+  transform: rotate(9deg);
+  clip-path: polygon(100% 50%, 97.55% 65.45%, 90.45% 79.39%, 79.39% 90.45%, 65.45% 97.55%, 50% 100%, 34.55% 97.55%, 20.61% 90.45%, 9.55% 79.39%, 2.45% 65.45%, 0% 50%, 2.45% 34.55%, 9.55% 20.61%, 20.61% 9.55%, 34.55% 2.45%, 50% 0%, 65.45% 2.45%, 79.39% 9.55%, 90.45% 20.61%, 97.55% 34.55%);
+  filter: drop-shadow(7px 7px 0 #000);
+  transition: background 80ms linear, color 80ms linear;
+}
+.sticker span { font-weight: 800; font-size: clamp(24px, 3.4vw, 44px); letter-spacing: 0.08em; }
+.sticker:hover { background: #000; color: #ff3b30; }
+
+/* ---------- PAGE 02 : INVERTED ---------- */
+.p2 { background: #f2f0ec; color: #101010; }
+.ghost07 {
+  position: absolute; right: -4vw; top: 5vh;
+  font-size: 46vw; font-weight: 800; line-height: 0.8; letter-spacing: -0.05em;
+  color: transparent;
+  -webkit-text-stroke: 3px #101010;
+  opacity: 0.85;
+}
+.stack { position: absolute; left: 4vw; top: 15vh; }
+.stack .l1 {
+  font-weight: 800; font-size: clamp(40px, 9vw, 150px);
+  line-height: 0.92; letter-spacing: -0.03em; text-transform: uppercase;
+}
+.stack .l2 {
+  font-weight: 800; font-size: clamp(52px, 13vw, 210px);
+  line-height: 0.9; letter-spacing: -0.035em; text-transform: uppercase;
+  color: #ff3b30; text-shadow: 0.06em 0.06em 0 #101010;
+  margin-left: 7vw;
+}
+.stack .l3 {
+  margin-top: 18px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px; letter-spacing: 0.4em; text-transform: uppercase;
+  color: #101010;
+}
+.quotebox {
+  position: absolute; right: 6vw; bottom: 13vh;
+  max-width: min(30vw, 360px);
+  background: #101010; color: #f2f0ec;
+  padding: 20px 22px;
+  transform: rotate(0.9deg);
+  box-shadow: 10px 10px 0 #ff3b30;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: clamp(14px, 1.5vw, 19px); line-height: 1.55;
+}
+.squares {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; height: 42px;
+  transform: rotate(-0.5deg) scale(1.03);
+  border-top: 3px solid #101010;
+}
+.squares i { display: block; height: 100%; }
+.squares .sq-r { background: #ff3b30; flex: 8; transition: background 80ms linear; }
+.squares .sq-b { background: #101010; flex: 14; }
+.squares .sq-w { background: #f2f0ec; flex: 40; }
+.squares .sq-r2 { background: #ff3b30; flex: 22; }
+.squares .sq-b2 { background: #101010; flex: 6; }
+.squares .sq-w2 { background: #f2f0ec; flex: 10; }
+
+/* ---------- PAGE 03 : INDEX ---------- */
+.p3 { background: #101010; }
+.p3title {
+  position: absolute; top: 11vh; left: 5vw;
+  font-size: clamp(26px, 4.6vw, 64px); font-weight: 800;
+  letter-spacing: -0.02em; text-transform: uppercase;
+  text-shadow: 0.06em 0.06em 0 #ff3b30;
+}
+.rows { position: absolute; top: 26vh; left: 5vw; right: 5vw; }
+.row {
+  display: flex; align-items: center; gap: 18px;
+  border-top: 2px solid #f2f0ec;
+  padding: 15px 4px;
+  text-transform: uppercase; font-weight: 700; letter-spacing: 0.14em;
+  font-size: clamp(13px, 1.6vw, 20px);
+  transition: background 80ms linear, color 80ms linear;
+}
+.row:last-child { border-bottom: 2px solid #f2f0ec; }
+.row .no {
+  flex: 0 0 64px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px; letter-spacing: 0.3em; color: #ff3b30;
+}
+.row .ttl { flex: 1; }
+.row .arr { font-size: 22px; }
+.row:hover { background: #ff3b30; color: #000; }
+.row:hover .no { color: #000; }
+
+.fin {
+  position: absolute; bottom: 10vh; right: 4vw;
+  font-size: clamp(80px, 16vw, 300px); font-weight: 800;
+  line-height: 0.8; letter-spacing: -0.04em;
+  color: #f2f0ec; text-shadow: 0.05em 0.05em 0 #ff3b30;
+}
+.marquee {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 40px; overflow: hidden;
+  background: #ff3b30; color: #000;
+  display: flex; align-items: center;
+  transition: background 80ms linear, color 80ms linear;
+}
+.marquee:hover { background: #000; color: #ff3b30; }
+.mtrack {
+  display: inline-flex; white-space: nowrap;
+  font-weight: 800; font-size: 13px;
+  letter-spacing: 0.3em; text-transform: uppercase;
+  will-change: transform;
+}
+
+@media (max-width: 600px) {
+  .vstrip { display: none; }
+  .manifesto { width: 74vw; left: 4vw; bottom: 27vh; }
+  .barcode { right: 4vw; bottom: 15vh; }
+  .sticker { left: 56vw; bottom: 42vh; }
+  .topbar .cell { font-size: 9px; letter-spacing: 0.1em; }
+  .ghost07 { font-size: 70vw; top: 10vh; }
+  .quotebox { right: 4vw; bottom: 12vh; max-width: 64vw; }
+  .stack .l2 { margin-left: 4vw; }
+  .rows { left: 4vw; right: 4vw; }
+  .fin { bottom: 14vh; }
+}
+</style>
+</head>
+<body>
+
+<header class="hud">
+  <span>CONCRETE / ZINE</span>
+  <span class="pg" id="pgind">PG 01 / 03</span>
+</header>
+
+<section class="page p1">
+  <div class="topbar">
+    <div class="cell c-w">ISSUE 07</div>
+    <div class="cell c-r">N°07</div>
+    <div class="cell c-w">CONCRETE POETRY</div>
+    <div class="cell c-b">POURED / CURED / CRACKED</div>
+  </div>
+  <h1 class="loud">LOUD</h1>
+  <div class="loud-sub">
+    <span class="chip">A BRUTALIST ZINE</span>
+    <span class="chip r">FROM THE WET YARD</span>
+    <span class="chip">PRINTED LOUD</span>
+  </div>
+  <div class="vstrip">PRINTED LOUD / BOUND RAW / NO GLAZE / ISSUE 07 / SHARP ON PURPOSE</div>
+  <div class="manifesto">
+    <span class="kick">MANIFESTO — DO NOT SMOOTH</span>
+    We print on what the city discards. Every spread is poured, cured and
+    cracked in the open. Nothing here is sanded down. If a page looks
+    finished, it is not finished — the form is still taking.
+  </div>
+  <div class="barcode">
+    <div class="bars" id="bars"></div>
+    <div class="num">0 0 7 · C O N C R E T E</div>
+  </div>
+  <div class="sticker"><span>FREE</span></div>
+</section>
+
+<section class="page p2">
+  <div class="ghost07">07</div>
+  <div class="stack">
+    <div class="l1">CONCRETE</div>
+    <div class="l2">POETRY</div>
+    <div class="l3">— READ LOUD / BOUND RAW / SPLIT IN HALF —</div>
+  </div>
+  <div class="quotebox">
+    "It cures in the open.<br>It cracks on schedule.<br>Read it before it sets."
+  </div>
+  <div class="squares">
+    <i class="sq-r"></i><i class="sq-b"></i><i class="sq-w"></i><i class="sq-r2"></i><i class="sq-b2"></i><i class="sq-w2"></i>
+  </div>
+</section>
+
+<section class="page p3">
+  <h2 class="p3title">INSIDE THIS ISSUE</h2>
+  <div class="rows">
+    <div class="row"><span class="no">N°01</span><span class="ttl">POURED IN PUBLIC</span><span class="arr">→</span></div>
+    <div class="row"><span class="no">N°02</span><span class="ttl">THE CRACK MAP</span><span class="arr">→</span></div>
+    <div class="row"><span class="no">N°03</span><span class="ttl">CURE &amp; CHASE</span><span class="arr">→</span></div>
+    <div class="row"><span class="no">N°04</span><span class="ttl">DEBRIS REVIEW</span><span class="arr">→</span></div>
+    <div class="row"><span class="no">N°05</span><span class="ttl">FREE COPY RULES</span><span class="arr">→</span></div>
+  </div>
+  <div class="fin">END.</div>
+  <div class="marquee"><div class="mtrack" id="mtrack"></div></div>
+</section>
+
+<script>
+(() => {
+  "use strict";
+
+  const bars = document.getElementById("bars");
+  const mtrack = document.getElementById("mtrack");
+  const pgind = document.getElementById("pgind");
+  const pages = Array.prototype.slice.call(document.querySelectorAll(".page"));
+
+  let mpos = 0;
+  let half = 0;
+  let last = performance.now();
+  let shownPage = "";
+
+  const barData = [3, 7, 2, 10, 4, 3, 8, 5, 12, 3, 9, 4, 6, 2];
+
+  function buildBars() {
+    if (!bars) return;
+    let out = "";
+    for (let i = 0; i < barData.length; i++) {
+      out += '<i style="width:' + barData[i] + 'px"></i>';
+    }
+    bars.innerHTML = out;
+  }
+
+  function buildMarquee() {
+    if (!mtrack) return;
+    const txt = "CONCRETE POETRY — ISSUE 07 — LOUD — BOUND RAW — FREE — ";
+    let group = "";
+    for (let i = 0; i < 4; i++) group += txt;
+    mtrack.innerHTML =
+      '<span class="mgrp">' + group + '</span>' +
+      '<span class="mgrp">' + group + '</span>';
+    if (mtrack.children.length > 0) {
+      half = mtrack.children[0].getBoundingClientRect().width;
+    }
+  }
+
+  function updatePage() {
+    if (!pgind) return;
+    let idx = 0;
+    for (let i = 0; i < pages.length; i++) {
+      const r = pages[i].getBoundingClientRect();
+      if (r.top <= window.innerHeight * 0.5) idx = i;
+    }
+    const label = "PG 0" + (idx + 1) + " / 03";
+    if (label !== shownPage) {
+      shownPage = label;
+      pgind.textContent = label;
+    }
+  }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    try {
+      let dt = (now - last) / 1000;
+      last = now;
+      if (dt > 0.1) dt = 0.1;
+      if (mtrack && half > 0) {
+        mpos -= 56 * dt;
+        if (mpos <= -half) mpos += half;
+        mtrack.style.transform = "translateX(" + mpos.toFixed(2) + "px)";
+      }
+      updatePage();
+    } catch (err) {
+      /* keep the loop alive */
+    }
+  }
+
+  buildBars();
+  buildMarquee();
+  updatePage();
+  window.addEventListener("scroll", updatePage, { passive: true });
+  window.addEventListener("resize", updatePage);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

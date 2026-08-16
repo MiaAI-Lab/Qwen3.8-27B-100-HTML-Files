@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRAIN — Issue 41</title>
+<style>
+:root{
+  --paper:#efe8db; --ink:#1c1a17; --accent:#d4551f;
+  --hair:rgba(28,26,23,.18); --hair2:rgba(28,26,23,.85);
+  --serif:Georgia,"Times New Roman",serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font-family:var(--serif)}
+.sheet{display:grid;grid-template-columns:180px minmax(0,1fr);max-width:1440px;margin:0 auto;min-height:100dvh;border-top:6px solid var(--ink)}
+
+/* ---------- sticky rail ---------- */
+.rail{position:sticky;top:0;height:100dvh;border-right:1px solid var(--hair2);display:flex;flex-direction:column;justify-content:space-between;padding:1.6rem 1.1rem;background:var(--paper);z-index:5}
+.rail-issue{font-family:var(--mono);font-size:.6rem;letter-spacing:.3em;line-height:1.9}
+.rail-issue b{display:block;font-size:1rem;letter-spacing:.18em;color:var(--accent)}
+.rail-nav{display:flex;flex-direction:column;gap:1.7rem}
+.rail-item{display:block;text-decoration:none;color:var(--ink);opacity:.35;transition:opacity .35s ease,transform .35s ease;border-left:2px solid transparent;padding-left:.8rem}
+.rail-item .rail-num{font-family:var(--mono);font-size:.66rem;letter-spacing:.26em;display:block}
+.rail-item .rail-name{font-size:.64rem;letter-spacing:.32em;display:block;margin-top:.3rem;transition:color .35s ease}
+.rail-item:hover{opacity:.8}
+.rail-item.on{opacity:1;border-left-color:var(--accent);transform:translateX(4px)}
+.rail-item.on .rail-num{color:var(--accent)}
+.rail-foot{font-family:var(--mono);font-size:.56rem;letter-spacing:.26em;line-height:1.9;opacity:.6;border-top:1px solid var(--hair);padding-top:.8rem}
+
+/* ---------- masthead ---------- */
+.masthead{min-height:100dvh;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:1.4rem;padding:4.5rem 2.4rem 1.6rem;border-bottom:1px solid var(--hair2)}
+.mast{grid-column:1/11;align-self:end;font-size:clamp(4.2rem,9vw,14.5rem);line-height:.82;letter-spacing:-.045em;font-weight:400}
+.folio{grid-column:12/13;justify-self:end;align-self:end;text-align:right;font-family:var(--mono);font-size:.66rem;letter-spacing:.26em;line-height:2.1}
+.folio b{color:var(--accent);font-weight:400}
+.mast-meta{grid-column:1/-1;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;border-top:1px solid var(--hair2);margin-top:1.4rem;padding-top:.8rem;font-family:var(--mono);font-size:.6rem;letter-spacing:.3em;text-transform:uppercase}
+
+/* ---------- sections ---------- */
+.sec{min-height:100dvh;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:1.4rem;padding:2.8rem 2.4rem;border-bottom:1px solid var(--hair2)}
+.sec-head{grid-column:1/-1;display:flex;align-items:baseline;gap:1.1rem;border-bottom:1px solid var(--hair);padding-bottom:.8rem;margin-bottom:2.4rem}
+.sec-num{font-family:var(--mono);font-size:.72rem;letter-spacing:.34em;color:var(--accent)}
+.sec-head h2{font-size:clamp(1.5rem,2.7vw,2.4rem);font-weight:400;letter-spacing:.015em}
+.lede{grid-column:2/13;font-size:clamp(1.12rem,1.7vw,1.5rem);line-height:1.58}
+.lede::first-letter{font-size:4rem;float:left;line-height:.84;padding-right:.42rem;padding-top:.12rem;color:var(--accent)}
+
+/* plate */
+.plate{grid-column:1/9;margin-top:2.6rem}
+.plate-frame{border:1px solid var(--hair2);aspect-ratio:16/6.4;background:#f4eee2}
+.plate-frame canvas{display:block;width:100%;height:100%}
+.plate figcaption{font-family:var(--mono);font-size:.6rem;letter-spacing:.26em;padding-top:.65rem;opacity:.78;text-transform:uppercase}
+.plate-side{grid-column:10/13;align-self:start;margin-top:2.6rem;font-size:.92rem;line-height:1.75;opacity:.85;border-top:1px solid var(--hair2);padding-top:1rem}
+
+/* justified two-column body */
+.duo{grid-column:2/13;margin-top:2.4rem;columns:2;column-gap:2.7rem;text-align:justify;font-size:1rem;line-height:1.7}
+.duo p+p{margin-top:1.05rem}
+
+/* pull quote */
+.pull{grid-column:4/11;margin-top:3.2rem;position:relative;padding-top:1.4rem}
+.pull::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:var(--hair2)}
+.pull .mark{position:absolute;left:-.4rem;top:-1.6rem;font-size:6.5rem;line-height:1;color:var(--accent);font-family:var(--serif)}
+.pull p{font-size:clamp(1.45rem,3vw,2.5rem);line-height:1.32;font-style:italic}
+.pull cite{display:block;margin-top:1.1rem;font-style:normal;font-family:var(--mono);font-size:.58rem;letter-spacing:.3em;text-transform:uppercase;opacity:.65}
+
+/* specimen list */
+.spec-list{grid-column:2/13;margin-top:2.4rem}
+.spec-row{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;border-top:1px solid var(--hair);padding:.7rem .15rem;font-size:1rem}
+.spec-row:last-child{border-bottom:1px solid var(--hair2)}
+.spec-row .spec-tag{font-family:var(--mono);font-size:.62rem;letter-spacing:.24em;opacity:.6;white-space:nowrap}
+.spec-row .spec-name{font-style:italic}
+
+/* colophon */
+.colo-text{grid-column:2/12;font-size:1.05rem;line-height:1.75}
+.colo-list{grid-column:2/12;margin-top:2.6rem}
+.colo-row{display:flex;justify-content:space-between;gap:1rem;border-top:1px solid var(--hair);padding:.6rem .15rem;font-family:var(--mono);font-size:.62rem;letter-spacing:.24em;text-transform:uppercase}
+.colo-row:last-child{border-bottom:1px solid var(--hair2);color:var(--accent)}
+.foot-folio{grid-column:2/12;margin-top:2.2rem;font-family:var(--mono);font-size:.58rem;letter-spacing:.3em;opacity:.6;text-transform:uppercase}
+
+/* ---------- responsive ---------- */
+@media (max-width:880px){
+  .sheet{grid-template-columns:1fr}
+  .rail{position:sticky;top:0;height:auto;flex-direction:row;align-items:center;justify-content:space-between;border-right:0;border-bottom:1px solid var(--hair2);padding:.7rem 1rem;z-index:9}
+  .rail-issue{line-height:1.5}
+  .rail-issue b{display:inline;font-size:.7rem;margin-right:.6rem}
+  .rail-nav{gap:1.3rem}
+  .rail-item{border-left:0;padding-left:0}
+  .rail-item .rail-name{display:none}
+  .rail-item.on .rail-name{display:block}
+  .rail-foot{display:none}
+  .masthead{padding:3.2rem 1.2rem 1.4rem}
+  .mast{grid-column:1/11}
+  .sec{padding:2.2rem 1.2rem}
+  .lede,.duo,.plate,.plate-side,.pull,.spec-list,.colo-text,.colo-list,.foot-folio{grid-column:1/13}
+  .duo{columns:1}
+  .pull .mark{left:-.2rem;font-size:5rem}
+  .plate{margin-top:2.2rem}
+}
+@media (max-width:420px){
+  .folio{font-size:.56rem;letter-spacing:.18em}
+  .spec-row{flex-direction:column;gap:.25rem}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <aside class="rail" aria-label="Sections">
+    <div class="rail-issue"><b>NO. 41</b>WINTER MMXXVI<br>VOL. IX</div>
+    <nav class="rail-nav">
+      <a class="rail-item on" href="#sec-dust" data-spy="sec-dust"><span class="rail-num">01</span><span class="rail-name">MILL DUST</span></a>
+      <a class="rail-item" href="#sec-sieve" data-spy="sec-sieve"><span class="rail-num">02</span><span class="rail-name">THE SIEVE</span></a>
+      <a class="rail-item" href="#sec-colo" data-spy="sec-colo"><span class="rail-num">03</span><span class="rail-name">COLOPHON</span></a>
+    </nav>
+    <div class="rail-foot">GRAIN — ISSUE 41<br>12-COLUMN SPREAD</div>
+  </aside>
+
+  <main class="page">
+    <header class="masthead">
+      <h1 class="mast">GRAIN</h1>
+      <div class="folio"><b>ISSUE 41</b>WINTER MMXXVI<br>NO. 41 / IX</div>
+      <div class="mast-meta">
+        <span>A journal of the milled</span>
+        <span>Set in system serif &amp; one small mono</span>
+        <span>Printed on no paper at all</span>
+      </div>
+    </header>
+
+    <section class="sec" id="sec-dust" data-sec="sec-dust">
+      <div class="sec-head"><span class="sec-num">01</span><h2>On Mill Dust</h2></div>
+      <p class="lede">There is a residue that no sieve can refuse. It settles into the seams of the floorboards, into the cuffs of every apron, into the hair of the weigher, and it rides the air for years before anyone bothers to call it anything at all. We call it dust. Dust, however, is a lazy word, and this issue is not.</p>
+
+      <figure class="plate">
+        <div class="plate-frame"><canvas id="dust" aria-label="Generative halftone plate of mill dust"></canvas></div>
+        <figcaption>Fig. 01 — mill dust · lattice no. 041 · 140 µm</figcaption>
+      </figure>
+      <div class="plate-side">The plate at left is not a photograph of dust. It is dust: a lattice of random heights, sampled bilinearly and printed as ink dots the way a newsroom would. The orange flecks are where the lattice runs hot — the stones that will not cool.</div>
+
+      <div class="duo">
+        <p>Every mill keeps two ledgers. The first records what came in — the tonnes, the lots, the moisture, the river the boat came up from. The second records what came out. The two never agree, and the gap between them is the dust: a tenth of a gram per kilo, fine as breath, that no scale is willing to own.</p>
+        <p>Dust is the mill's shadow arithmetic. It tells you which stones ran hot, which nights the weather turned, which sack was torn at the dock and mended with wire. A foreman can read a season from a single scoop of it the way a sailor reads a sky — and he will be right more often than the ledgers admit.</p>
+        <p>The old houses of the mill town were built with dust in the mortar. Run a finger along the wall of the weigh house on Quay Street and you are reading, letter by letter, every winter the works stayed open. The city grew around the residue the way the residue grew around the grain.</p>
+      </div>
+
+      <blockquote class="pull">
+        <span class="mark" aria-hidden="true">“</span>
+        <p>Measure twice, weigh four times, and still a tenth of a gram escapes — into the air, into the hair, into the record of the season.</p>
+        <cite>From the floor ledger, night shift, 1987</cite>
+      </blockquote>
+    </section>
+
+    <section class="sec" id="sec-sieve" data-sec="sec-sieve">
+      <div class="sec-head"><span class="sec-num">02</span><h2>The Sieve</h2></div>
+      <p class="lede" style="font-size:clamp(1rem,1.4vw,1.25rem)">Between the stone and the flour stands a machine that does almost nothing on purpose: the sieve. Twelve meshes of woven wire, shaken at a rhythm the ear can predict and the hand cannot. What passes is product. What remains is residue — and residue is where the story keeps its receipts.</p>
+
+      <div class="spec-list">
+        <div class="spec-row"><span class="spec-name">Hull — the coarsest refusal, swept out first</span><span class="spec-tag">01 · 30 MESH · 0.60 MM</span></div>
+        <div class="spec-row"><span class="spec-name">Mid-run dust — the mill's daily residue</span><span class="spec-tag">02 · 60 MESH · 0.25 MM</span></div>
+        <div class="spec-row"><span class="spec-name">Fine powder — the ledger that will not balance</span><span class="spec-tag">03 · 120 MESH · 0.12 MM</span></div>
+        <div class="spec-row"><span class="spec-name">The invisible tenth — weighed only by absence</span><span class="spec-tag">04 · 200 MESH · 0.07 MM</span></div>
+      </div>
+
+      <div class="duo">
+        <p>Sifting is the only act in the mill that admits it is losing. Every pass returns less than the last, and the difference is not waste but witness: the exact measure of what the grain could not say to the stone. The sifter's table is the one place in the works where the residue is allowed to speak.</p>
+        <p>The dust of the 200-mesh is what the town calls the white weather. In spring it stands up the river like a fog that will not lift, and the boats slow to a crawl through it, and the gulls carry it home, and it is on the breakfast plate before anyone remembers that it was ever a field.</p>
+      </div>
+    </section>
+
+    <section class="sec" id="sec-colo" data-sec="sec-colo">
+      <div class="sec-head"><span class="sec-num">03</span><h2>Colophon</h2></div>
+      <p class="colo-text">Issue 41 of GRAIN, a journal of the milled, is set entirely in the system serif and one small monospace, and drawn with ink dots and no photographs. The plate in this spread was generated on your machine at the moment you read it, which means the dust has already settled differently than it did for anyone else. Nothing in this issue is a record of a place; everything in this issue is a measurement of one.</p>
+      <div class="colo-list">
+        <div class="colo-row"><span>Type</span><span>System serif &amp; system mono</span></div>
+        <div class="colo-row"><span>Plate</span><span>Generated in browser · no. 041</span></div>
+        <div class="colo-row"><span>Grid</span><span>12 columns · asymmetric · hairlined</span></div>
+        <div class="colo-row"><span>Ink</span><span>1C1A17 on EFE8DB · accent D4551F</span></div>
+        <div class="colo-row"><span>End of issue 41 — winter mmxxvi</span><span>No. 41</span></div>
+      </div>
+      <div class="foot-folio">GRAIN · ISSUE 41 · FIG. 01 MILL DUST · SET IN TWELVE COLUMNS</div>
+    </section>
+  </main>
+</div>
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- rail scroll-spy ---------- */
+  var items = Array.prototype.slice.call(document.querySelectorAll(".rail-item"));
+  var secs = Array.prototype.slice.call(document.querySelectorAll("[data-sec]"));
+  function activate(id){
+    for(let k = 0; k < items.length; k++){
+      items[k].classList.toggle("on", items[k].getAttribute("data-spy") === id);
+    }
+  }
+  if("IntersectionObserver" in window && secs.length){
+    var io = new IntersectionObserver(function(entries){
+      for(let k = 0; k < entries.length; k++){
+        if(entries[k].isIntersecting) activate(entries[k].target.getAttribute("data-sec"));
+      }
+    }, { rootMargin:"-45% 0px -50% 0px", threshold:0 });
+    for(let k = 0; k < secs.length; k++) io.observe(secs[k]);
+  } else {
+    activate("sec-dust");
+  }
+
+  /* ---------- generative halftone plate ---------- */
+  var canvas = document.getElementById("dust");
+  var ctx = canvas ? canvas.getContext("2d") : null;
+  if(!ctx) return;
+
+  var N = 24, lat = [];
+  for(let k = 0; k < N * N; k++) lat.push(0.16 + Math.random() * 0.84);
+
+  function sm(t){ return t * t * (3 - 2 * t); }
+  function sample(u, v){
+    u -= Math.floor(u); v -= Math.floor(v);
+    var gx = u * N, gy = v * N;
+    var x0 = Math.floor(gx), y0 = Math.floor(gy);
+    var x1 = (x0 + 1) % N, y1 = (y0 + 1) % N;
+    var fx = sm(gx - x0), fy = sm(gy - y0);
+    var a = lat[y0 * N + x0], b = lat[y0 * N + x1];
+    var c = lat[y1 * N + x0], d = lat[y1 * N + x1];
+    var top = a + (b - a) * fx, bot = c + (d - c) * fx;
+    return top + (bot - top) * fy;
+  }
+
+  var t = 0, last = performance.now();
+  function fit(){
+    var dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    var w = canvas.clientWidth || 320, h = canvas.clientHeight || 140;
+    canvas.width = Math.max(2, Math.round(w * dpr));
+    canvas.height = Math.max(2, Math.round(h * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function paint(){
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    if(w < 4 || h < 4) return;
+    ctx.clearRect(0, 0, w, h);
+    var step = Math.max(7, Math.round(w / 46));
+    var lastColor = "";
+    for(let y = step * 0.5; y < h; y += step){
+      for(let x = step * 0.5; x < w; x += step){
+        var n = sample((x / w) * 2.7 + t * 0.02, (y / h) * 2.1 + 4.2 - t * 0.013);
+        var r = n * n * step * 0.5;
+        if(r < 0.4) continue;
+        var col = n > 0.87 ? "#d4551f" : "#1c1a17";
+        if(col !== lastColor){ ctx.fillStyle = col; lastColor = col; }
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, 6.28319);
+        ctx.fill();
+      }
+    }
+  }
+  function frame(now){
+    try{
+      var dt = (now - last) / 1000; last = now;
+      if(dt > 0) t += Math.min(dt, 0.08);
+      paint();
+    }catch(e){ /* keep the loop alive */ }
+    requestAnimationFrame(frame);
+  }
+  window.addEventListener("resize", function(){ try{ fit(); }catch(e){} });
+  fit();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

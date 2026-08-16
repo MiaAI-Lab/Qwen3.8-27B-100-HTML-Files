@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leaves / 140 - Wind 0.4</title>
+<style>
+  :root{
+    --sky:#f2e8d5;
+    --ink:#5c3a22;
+    --dim:#a8814f;
+    --line:#d9c39a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--sky);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    height:100dvh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  #stage{
+    position:relative;
+    flex:1 1 auto;
+    min-height:0;
+  }
+  canvas{
+    position:absolute;inset:0;width:100%;height:100%;display:block;
+    cursor:crosshair;
+  }
+  .caption{
+    position:absolute;
+    top:clamp(10px,2vw,22px);
+    left:clamp(10px,2vw,22px);
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:clamp(10px,1.5vw,14px);
+    letter-spacing:.3em;
+    text-transform:uppercase;
+    color:var(--ink);
+    pointer-events:none;
+    user-select:none;
+    line-height:2;
+    text-shadow:0 1px 0 rgba(255,255,255,.6);
+  }
+  .caption .sub{
+    color:var(--dim);
+    letter-spacing:.18em;
+    font-size:clamp(9px,1.2vw,12px);
+  }
+  .gust{
+    position:absolute;
+    top:clamp(10px,2vw,22px);
+    right:clamp(10px,2vw,22px);
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:clamp(9px,1.2vw,12px);
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:#8a3d33;
+    background:rgba(242,232,213,.8);
+    border:1px solid var(--line);
+    padding:6px 10px;
+    border-radius:4px;
+    opacity:0;
+    transition:opacity .25s ease;
+    pointer-events:none;
+    user-select:none;
+  }
+  .gust.on{opacity:1}
+  .deck{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    gap:clamp(10px,2.4vw,22px);
+    padding:clamp(10px,1.6vw,16px) clamp(14px,3vw,28px);
+    background:#e9dbc0;
+    border-top:2px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .ctl{display:flex;align-items:center;gap:12px;flex:1 1 240px}
+  .ctl label{
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:11px;
+    letter-spacing:.3em;
+    text-transform:uppercase;
+    color:var(--ink);
+    white-space:nowrap;
+  }
+  .ctl output{
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:11px;
+    letter-spacing:.1em;
+    color:var(--ink);
+    min-width:3.4em;
+    text-align:right;
+  }
+  input[type=range]{
+    -webkit-appearance:none;
+    appearance:none;
+    flex:1;
+    min-width:100px;
+    height:26px;
+    background:transparent;
+    cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:3px;background:#c9b184;border-radius:2px;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:16px;height:16px;margin-top:-6.5px;
+    border-radius:50%;
+    background:#d05a2e;
+    border:2px solid var(--sky);
+    box-shadow:0 2px 6px rgba(90,40,10,.35);
+  }
+  input[type=range]::-moz-range-track{height:3px;background:#c9b184;border-radius:2px}
+  input[type=range]::-moz-range-thumb{
+    width:16px;height:16px;border-radius:50%;
+    background:#d05a2e;border:2px solid var(--sky);
+    box-shadow:0 2px 6px rgba(90,40,10,.35);
+  }
+  .hint{
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:10px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--dim);
+    white-space:nowrap;
+  }
+  @media (max-width:480px){
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="leaves"></canvas>
+    <div class="caption">
+      LEAVES <span style="color:#d05a2e">/</span> 140 - WIND <span id="windCap">0.40</span><br>
+      <span class="sub">CURL-NOISE GUSTS &middot; TWO DEPTH LAYERS</span>
+    </div>
+    <div class="gust" id="gustTag">GUST</div>
+  </div>
+  <div class="deck">
+    <div class="ctl">
+      <label for="wind">Wind</label>
+      <input id="wind" type="range" min="0" max="100" value="40">
+      <output id="windOut">0.40</output>
+    </div>
+    <span class="hint">Pointer = gust source &middot; 200px radius</span>
+  </div>
+<script>
+(function(){
+  "use strict";
+  var canvas = document.getElementById("leaves");
+  var ctx = canvas.getContext("2d");
+  var windInput = document.getElementById("wind");
+  var windOut = document.getElementById("windOut");
+  var windCap = document.getElementById("windCap");
+  var gustTag = document.getElementById("gustTag");
+
+  var W = 0, H = 0, DPR = 1;
+  var GROUND_MARGIN = 14;
+
+  var LEAF_COUNT = 140;
+  var COLORS = ["#d05a2e", "#e08a2e", "#c23a2e", "#a85a2e", "#e0b13f", "#8a3d33"];
+
+  var wind = 0.4;
+  var time = 0;
+  var pointer = { x: -9999, y: -9999, active: false };
+
+  // height map of the leaf pile
+  var PILE_BINS = 96;
+  var pile = new Float32Array(PILE_BINS);
+  var leaves = [];
+
+  function fit(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    var rect = canvas.parentElement.getBoundingClientRect();
+    W = Math.max(1, Math.round(rect.width));
+    H = Math.max(1, Math.round(rect.height));
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+
+  function pileHeightAt(x){
+    var f = Math.max(0, Math.min(PILE_BINS - 1, Math.floor(x / (W / PILE_BINS))));
+    return pile[f];
+  }
+
+  function groundY(x){
+    return H - GROUND_MARGIN - pileHeightAt(x);
+  }
+
+  // analytic curl of layered sinusoids -> smooth 2D wind field
+  function flowX(x, y, t){
+    var a = 0.004, b = 0.0023;
+    return Math.sin(y * a + t * 0.6) * 1.1 +
+           Math.cos(x * b - t * 0.4) * 0.7 +
+           Math.sin((x + y) * 0.0017 + t * 0.23) * 0.5;
+  }
+  function flowY(x, y, t){
+    var a = 0.004, b = 0.0023;
+    return Math.cos(x * a - t * 0.5) * 0.6 -
+           Math.sin(y * b + t * 0.35) * 0.8 +
+           Math.cos((y - x) * 0.0015 - t * 0.3) * 0.4;
+  }
+
+  function spawnLeaf(l, randomY){
+    l.near = Math.random() < 0.55;
+    var depth = l.near ? 1 : 0.55;
+    l.size = (l.near ? 9 + Math.random() * 8 : 5 + Math.random() * 5) * Math.max(0.6, depth);
+    l.x = -40 + Math.random() * (W + 80);
+    l.y = randomY ? Math.random() * H * 0.7 : -30 - Math.random() * 60;
+    l.vx = 0;
+    l.vy = 8 + Math.random() * 10;
+    l.rot = Math.random() * Math.PI * 2;
+    l.spin = (Math.random() - 0.5) * 1.6;
+    l.flapPhase = Math.random() * Math.PI * 2;
+    l.flapSpeed = 4 + Math.random() * 4;
+    l.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+    l.state = 0; // 0 falling, 1 settled
+    l.settle = 0;
+    l.alpha = l.near ? 1 : 0.6;
+    l.zOrder = l.near ? 1 : 0;
+  }
+
+  function seedLeaves(){
+    leaves.length = 0;
+    for (var i = 0; i < LEAF_COUNT; i++){
+      var l = {};
+      spawnLeaf(l, true);
+      leaves.push(l);
+    }
+    // draw far layer first: stable sort by zOrder
+    leaves.sort(function(a, b){ return a.zOrder - b.zOrder; });
+  }
+
+  function settleLeaf(l){
+    l.state = 1;
+    l.settle = 0;
+    var col = Math.max(0, Math.min(PILE_BINS - 1, Math.floor(l.x / (W / PILE_BINS))));
+    pile[col] = Math.min(80, pile[col] + 0.55 + Math.random() * 0.5);
+    // smooth into neighbours
+    for (var k = 1; k <= 2; k++){
+      if (col - k >= 0){
+        pile[col - k] = Math.min(80, pile[col - k] + (pile[col] - pile[col - k]) * 0.22);
+      }
+      if (col + k < PILE_BINS){
+        pile[col + k] = Math.min(80, pile[col + k] + (pile[col] - pile[col + k]) * 0.22);
+      }
+    }
+    l.y = groundY(l.x);
+    l.vx = 0;
+    l.vy = 0;
+    l.spin *= 0.2;
+  }
+
+  function update(dt){
+    var gustOn = false;
+    for (var i = 0; i < leaves.length; i++){
+      var l = leaves[i];
+
+      if (l.state === 1){
+        // settled: sink & fade into pile, then recycle
+        l.settle += dt * 0.4;
+        l.y += dt * 1.2;
+        if (l.settle >= 3.2){
+          spawnLeaf(l, false);
+        }
+        continue;
+      }
+
+      // wind field
+      var fx = flowX(l.x, l.y, time);
+      var fy = flowY(l.x, l.y, time);
+      var bias = wind * 55;
+
+      l.vx += (fx * (14 + wind * 30) + bias - l.vx) * Math.min(1, dt * 2.2);
+      l.vy += (fy * 18 + l.size * 0.9 - l.vy) * Math.min(1, dt * 1.6);
+
+      // pointer gust: push away within 200px, spin faster
+      if (pointer.active){
+        var dx = l.x - pointer.x;
+        var dy = l.y - pointer.y;
+        var d2 = dx * dx + dy * dy;
+        if (d2 < 40000 && d2 > 0.01){
+          var d = Math.sqrt(d2);
+          var f = (1 - d / 200);
+          f = f * f;
+          l.vx += (dx / d) * f * 900 * dt;
+          l.vy += (dy / d) * f * 700 * dt;
+          l.spin += f * 6 * dt * (l.rot % Math.PI < Math.PI / 2 ? 1 : -1);
+          gustOn = true;
+        }
+      }
+
+      l.x += l.vx * dt;
+      l.y += l.vy * dt;
+      l.rot += l.spin * dt;
+      l.flapPhase += l.flapSpeed * dt * (0.6 + wind * 0.8);
+      l.spin *= (1 - Math.min(1, dt * 0.35));
+
+      // bounds recycling
+      if (l.x > W + 60){ l.x = -50; l.y = -30 - Math.random() * 60; }
+      else if (l.x < -70){ l.x = W + 50; l.y = -30 - Math.random() * 60; }
+      if (l.y < -80){ l.y = -40; }
+
+      // landing
+      var gy = groundY(l.x);
+      if (l.y >= gy && l.vy > -4){
+        l.y = gy;
+        settleLeaf(l);
+      }
+    }
+
+    // slow global pile decay so the ground breathes
+    for (var b = 0; b < PILE_BINS; b++){
+      if (pile[b] > 0) pile[b] -= dt * 0.35;
+      if (pile[b] < 0) pile[b] = 0;
+    }
+
+    gustTag.classList.toggle("on", gustOn);
+  }
+
+  function drawLeaf(l){
+    ctx.save();
+    ctx.translate(l.x, l.y);
+    ctx.rotate(l.rot);
+    var flap = 0.55 + 0.45 * Math.sin(l.flapPhase);
+    ctx.scale(1, flap);
+    var fade = l.state === 1 ? Math.max(0, 1 - l.settle / 3.2) : 1;
+    ctx.globalAlpha = l.alpha * fade;
+    ctx.fillStyle = l.color;
+
+    var s = l.size;
+    ctx.beginPath();
+    ctx.moveTo(-s, 0);
+    ctx.bezierCurveTo(-s * 0.5, -s * 0.75, s * 0.5, -s * 0.75, s, 0);
+    ctx.bezierCurveTo(s * 0.5, s * 0.75, -s * 0.5, s * 0.75, -s, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // vein
+    ctx.globalAlpha = l.alpha * fade * 0.5;
+    ctx.strokeStyle = "rgba(70,35,12,0.9)";
+    ctx.lineWidth = Math.max(0.6, s * 0.08);
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.85, 0);
+    ctx.quadraticCurveTo(0, -s * 0.14, s * 0.85, 0);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawBackground(){
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#f6eedb");
+    g.addColorStop(0.65, "#f2e8d5");
+    g.addColorStop(1, "#ecd9b8");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // low sun
+    var sunX = W * 0.72;
+    var sunY = H * 0.78;
+    var sunR = Math.min(W, H) * 0.09;
+    var halo = ctx.createRadialGradient(sunX, sunY, sunR * 0.2, sunX, sunY, sunR * 3.4);
+    halo.addColorStop(0, "rgba(255,210,122,0.85)");
+    halo.addColorStop(0.4, "rgba(255,210,122,0.3)");
+    halo.addColorStop(1, "rgba(255,210,122,0)");
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#ffd27a";
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawPile(){
+    if (W < 2) return;
+    var step = W / PILE_BINS;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (var i = 0; i < PILE_BINS; i++){
+      ctx.lineTo(i * step + step / 2, H - GROUND_MARGIN - pile[i]);
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    var g = ctx.createLinearGradient(0, H - GROUND_MARGIN - 80, 0, H);
+    g.addColorStop(0, "#c98a4b");
+    g.addColorStop(0.5, "#a85a2e");
+    g.addColorStop(1, "#8a3d33");
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(242,232,213,0.5)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  function draw(){
+    drawBackground();
+    // far leaves
+    for (var i = 0; i < leaves.length; i++){
+      var l = leaves[i];
+      if (l.zOrder === 0) drawLeaf(l);
+    }
+    drawPile();
+    // near leaves
+    for (var j = 0; j < leaves.length; j++){
+      var m = leaves[j];
+      if (m.zOrder === 1) drawLeaf(m);
+    }
+  }
+
+  var last = 0;
+  function frame(ts){
+    if (!last) last = ts;
+    var dt = Math.min(0.05, (ts - last) / 1000);
+    last = ts;
+    time += dt * (0.7 + wind * 1.6);
+    try {
+      update(dt);
+      draw();
+    } catch (e) {
+      // never let a frame kill the loop
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function readPointer(e){
+    var rect = canvas.getBoundingClientRect();
+    pointer.x = e.clientX - rect.left;
+    pointer.y = e.clientY - rect.top;
+    pointer.active = true;
+  }
+  canvas.addEventListener("pointermove", readPointer);
+  canvas.addEventListener("pointerdown", readPointer);
+  canvas.addEventListener("pointerleave", function(){ pointer.active = false; });
+  canvas.addEventListener("pointerup", function(){ pointer.active = false; });
+
+  windInput.addEventListener("input", function(){
+    wind = parseInt(windInput.value, 10) / 100;
+    windOut.textContent = wind.toFixed(2);
+    windCap.textContent = wind.toFixed(2);
+  });
+
+  window.addEventListener("resize", fit);
+
+  fit();
+  seedLeaves();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+TITLE: THE DAILY PRESS
+
+PROMPT: THE DAILY PRESS - vintage front page. Newsprint #f4efe2, ink #191713, red accent #8c1d18. Masthead 'THE DAILY PRESS' huge serif caps, live JS date line, 'PRICE 25c'. Six-column layout: main 3-column headline 'CITY UNVEILS GIGANTIC CLOCK TOWER' + deck + byline; second story; MARKETS box with mini table; comic box = tiny generative stick-figure panel with speech 'WHAT A DAY'; obituary corner; bottom full-width marquee ticker scrolling headlines (CSS animation, pauses on hover). One 'photo' = canvas halftone dot block with caption. All type, no images.
+
+DESCRIPTION: A vintage broadsheet front page on warm newsprint: a huge Georgia-serif masthead, a red 'PRICE 25c' kicker, and a live JS dateline that stamps the current day, month, year and filing time. The body runs a classic six-column grid — a three-column lead 'CITY UNVEILS GIGANTIC CLOCK TOWER' with italic deck, byline rule and drop-capped copy; a canvas-rendered halftone 'engraving' of the tower (dots modulated by a synthetic scene-shade function, so it is generative, not an image); a two-column harbor-lights story; a MARKETS box with a dotted-rule mono table and red/black movers; a two-column comic whose stick-figure panels are drawn at runtime, complete with a 'WHAT A DAY!' speech bubble; and a vertical 'IN MEMORIAM' obituary corner. A black full-width LATEST ticker scrolls wired headlines on a pure CSS keyframe marquee and pauses on hover.
+
+TECHNIQUES: newsprint palette and paper gradient, six-column CSS grid with hairline rules, drop caps and italic decks, canvas halftone dot rendering with procedural shading, runtime canvas stick-figure comic, vertical-rl labels, pure CSS keyframe marquee ticker with hover pause, live JS dateline, responsive clamp() type, double-column media fallback
+
+INTERACTION: date updates on load; marquee ticker scrolls continuously and pauses on hover; halftone and comic re-render at DPR-aware resolution on resize

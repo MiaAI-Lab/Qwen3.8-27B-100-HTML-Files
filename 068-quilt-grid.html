@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quilt 8x8 - 14 Motifs</title>
+<style>
+  :root{
+    --wood:#7a5a3a;
+    --wood-dark:#5d4229;
+    --wood-light:#93714d;
+    --bg:#241c14;
+    --ink:#f2e8d5;
+    --dim:#b7a78e;
+    --rust:#c25a3a;
+    --cream:#f2e8d5;
+    --indigo:#2f3f8f;
+    --sage:#7a9e8f;
+    --mustard:#e0b13f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(120% 90% at 50% 0%, #3a2d1e 0%, var(--bg) 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:clamp(12px,2.5vw,28px);
+    gap:clamp(12px,2vw,20px);
+  }
+  .topbar{
+    width:min(100%, 820px);
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .topbar .name{
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:clamp(11px,1.6vw,14px);
+    letter-spacing:.34em;
+    text-transform:uppercase;
+    color:var(--dim);
+  }
+  .topbar .name .sq{color:var(--mustard)}
+  .topbar .seed{
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:clamp(10px,1.4vw,12px);
+    letter-spacing:.14em;
+    color:#8d7c60;
+  }
+  .frame{
+    width:min(100%, 820px);
+    background:
+      linear-gradient(135deg, var(--wood-light) 0%, var(--wood) 45%, var(--wood-dark) 100%);
+    padding:24px;
+    border-radius:6px;
+    box-shadow:
+      inset 0 2px 3px rgba(255,235,205,.28),
+      inset 0 -3px 6px rgba(0,0,0,.35),
+      0 24px 60px rgba(0,0,0,.55);
+    position:relative;
+  }
+  .frame::before{
+    content:"";
+    position:absolute;
+    inset:14px;
+    border:1px dashed rgba(242,232,213,.28);
+    border-radius:3px;
+    pointer-events:none;
+  }
+  .quilt{
+    display:grid;
+    grid-template-columns:repeat(8,1fr);
+    grid-template-rows:repeat(8,1fr);
+    aspect-ratio:1/1;
+    gap:2px;
+    background:rgba(30,20,10,.6);
+    border-radius:3px;
+    overflow:hidden;
+  }
+  .patch{
+    position:relative;
+    background:var(--pc, #333);
+    transition:transform .22s cubic-bezier(.2,.9,.3,1.4), box-shadow .22s ease, z-index 0s;
+    cursor:pointer;
+    transform:rotateX(0deg);
+    transform-style:flat;
+  }
+  .patch svg{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    display:block;
+  }
+  .patch:hover{
+    transform:scale(1.06);
+    box-shadow:0 10px 26px rgba(0,0,0,.5);
+    z-index:5;
+  }
+  .patch.flip{
+    animation:flipin .55s cubic-bezier(.3,.8,.3,1) both;
+  }
+  @keyframes flipin{
+    0%{transform:rotateX(88deg) scale(.9);filter:brightness(.55)}
+    60%{transform:rotateX(-14deg) scale(1.02)}
+    100%{transform:rotateX(0deg) scale(1);filter:brightness(1)}
+  }
+  .chip{
+    position:absolute;
+    left:50%;
+    bottom:5px;
+    transform:translate(-50%, 6px);
+    background:rgba(16,10,5,.82);
+    color:var(--ink);
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:clamp(8px,1.2vw,10px);
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    padding:3px 7px;
+    border-radius:3px;
+    white-space:nowrap;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .18s ease, transform .18s ease;
+    border:1px solid rgba(224,177,63,.4);
+  }
+  .patch:hover .chip{
+    opacity:1;
+    transform:translate(-50%, 0);
+  }
+  .stitched .patch::after{
+    content:"";
+    position:absolute;
+    inset:4px;
+    border:1px dashed rgba(255,255,255,.55);
+    pointer-events:none;
+    border-radius:2px;
+  }
+  .deck{
+    width:min(100%, 820px);
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .swatches{
+    display:flex;
+    gap:8px;
+  }
+  .sw{
+    width:clamp(18px,3vw,26px);
+    height:clamp(18px,3vw,26px);
+    border-radius:4px;
+    border:2px solid rgba(0,0,0,.35);
+    box-shadow:inset 0 1px 2px rgba(255,255,255,.3);
+  }
+  .controls{display:flex;gap:12px}
+  button{
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:11px;
+    letter-spacing:.26em;
+    text-transform:uppercase;
+    background:var(--wood-dark);
+    color:var(--ink);
+    border:1px solid #3a2a18;
+    padding:10px 18px;
+    border-radius:4px;
+    cursor:pointer;
+    transition:background .16s ease, transform .1s ease;
+  }
+  button:hover{background:#6d4d2c}
+  button:active{transform:translateY(1px)}
+  button[aria-pressed="true"]{
+    background:var(--mustard);
+    color:#241c14;
+    border-color:#a87f22;
+    box-shadow:0 0 14px rgba(224,177,63,.35);
+  }
+  @media (max-width:480px){
+    .frame{padding:14px}
+    .frame::before{inset:8px}
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="name">QUILT <span class="sq">8x8</span> &middot; 14 MOTIFS</div>
+    <div class="seed">SEED <span id="seedOut">0000</span></div>
+  </div>
+  <div class="frame">
+    <div class="quilt" id="quilt"></div>
+  </div>
+  <div class="deck">
+    <div class="swatches" aria-hidden="true">
+      <div class="sw" style="background:#c25a3a"></div>
+      <div class="sw" style="background:#f2e8d5"></div>
+      <div class="sw" style="background:#2f3f8f"></div>
+      <div class="sw" style="background:#7a9e8f"></div>
+      <div class="sw" style="background:#e0b13f"></div>
+    </div>
+    <div class="controls">
+      <button id="stitch" type="button" aria-pressed="false">Stitch</button>
+      <button id="resew" type="button">Re-Sew</button>
+    </div>
+  </div>
+<script>
+(function(){
+  "use strict";
+  var quilt = document.getElementById("quilt");
+  var seedOut = document.getElementById("seedOut");
+  var stitchBtn = document.getElementById("stitch");
+  var reSewBtn = document.getElementById("resew");
+  var frameEl = document.querySelector(".frame");
+
+  var COLORS = ["#c25a3a", "#f2e8d5", "#2f3f8f", "#7a9e8f", "#e0b13f"];
+
+  // mulberry32 seeded rng
+  function makeRng(seed){
+    var a = seed >>> 0;
+    return function(){
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function pick(rng, arr){
+    return arr[Math.floor(rng() * arr.length) % arr.length];
+  }
+
+  // Each motif: name + fn(bg, accent) -> svg inner markup in 0..100 space
+  var MOTIFS = [
+    {
+      name: "Flying Geese",
+      draw: function(a, b){
+        var rows = 3;
+        var h = 100 / rows;
+        var out = "";
+        for (var r = 0; r < rows; r++){
+          for (var c = 0; c < rows; c++){
+            var x = c * h, y = r * h;
+            out += '<polygon points="' + x + ',' + (y + h) + ' ' + (x + h) + ',' + (y + h) + ' ' + (x + h / 2) + ',' + y + '" fill="' + b + '"/>';
+          }
+        }
+        return '<rect width="100" height="100" fill="' + a + '"/>' + out;
+      }
+    },
+    {
+      name: "Half-Square Triangle",
+      draw: function(a, b){
+        return '<rect width="100" height="100" fill="' + a + '"/>' +
+          '<polygon points="0,0 100,0 0,100" fill="' + b + '"/>';
+      }
+    },
+    {
+      name: "Pinwheel",
+      draw: function(a, b){
+        return '<rect width="100" height="100" fill="' + a + '"/>' +
+          '<polygon points="0,0 50,50 0,50" fill="' + b + '"/>' +
+          '<polygon points="50,0 100,0 50,50" fill="' + b + '"/>' +
+          '<polygon points="100,50 100,100 50,50" fill="' + b + '"/>' +
+          '<polygon points="50,100 0,100 50,50" fill="' + b + '"/>';
+      }
+    },
+    {
+      name: "Log Cabin",
+      draw: function(a, b){
+        var logs = [
+          '<rect x="0" y="0" width="100" height="20" fill="' + b + '"/>',
+          '<rect x="0" y="20" width="20" height="80" fill="' + b + '"/>',
+          '<rect x="20" y="20" width="80" height="20" fill="' + b + '"/>',
+          '<rect x="20" y="40" width="20" height="60" fill="' + b + '"/>',
+          '<rect x="40" y="40" width="60" height="20" fill="' + b + '"/>',
+          '<rect x="40" y="60" width="20" height="40" fill="' + b + '"/>'
+        ];
+        return '<rect width="100" height="100" fill="' + a + '"/>' + logs.join("");
+      }
+    },
+    {
+      name: "Circle-in-Square",
+      draw: function(a, b){
+        return '<rect width="100" height="100" fill="' + a + '"/>' +
+          '<circle cx="50" cy="50" r="34" fill="' + b + '"/>' +
+          '<circle cx="50" cy="50" r="16" fill="' + a + '"/>';
+      }
+    },
+    {
+      name: "Zigzag",
+      draw: function(a, b){
+        var band = '<polygon points="0,25 12.5,50 25,25 37.5,50 50,25 62.5,50 75,25 87.5,50 100,25 100,50 87.5,75 75,50 62.5,75 50,50 37.5,75 25,50 12.5,75 0,50" fill="' + b + '"/>';
+        return '<rect width="100" height="100" fill="' + a + '"/>' + band;
+      }
+    },
+    {
+      name: "Diamond-in-Diamond",
+      draw: function(a, b){
+        return '<rect width="100" height="100" fill="' + a + '"/>' +
+          '<polygon points="50,6 94,50 50,94 6,50" fill="' + b + '"/>' +
+          '<polygon points="50,26 74,50 50,74 26,50" fill="' + a + '"/>' +
+          '<polygon points="50,38 62,50 50,62 38,50" fill="' + b + '"/>';
+      }
+    },
+    {
+      name: "Plus Block",
+      draw: function(a, b){
+        return '<rect width="100" height="100" fill="' + a + '"/>' +
+          '<rect x="30" y="8" width="40" height="84" fill="' + b + '"/>' +
+          '<rect x="8" y="30" width="84" height="40" fill="' + b + '"/>' +
+          '<rect x="42" y="42" width="16" height="16" fill="' + a + '"/>';
+      }
+    },
+    {
+      name: "Quarter-Square",
+      draw: function(a, b){
+        return '<rect width="100" height="100" fill="' + a + '"/>' +
+          '<polygon points="50,50 0,0 50,0" fill="' + b + '"/>' +
+          '<polygon points="50,50 100,50 100,100" fill="' + b + '"/>';
+      }
+    },
+    {
+      name: "Strip Set",
+      draw: function(a, b){
+        var out = '<rect width="100" height="100" fill="' + a + '"/>';
+        for (var i = 0; i < 5; i++){
+          out += '<rect x="6" y="' + (10 + i * 18) + '" width="88" height="9" fill="' + b + '"/>';
+        }
+        return out;
+      }
+    },
+    {
+      name: "Sash Center",
+      draw: function(a, b){
+        return '<rect width="100" height="100" fill="' + b + '"/>' +
+          '<rect x="0" y="40" width="100" height="20" fill="' + a + '"/>' +
+          '<rect x="40" y="0" width="20" height="100" fill="' + a + '"/>' +
+          '<rect x="40" y="40" width="20" height="20" fill="' + b + '"/>';
+      }
+    },
+    {
+      name: "Crossroads",
+      draw: function(a, b){
+        return '<rect width="100" height="100" fill="' + a + '"/>' +
+          '<polygon points="0,0 100,100 100,0" fill="none"/>' +
+          '<polygon points="50,10 90,50 50,90 10,50" fill="' + b + '"/>' +
+          '<polygon points="50,28 72,50 50,72 28,50" fill="' + a + '"/>';
+      }
+    },
+    {
+      name: "Heart Block",
+      draw: function(a, b){
+        var heart = 'M50 32 C 40 16, 18 22, 20 40 C 21 54, 38 66, 50 78 C 62 66, 79 54, 80 40 C 82 22, 60 16, 50 32 Z';
+        return '<rect width="100" height="100" fill="' + a + '"/>' +
+          '<path d="' + heart + '" fill="' + b + '"/>';
+      }
+    },
+    {
+      name: "Star Point",
+      draw: function(a, b){
+        var pts = "50,4 61,39 96,39 68,61 79,96 50,74 21,96 32,61 4,39 39,39";
+        return '<rect width="100" height="100" fill="' + a + '"/>' +
+          '<polygon points="' + pts + '" fill="' + b + '"/>';
+      }
+    }
+  ];
+
+  // adjacent-contrast pick: color differs from left & up neighbors
+  function pickColor(rng, grid, row, col){
+    var banned = {};
+    if (col > 0) banned[grid[row][col - 1]] = true;
+    if (row > 0) banned[grid[row - 1][col]] = true;
+    var pool = COLORS.filter(function(c){ return !banned[c]; });
+    return pool[Math.floor(rng() * pool.length) % pool.length];
+  }
+
+  function accentFor(rng, bg){
+    var pool = COLORS.filter(function(c){ return c !== bg; });
+    return pick(rng, pool);
+  }
+
+  var seed = 1000 + Math.floor(Math.random() * 9000);
+  var grid = [];
+
+  function buildGrid(newSeed){
+    var rng = makeRng(newSeed);
+    var g = [];
+    for (var r = 0; r < 8; r++){
+      var row = [];
+      g.push(row);
+      for (var c = 0; c < 8; c++){
+        var bg = pickColor(rng, g, r, c);
+        var accent = accentFor(rng, bg);
+        var m = pick(rng, MOTIFS);
+        var flip = rng() < 0.28;
+        row.push({ bg: bg, accent: accent, motif: m, flip: flip });
+      }
+    }
+    return g;
+  }
+
+  function motifSvg(cell){
+    var inner = cell.motif.draw(cell.bg, cell.accent);
+    var transform = cell.flip ? ' transform="rotate(90 50 50)"' : "";
+    return '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><g' + transform + '>' + inner + '</g></svg>';
+  }
+
+  function render(staggered){
+    var frag = "";
+    for (var r = 0; r < 8; r++){
+      for (var c = 0; c < 8; c++){
+        var cell = grid[r][c];
+        var idx = r * 8 + c;
+        var delay = staggered ? (idx * 28) : 0;
+        frag += '<div class="patch' + (staggered ? " flip" : "") + '" style="--pc:' + cell.bg +
+          (staggered ? ";animation-delay:" + delay + "ms" : "") +
+          '" data-motif="' + cell.motif.name.replace(/"/g, "&quot;") + '" title="' + cell.motif.name.replace(/"/g, "&quot;") + '">' +
+          motifSvg(cell) +
+          '<span class="chip">' + cell.motif.name + '</span>' +
+          '</div>';
+      }
+    }
+    quilt.innerHTML = frag;
+    seedOut.textContent = String(seed).padStart(4, "0");
+  }
+
+  stitchBtn.addEventListener("click", function(){
+    var on = stitchBtn.getAttribute("aria-pressed") === "true";
+    stitchBtn.setAttribute("aria-pressed", on ? "false" : "true");
+    frameEl.classList.toggle("stitched", !on);
+  });
+
+  reSewBtn.addEventListener("click", function(){
+    seed = 1000 + Math.floor(Math.random() * 9000);
+    grid = buildGrid(seed);
+    render(true);
+  });
+
+  grid = buildGrid(seed);
+  render(false);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>059 - Journey to Kepler-9</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    height: 100dvh;
+    overflow: hidden;
+    background: #f2e8d5;
+    font-family: Georgia, "Times New Roman", serif;
+    -webkit-user-select: none; user-select: none;
+  }
+  #poster {
+    position: absolute; inset: 0;
+    width: 100%; height: 100dvh;
+    display: block;
+  }
+  .grain {
+    position: absolute; inset: 0; z-index: 4;
+    pointer-events: none;
+    opacity: .5;
+    mix-blend-mode: multiply;
+    background:
+      repeating-linear-gradient(0deg, rgba(90,70,40,.028) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, rgba(90,70,40,.022) 0 1px, transparent 1px 4px),
+      repeating-linear-gradient(45deg, rgba(29,58,82,.018) 0 2px, transparent 2px 5px);
+  }
+  .vignette {
+    position: absolute; inset: 0; z-index: 5;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 44%, transparent 52%, rgba(64,42,20,.16) 82%, rgba(45,28,12,.4) 100%);
+  }
+  .frame {
+    position: absolute; inset: clamp(10px, 1.8vw, 22px); z-index: 6;
+    pointer-events: none;
+    border: 2px solid #1d3a52;
+    outline: 1px solid rgba(29,58,82,.4);
+    outline-offset: 5px;
+  }
+  .frame::before, .frame::after {
+    content: ""; position: absolute; left: 50%; width: 64px; height: 2px;
+    background: #c25a3a; transform: translateX(-50%);
+  }
+  .frame::before { top: -6px; }
+  .frame::after { bottom: -6px; }
+
+  .hud {
+    position: absolute; z-index: 7; left: 0; right: 0;
+    bottom: clamp(20px, 4.5vh, 44px);
+    display: flex; align-items: center; justify-content: center; gap: clamp(12px, 3vw, 28px);
+    pointer-events: none;
+  }
+  .caption {
+    color: #1d3a52;
+    font-size: clamp(9px, 1.4vw, 12px);
+    letter-spacing: .5em; text-transform: uppercase;
+    font-family: system-ui, sans-serif;
+  }
+  #launch {
+    pointer-events: auto;
+    font: 700 clamp(11px, 1.5vw, 13px) system-ui, sans-serif;
+    letter-spacing: .34em; text-transform: uppercase;
+    color: #f2e8d5; background: #c25a3a;
+    border: none; border-radius: 2px;
+    padding: 12px 26px 11px 29px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #1d3a52;
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  #launch:hover { background: #d3694a; transform: translate(-1px,-1px); box-shadow: 4px 4px 0 #1d3a52; }
+  #launch:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 #1d3a52; }
+  #launch.busy { color: #f2e8d5; background: #1d3a52; cursor: wait; }
+
+  .rocket-hit { cursor: pointer; }
+  #rocketG { transition: filter .3s ease; }
+  #rocketG.hover { filter: drop-shadow(0 0 6px rgba(224,177,63,.9)); }
+  #rocketG .fins, #rocketG .body, #rocketG .nose, #rocketG .window { pointer-events: none; }
+  @keyframes wobble {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(-5.5deg); }
+    50% { transform: rotate(0deg); }
+    75% { transform: rotate(5.5deg); }
+    100% { transform: rotate(0deg); }
+  }
+  #rocketWob { transform-origin: 150px 150px; }
+  #rocketG.hover #rocketWob { animation: wobble .55s ease-in-out infinite; }
+  #trail { opacity: .55; transition: opacity .35s ease; }
+  #rocketG.hover #trail { opacity: 1; }
+  #trailLong { transition: opacity .4s ease, stroke-width .4s ease; }
+  #rocketG.hover #trailLong { opacity: .85; stroke-width: 9; }
+  #trailFlame {
+    transform-origin: 150px 208px;
+    animation: flick .22s ease-in-out infinite;
+  }
+  @keyframes flick {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(1.35); }
+  }
+  #sparkA { animation: twinkle 2.6s ease-in-out infinite; transform-origin: 292px 96px; }
+  #sparkB { animation: twinkle 3.4s ease-in-out infinite .8s; transform-origin: 196px 404px; }
+  @keyframes twinkle { 0%, 100% { opacity: .55; transform: scale(.8) rotate(0deg); } 50% { opacity: 1; transform: scale(1.15) rotate(18deg); } }
+  .star { animation: twinkle 3s ease-in-out infinite; }
+
+  @keyframes launchFlight {
+    0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
+    45%  { transform: translate(210px, -235px) scale(.82) rotate(-4deg); }
+    75%  { transform: translate(390px, -470px) scale(.5) rotate(-11deg); }
+    100% { transform: translate(470px, -590px) scale(.3) rotate(-14deg); }
+  }
+  #rocketFly.go { animation: launchFlight 2.5s cubic-bezier(.45,.05,.55,.95) forwards; }
+  #rocketFly.back { transition: transform 1.2s cubic-bezier(.2,.7,.3,1); }
+</style>
+</head>
+<body>
+<svg id="poster" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" aria-label="Journey to Kepler-9 retro sci-fi poster">
+  <defs>
+    <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6eeda"/>
+      <stop offset=".55" stop-color="#f2e8d5"/>
+      <stop offset="1" stop-color="#ead9bc"/>
+    </linearGradient>
+    <radialGradient id="planetGrad" cx="36%" cy="30%" r="85%">
+      <stop offset="0" stop-color="#2a5170"/>
+      <stop offset=".5" stop-color="#1d3a52"/>
+      <stop offset="1" stop-color="#12283c"/>
+    </radialGradient>
+    <pattern id="halftone" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(18)">
+      <circle cx="4" cy="4" r="1.9" fill="#c25a3a" opacity=".85"/>
+      <circle cx="11" cy="11" r="1.1" fill="#c25a3a" opacity=".5"/>
+    </pattern>
+    <pattern id="bandDots" width="10" height="10" patternUnits="userSpaceOnUse">
+      <circle cx="5" cy="5" r="1" fill="#f2e8d5" opacity=".16"/>
+    </pattern>
+    <path id="archPath" d="M 190 300 A 640 640 0 0 1 1010 300"/>
+    <clipPath id="planetClip"><circle cx="880" cy="620" r="330"/></clipPath>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="800" fill="url(#skyGrad)"/>
+
+  <g id="stars">
+    <circle class="star" cx="120" cy="330" r="2.2" fill="#1d3a52" style="animation-delay:.2s"/>
+    <circle class="star" cx="330" cy="120" r="1.6" fill="#c25a3a" style="animation-delay:1.1s"/>
+    <circle class="star" cx="470" cy="230" r="2.6" fill="#1d3a52" style="animation-delay:.6s"/>
+    <circle class="star" cx="560" cy="90" r="1.3" fill="#1d3a52"/>
+    <circle class="star" cx="700" cy="180" r="1.9" fill="#c25a3a" style="animation-delay:1.6s"/>
+    <circle class="star" cx="820" cy="110" r="2.4" fill="#1d3a52" style="animation-delay:.9s"/>
+    <circle class="star" cx="1060" cy="90" r="1.5" fill="#c25a3a" style="animation-delay:2s"/>
+    <circle class="star" cx="1120" cy="260" r="2" fill="#1d3a52" style="animation-delay:.4s"/>
+    <circle class="star" cx="960" cy="230" r="1.2" fill="#1d3a52" style="animation-delay:1.3s"/>
+    <circle class="star" cx="640" cy="360" r="1.7" fill="#c25a3a" style="animation-delay:1.9s"/>
+    <circle class="star" cx="390" cy="470" r="2.1" fill="#1d3a52" style="animation-delay:.5s"/>
+    <circle class="star" cx="210" cy="560" r="1.4" fill="#c25a3a" style="animation-delay:1.4s"/>
+    <circle class="star" cx="90" cy="660" r="2.3" fill="#1d3a52" style="animation-delay:2.3s"/>
+    <circle class="star" cx="480" cy="640" r="1.6" fill="#1d3a52" style="animation-delay:.8s"/>
+    <circle class="star" cx="700" cy="560" r="2" fill="#c25a3a" style="animation-delay:1.2s"/>
+    <path id="sparkA" d="M292 70 L296 88 L316 96 L296 104 L292 122 L288 104 L268 96 L288 88 Z" fill="#e0b13f"/>
+    <path id="sparkB" d="M196 386 L199 400 L214 404 L199 408 L196 422 L193 408 L178 404 L193 400 Z" fill="#e0b13f"/>
+  </g>
+
+  <g id="planet">
+    <circle cx="880" cy="620" r="330" fill="url(#planetGrad)"/>
+    <g clip-path="url(#planetClip)">
+      <g fill="none" stroke="#3d6a8f" stroke-width="10" opacity=".55">
+        <path d="M 540 500 Q 760 462 980 500 T 1320 470"/>
+        <path d="M 520 590 Q 770 548 1000 592 T 1330 566"/>
+        <path d="M 540 680 Q 800 640 1020 684 T 1330 660"/>
+        <path d="M 590 770 Q 830 736 1040 774 T 1330 752"/>
+      </g>
+      <circle cx="880" cy="620" r="330" fill="url(#bandDots)"/>
+      <g clip-path="url(#planetClip)" fill="url(#halftone)">
+        <ellipse cx="820" cy="560" rx="90" ry="62"/>
+        <ellipse cx="990" cy="700" rx="120" ry="80"/>
+        <ellipse cx="700" cy="740" rx="70" ry="48"/>
+        <circle cx="920" cy="500" r="46"/>
+      </g>
+      <path d="M 560 620 A 330 330 0 0 0 1200 620 L 1200 800 L 560 800 Z" fill="#0e2133" opacity=".4"/>
+      <circle cx="880" cy="620" r="330" fill="none" stroke="#f2e8d5" stroke-width="3" opacity=".8"/>
+      <circle cx="880" cy="620" r="338" fill="none" stroke="#1d3a52" stroke-width="1.6" opacity=".5"/>
+    </g>
+    <path d="M 610 756 A 330 330 0 0 1 1150 470 L 1200 800 L 560 800 Z" fill="none" stroke="#e0b13f" stroke-width="2.4" opacity=".65"/>
+  </g>
+
+  <g id="rocketFly">
+    <g id="rocketG" class="rocket-hit">
+      <g id="trail">
+        <path d="M 150 214 C 142 268 158 320 148 386 C 140 440 154 486 148 530" fill="none" stroke="#c25a3a" stroke-width="9" stroke-linecap="round" opacity=".8"/>
+        <path id="trailLong" d="M 150 214 C 142 290 158 360 148 452 C 140 544 154 606 148 664" fill="none" stroke="#c25a3a" stroke-width="7" stroke-linecap="round" opacity="0"/>
+        <path d="M 150 214 C 144 262 156 314 148 376" fill="none" stroke="#f2e8d5" stroke-width="3.4" stroke-linecap="round"/>
+        <g id="trailFlame">
+          <path d="M 150 208 L 138 232 Q 150 262 162 232 Z" fill="#c25a3a"/>
+          <path d="M 150 210 L 144 228 Q 150 246 156 228 Z" fill="#e0b13f"/>
+        </g>
+      </g>
+      <g id="rocketWob">
+        <path class="fins" d="M 132 168 L 112 196 L 132 190 Z M 168 168 L 188 196 L 168 190 Z" fill="#c25a3a"/>
+        <path class="body" d="M 150 62 Q 176 108 176 160 L 176 198 L 124 198 L 124 160 Q 124 108 150 62 Z" fill="#f2e8d5" stroke="#1d3a52" stroke-width="3"/>
+        <path class="nose" d="M 150 62 Q 168 88 172 118 L 128 118 Q 132 88 150 62 Z" fill="#c25a3a"/>
+        <circle class="window" cx="150" cy="142" r="15" fill="#1d3a52"/>
+        <circle class="window" cx="150" cy="142" r="10" fill="#e0b13f"/>
+        <rect class="body" x="124" y="184" width="52" height="8" fill="#1d3a52"/>
+      </g>
+    </g>
+  </g>
+
+  <text font-family="Georgia, 'Times New Roman', serif" font-size="118" font-weight="700" fill="#1d3a52" letter-spacing="14">
+    <textPath href="#archPath" startOffset="50%" text-anchor="middle">JOURNEY</textPath>
+  </text>
+  <text x="600" y="352" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="44" font-weight="700" fill="#c25a3a" letter-spacing="26">TO KEPLER-9</text>
+  <g stroke="#1d3a52" stroke-width="2">
+    <line x1="430" y1="350" x2="368" y2="350"/>
+    <line x1="770" y1="350" x2="832" y2="350"/>
+  </g>
+  <circle cx="356" cy="350" r="4" fill="#e0b13f"/>
+  <circle cx="844" cy="350" r="4" fill="#e0b13f"/>
+
+  <g id="seal" transform="translate(330 690)">
+    <circle r="64" fill="none" stroke="#1d3a52" stroke-width="3"/>
+    <circle r="55" fill="none" stroke="#c25a3a" stroke-width="1.4"/>
+    <path d="M 0 -34 L 8 -8 L 34 -8 L 13 6 L 21 32 L 0 16 L -21 32 L -13 6 L -34 -8 L -8 -8 Z" fill="#e0b13f" stroke="#1d3a52" stroke-width="1.6"/>
+    <text x="0" y="-44" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#1d3a52" letter-spacing="2.5">FIRST</text>
+    <text x="0" y="52" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#1d3a52" letter-spacing="2.5">CONTACT</text>
+    <text x="0" y="66" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" font-weight="700" fill="#c25a3a" letter-spacing="3">SOCIETY</text>
+  </g>
+
+  <text x="1090" y="84" text-anchor="end" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#1d3a52" letter-spacing="4" opacity=".75">SIGNAL EST. 1962 &mdash; TRANSMISSION 07</text>
+</svg>
+<div class="grain"></div>
+<div class="vignette"></div>
+<div class="frame"></div>
+<div class="hud">
+  <span class="caption">Journey to Kepler-9 &mdash; First Contact Society</span>
+  <button id="launch" type="button">Launch</button>
+</div>
+<script>
+(function () {
+  'use strict';
+  var rocketG = document.getElementById('rocketG');
+  var rocketFly = document.getElementById('rocketFly');
+  var launchBtn = document.getElementById('launch');
+  var hoverTimer = 0;
+  var busy = false;
+
+  function enter() {
+    clearTimeout(hoverTimer);
+    if (!busy) rocketG.classList.add('hover');
+  }
+  function leave() {
+    clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(function () {
+      rocketG.classList.remove('hover');
+    }, 180);
+  }
+  rocketG.addEventListener('pointerenter', enter);
+  rocketG.addEventListener('pointerleave', leave);
+
+  function launch() {
+    if (busy) return;
+    busy = true;
+    launchBtn.classList.add('busy');
+    launchBtn.textContent = 'In flight';
+    rocketG.classList.remove('hover');
+    rocketFly.style.animation = 'none';
+    rocketFly.style.transform = 'translate(0,0) scale(1)';
+    void rocketFly.getBoundingClientRect();
+    rocketFly.classList.add('go');
+    setTimeout(function () {
+      rocketFly.classList.remove('go');
+      rocketFly.classList.add('back');
+      rocketFly.style.transition = 'transform 1.1s cubic-bezier(.25,.8,.3,1)';
+      rocketFly.style.transform = 'translate(0px,0px) scale(1)';
+      setTimeout(function () {
+        rocketFly.classList.remove('back');
+        rocketFly.style.transition = '';
+        rocketFly.style.transform = '';
+        busy = false;
+        launchBtn.classList.remove('busy');
+        launchBtn.textContent = 'Launch';
+      }, 1200);
+    }, 2550);
+  }
+  launchBtn.addEventListener('click', launch);
+
+  var t = 0;
+  function frame(now) {
+    try {
+      t = now * 0.001;
+      var w = Math.sin(t * 1.4) * 2.2;
+      var s = 1 + Math.sin(t * 2.1) * 0.008;
+      if (!rocketFly.classList.contains('go') && !rocketFly.classList.contains('back') && rocketFly.style.transform === '') {
+        rocketFly.style.transform = 'translate(' + (w * 0.4).toFixed(2) + 'px,' + (Math.cos(t * 1.1) * 3).toFixed(2) + 'px) scale(' + s.toFixed(3) + ')';
+      }
+    } catch (err) {
+      /* never let a frame die the loop */
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

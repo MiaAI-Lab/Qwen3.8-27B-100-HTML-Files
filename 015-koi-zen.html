@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<title>Koi / Zen / Pond</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #071a1e;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    font-family: Georgia, "Times New Roman", serif;
+  }
+  #pond {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    display: block;
+  }
+  .brand {
+    position: fixed;
+    top: clamp(14px, 3vh, 28px);
+    left: clamp(14px, 2.4vw, 30px);
+    z-index: 2;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-size: clamp(0.6rem, 1.5vh, 0.78rem);
+    letter-spacing: 0.46em;
+    text-transform: uppercase;
+    color: rgba(242, 239, 230, 0.42);
+    pointer-events: none;
+    font-family: system-ui, sans-serif;
+    font-weight: 500;
+  }
+  .brand i {
+    font-style: normal;
+    color: rgba(226, 87, 43, 0.66);
+  }
+  .hint {
+    position: fixed;
+    right: clamp(14px, 2.4vw, 30px);
+    bottom: clamp(12px, 2.6vh, 24px);
+    z-index: 2;
+    font-size: 0.62rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(242, 239, 230, 0.30);
+    font-family: system-ui, sans-serif;
+    pointer-events: none;
+    transition: opacity 1.4s ease;
+  }
+  .hud {
+    position: fixed;
+    left: clamp(14px, 2.4vw, 30px);
+    bottom: clamp(12px, 2.6vh, 24px);
+    z-index: 2;
+    font-size: 0.62rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: rgba(242, 239, 230, 0.38);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    pointer-events: none;
+  }
+  .hud b { color: rgba(226, 87, 43, 0.72); font-weight: 700; }
+  @media (max-width: 480px) {
+    .brand { letter-spacing: 0.34em; }
+  }
+</style>
+</head>
+<body>
+<canvas id="pond"></canvas>
+<div class="brand" aria-hidden="true">Koi <i>/</i> Zen <i>/</i> Pond</div>
+<div class="hud">Koi Zen <b>· 015 ·</b> Gallery 100</div>
+<div class="hint" id="hint">Click to feed</div>
+<script>
+(function () {
+  "use strict";
+  var canvas = document.getElementById("pond");
+  var ctx = canvas.getContext("2d");
+  var hintEl = document.getElementById("hint");
+  var W = 0, H = 0, DPR = 1;
+  var T = 0;
+
+  var RING_SEEDS = [0.11, 0.37, 0.63, 0.87, 0.24, 0.51];
+  var rings = [];
+  var flakes = [];
+  var koi = [];
+  var feedPoint = null;
+  var audio = null;
+  var hintGone = false;
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function fit() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+
+  function makeRings() {
+    rings.length = 0;
+    let cx = W * 0.56, cy = H * 0.44;
+    let base = Math.min(W, H);
+    for (let i = 0; i < RING_SEEDS.length; i++) {
+      rings.push({
+        cx: cx + rand(-20, 20),
+        cy: cy + rand(-16, 16),
+        r0: base * (0.055 + RING_SEEDS[i] * 0.115),
+        phase: i / RING_SEEDS.length + rand(-0.04, 0.04)
+      });
+    }
+  }
+
+  function makeKoi() {
+    koi.length = 0;
+    let palette = [
+      { base: "#f2efe6", band: "#f2efe6" },
+      { base: "#e2572b", band: "#e2572b" },
+      { base: "#191b1c", band: "#191b1c" },
+      { base: "#f2efe6", band: "#e2572b" },
+      { base: "#191b1c", band: "#f2efe6" },
+      { base: "#e2572b", band: "#f2efe6" },
+      { base: "#f2efe6", band: "#191b1c" }
+    ];
+    for (let i = 0; i < 7; i++) {
+      let x = rand(W * 0.2, W * 0.8);
+      let y = rand(H * 0.2, H * 0.8);
+      let a = rand(0, 6.283);
+      koi.push({
+        x: x, y: y,
+        vx: Math.cos(a) * 0.4, vy: Math.sin(a) * 0.4,
+        ang: a,
+        len: rand(44, 62),
+        wdt: 0,
+        tailPhase: rand(0, 6.283),
+        tailSpeed: rand(0.0045, 0.006),
+        col: palette[i % palette.length],
+        bandCol: palette[i].band,
+        bandFrac: i % 7 === 4 ? 0.62 : 0.34,
+        tx: x, ty: y,
+        repickAt: T + rand(6000, 14000),
+        wob: rand(0, 6.283),
+        wobF: rand(0.0004, 0.0008),
+        speed: rand(0.055, 0.075)
+      });
+      koi[i].wdt = koi[i].len * rand(0.30, 0.38);
+    }
+  }
+
+  function pickTarget(k) {
+    k.tx = rand(W * 0.14, W * 0.86);
+    k.ty = rand(H * 0.14, H * 0.86);
+    k.repickAt = T + rand(6000, 14000);
+  }
+
+  function plink() {
+    try {
+      if (!audio) {
+        let AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        audio = new AC();
+      }
+      if (audio.state === "suspended") audio.resume();
+      let t0 = audio.currentTime;
+      let o1 = audio.createOscillator();
+      let g1 = audio.createGain();
+      o1.type = "sine";
+      o1.frequency.setValueAtTime(1180, t0);
+      o1.frequency.exponentialRampToValueAtTime(640, t0 + 0.14);
+      g1.gain.setValueAtTime(0.0001, t0);
+      g1.gain.exponentialRampToValueAtTime(0.05, t0 + 0.012);
+      g1.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+      o1.connect(g1);
+      g1.connect(audio.destination);
+      o1.start(t0);
+      o1.stop(t0 + 0.26);
+    } catch (e) { /* audio optional */ }
+  }
+
+  function feed(x, y) {
+    feedPoint = { x: x, y: y, until: T + 9000 };
+    for (let i = 0; i < 8; i++) {
+      flakes.push({
+        x: x + rand(-14, 14),
+        y: y + rand(-10, 4),
+        vy: rand(0.012, 0.03),
+        vx: rand(-0.004, 0.004),
+        a: 1,
+        s: rand(1.4, 2.6),
+        drift: rand(0, 6.283)
+      });
+    }
+    rings.push({ cx: x, cy: y, r0: 4, phase: 1, born: T });
+    if (!hintGone) {
+      hintGone = true;
+      hintEl.style.opacity = "0";
+    }
+    plink();
+  }
+
+  function step(dt) {
+    T += dt;
+    for (let i = flakes.length - 1; i >= 0; i--) {
+      let f = flakes[i];
+      f.drift += dt * 0.003;
+      f.x += f.vx * dt + Math.sin(f.drift) * 0.06;
+      f.y += f.vy * dt;
+      f.a -= dt * 0.00016;
+      if (f.a <= 0 || f.y > H + 8) flakes.splice(i, 1);
+    }
+    if (feedPoint && T > feedPoint.until) feedPoint = null;
+
+    for (let i = 0; i < koi.length; i++) {
+      let k = koi[i];
+      k.tailPhase += k.tailSpeed * dt;
+      k.wob += k.wobF * dt;
+
+      let dx = k.tx - k.x, dy = k.ty - k.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 26 || T > k.repickAt) pickTarget(k);
+
+      let ax = 0, ay = 0;
+      if (dist > 1) {
+        ax += (dx / dist) * 0.00035;
+        ay += (dy / dist) * 0.00035;
+      }
+      let m = 64;
+      if (k.x < m) ax += (m - k.x) * 0.000016;
+      if (k.x > W - m) ax -= (k.x - (W - m)) * 0.000016;
+      if (k.y < m) ay += (m - k.y) * 0.000016;
+      if (k.y > H - m) ay -= (k.y - (H - m)) * 0.000016;
+      ax += Math.cos(k.wob * 2.1) * 0.00004;
+      ay += Math.sin(k.wob * 1.7) * 0.00004;
+
+      if (feedPoint) {
+        let fx = feedPoint.x - k.x, fy = feedPoint.y - k.y;
+        let fd = Math.sqrt(fx * fx + fy * fy);
+        if (fd < 120 && fd > 1) {
+          let g = 0.0009 * (1 - fd / 120) + 0.00015;
+          ax += (fx / fd) * g;
+          ay += (fy / fd) * g;
+        }
+      }
+      for (let j = 0; j < koi.length; j++) {
+        if (j === i) continue;
+        let o = koi[j];
+        let sx = k.x - o.x, sy = k.y - o.y;
+        let sd = Math.sqrt(sx * sx + sy * sy);
+        if (sd < 34 && sd > 0.1) {
+          let push = (34 - sd) / 34 * 0.0004;
+          ax += (sx / sd) * push;
+          ay += (sy / sd) * push;
+        }
+      }
+
+      k.vx += ax * dt;
+      k.vy += ay * dt;
+      let sp = Math.sqrt(k.vx * k.vx + k.vy * k.vy);
+      let maxS = 0.16;
+      if (sp > maxS) { k.vx = k.vx / sp * maxS; k.vy = k.vy / sp * maxS; sp = maxS; }
+      if (sp < 0.015) { k.vx += rand(-0.004, 0.004); k.vy += rand(-0.004, 0.004); }
+      k.x += k.vx * dt;
+      k.y += k.vy * dt;
+      if (k.x < 8) k.x = 8;
+      if (k.x > W - 8) k.x = W - 8;
+      if (k.y < 8) k.y = 8;
+      if (k.y > H - 8) k.y = H - 8;
+      if (sp > 0.02) k.ang = Math.atan2(k.vy, k.vx);
+    }
+  }
+
+  function drawBg() {
+    let g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#0e2a2f");
+    g.addColorStop(1, "#071a1e");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    let cx = W * 0.56, cy = H * 0.40;
+    let rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.75);
+    rg.addColorStop(0, "rgba(242,239,230,0.05)");
+    rg.addColorStop(1, "rgba(242,239,230,0)");
+    ctx.fillStyle = rg;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawRings() {
+    let base = Math.min(W, H);
+    for (let i = 0; i < rings.length; i++) {
+      let r = rings[i];
+      let grow = ((T * 0.000028 + r.phase) % 1);
+      let radius = r.r0 + grow * base * 0.30;
+      let alpha = (1 - grow) * 0.16;
+      if (alpha <= 0.004) continue;
+      ctx.strokeStyle = "rgba(180, 226, 224, " + alpha.toFixed(3) + ")";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(r.cx, r.cy, radius, radius * 0.92, 0, 0, 6.28318);
+      ctx.stroke();
+      ctx.lineWidth = 0.6;
+      let r2 = radius * 0.66;
+      ctx.strokeStyle = "rgba(180, 226, 224, " + (alpha * 0.6).toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.ellipse(r.cx, r.cy, r2, r2 * 0.92, 0, 0, 6.28318);
+      ctx.stroke();
+    }
+    for (let i = 0; i < rings.length; i++) {
+      if (rings[i].born === undefined) continue;
+      let f = (T - rings[i].born) / 900;
+      if (f >= 1) { rings.splice(i, 1); continue; }
+      let rr = rings[i].r0 + f * 34;
+      ctx.strokeStyle = "rgba(242, 239, 230, " + ((1 - f) * 0.35).toFixed(3) + ")";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.ellipse(rings[i].cx, rings[i].cy, rr, rr * 0.9, 0, 0, 6.28318);
+      ctx.stroke();
+    }
+  }
+
+  function drawFlakes() {
+    for (let i = 0; i < flakes.length; i++) {
+      let f = flakes[i];
+      ctx.fillStyle = "rgba(232, 214, 160, " + Math.max(0, f.a).toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, f.s, f.s * 0.62, f.drift, 0, 6.28318);
+      ctx.fill();
+    }
+  }
+
+  function capsule(k) {
+    let L = k.len, Wd = k.wdt;
+    ctx.beginPath();
+    ctx.moveTo(L * 0.5, 0);
+    ctx.bezierCurveTo(L * 0.34, Wd * 0.55, -L * 0.18, Wd * 0.52, -L * 0.40, Wd * 0.30);
+    ctx.bezierCurveTo(-L * 0.50, Wd * 0.16, -L * 0.50, -Wd * 0.16, -L * 0.40, -Wd * 0.30);
+    ctx.bezierCurveTo(-L * 0.18, -Wd * 0.52, L * 0.34, -Wd * 0.55, L * 0.5, 0);
+    ctx.closePath();
+  }
+
+  function drawKoi(k) {
+    let flap = Math.sin(k.tailPhase);
+    ctx.save();
+    ctx.translate(k.x, k.y);
+    ctx.rotate(k.ang);
+
+    let L = k.len, Wd = k.wdt;
+    let backX = -L * 0.42;
+
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(242,239,230,0.28)";
+    ctx.beginPath();
+    ctx.moveTo(backX, 0);
+    ctx.quadraticCurveTo(backX - L * 0.20, flap * Wd * 0.55 - Wd * 0.10, backX - L * 0.34, flap * Wd * 0.85 - Wd * 0.34);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(backX, 0);
+    ctx.quadraticCurveTo(backX - L * 0.20, flap * Wd * 0.55 + Wd * 0.10, backX - L * 0.34, flap * Wd * 0.85 + Wd * 0.34);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(242,239,230,0.16)";
+    ctx.beginPath();
+    ctx.moveTo(backX - L * 0.05, 0);
+    ctx.quadraticCurveTo(backX - L * 0.24, flap * Wd * 0.4, backX - L * 0.40, flap * Wd * 0.62);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(10, 22, 25, 0.5)";
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.ellipse(L * 0.16, -Wd * 0.62, L * 0.05, L * 0.13, 0.5 + flap * 0.25, 0, 6.28318);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(L * 0.16, Wd * 0.62, L * 0.05, L * 0.13, -0.5 - flap * 0.25, 0, 6.28318);
+    ctx.stroke();
+
+    ctx.fillStyle = k.col.base;
+    capsule(k);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.14)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    if (k.col.base !== k.bandCol) {
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = k.bandCol;
+      ctx.beginPath();
+      ctx.ellipse(-L * 0.05, 0, L * k.bandFrac * 0.62, Wd * 1.05, -0.22, 0, 6.28318);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(L * 0.26, 0, L * 0.16, Wd * 0.72, 0.1, 0, 6.28318);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    let eyeC = k.col.base === "#191b1c" ? "rgba(242,239,230,0.85)" : "rgba(15,20,22,0.85)";
+    ctx.fillStyle = eyeC;
+    ctx.beginPath();
+    ctx.arc(L * 0.335, -Wd * 0.17, 1.5, 0, 6.28318);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(L * 0.335, Wd * 0.17, 1.5, 0, 6.28318);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawShadowPass() {
+    let g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.62);
+    g.addColorStop(0, "rgba(3, 8, 10, 0)");
+    g.addColorStop(1, "rgba(3, 8, 10, 0.42)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function render() {
+    drawBg();
+    drawRings();
+    for (let i = 0; i < koi.length; i++) drawKoi(koi[i]);
+    drawFlakes();
+    if (feedPoint) {
+      let p = feedPoint;
+      let a = 0.25 + 0.15 * Math.sin(T * 0.006);
+      ctx.strokeStyle = "rgba(232, 214, 160, " + a.toFixed(3) + ")";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 5]);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 26 + Math.sin(T * 0.004) * 3, 0, 6.28318);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    drawShadowPass();
+  }
+
+  let last = 0;
+  function frame(t) {
+    requestAnimationFrame(frame);
+    try {
+      let dt = last ? Math.min(48, t - last) : 16.7;
+      last = t;
+      step(dt);
+      render();
+    } catch (err) {
+      /* frame guard */
+    }
+  }
+
+  window.addEventListener("resize", function () {
+    fit();
+    makeRings();
+    for (let i = 0; i < koi.length; i++) {
+      if (koi[i].x > W) koi[i].x = W - 30;
+      if (koi[i].y > H) koi[i].y = H - 30;
+    }
+  });
+  canvas.addEventListener("pointerdown", function (e) {
+    feed(e.clientX, e.clientY);
+  });
+
+  fit();
+  makeRings();
+  makeKoi();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

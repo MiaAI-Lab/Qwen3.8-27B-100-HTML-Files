@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starfield / Warp-9</title>
+<style>
+  :root{
+    --ink:#dfe4ff;
+    --dim:#8891b8;
+    --line:#2a3050;
+    --bg:#05060f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    overflow:hidden;
+    height:100dvh;
+    display:flex;
+    flex-direction:column;
+  }
+  #stage{
+    position:relative;
+    flex:1 1 auto;
+    min-height:0;
+  }
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+  .hud{
+    position:absolute;
+    top:clamp(10px,2vw,22px);
+    left:clamp(10px,2vw,22px);
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:clamp(10px,1.4vw,13px);
+    letter-spacing:.14em;
+    color:var(--dim);
+    pointer-events:none;
+    user-select:none;
+    line-height:1.9;
+  }
+  .hud b{color:var(--ink);font-weight:600}
+  .hud .vel{font-size:clamp(15px,2.4vw,22px);color:#ffd9a0;letter-spacing:.1em}
+  .caption{
+    position:absolute;
+    top:clamp(10px,2vw,22px);
+    right:clamp(10px,2vw,22px);
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:clamp(10px,1.3vw,13px);
+    letter-spacing:.34em;
+    color:var(--dim);
+    text-transform:uppercase;
+    pointer-events:none;
+    user-select:none;
+    text-align:right;
+    line-height:1.8;
+  }
+  .caption .mark{color:#7fa8ff}
+  .deck{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    gap:clamp(10px,2vw,24px);
+    padding:clamp(10px,1.8vw,18px) clamp(12px,3vw,28px);
+    background:#0a0c1c;
+    border-top:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .ctl{display:flex;align-items:center;gap:12px}
+  .ctl label{
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:11px;
+    letter-spacing:.28em;
+    color:var(--dim);
+    text-transform:uppercase;
+  }
+  .ctl output{
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:11px;
+    letter-spacing:.1em;
+    color:var(--ink);
+    min-width:3.4em;
+    text-align:right;
+  }
+  input[type=range]{
+    -webkit-appearance:none;
+    appearance:none;
+    width:clamp(120px,24vw,260px);
+    height:26px;
+    background:transparent;
+    cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:2px;background:var(--line);
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:14px;height:14px;margin-top:-6px;
+    background:#ffd9a0;border-radius:50%;
+    border:2px solid #05060f;
+    box-shadow:0 0 10px rgba(255,217,160,.55);
+  }
+  input[type=range]::-moz-range-track{height:2px;background:var(--line)}
+  input[type=range]::-moz-range-thumb{
+    width:14px;height:14px;border-radius:50%;
+    background:#ffd9a0;border:2px solid #05060f;
+    box-shadow:0 0 10px rgba(255,217,160,.55);
+  }
+  button#event{
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:11px;
+    letter-spacing:.3em;
+    text-transform:uppercase;
+    color:#ffd9a0;
+    background:transparent;
+    border:1px solid #3a4068;
+    padding:10px 18px 10px 20px;
+    cursor:pointer;
+    transition:background .18s ease,color .18s ease,box-shadow .18s ease;
+  }
+  button#event:hover{
+    background:#ffd9a0;
+    color:#05060f;
+    box-shadow:0 0 18px rgba(255,217,160,.5);
+  }
+  button#event:active{transform:translateY(1px)}
+  @media (max-width:480px){
+    .deck{gap:10px}
+    .hud{line-height:1.7}
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="sky"></canvas>
+    <div class="hud">
+      <div>WARP DRIVE</div>
+      <div class="vel">VELOCITY <span id="vel">0.00</span>C</div>
+      <div id="mode">MODE · DRIFT</div>
+    </div>
+    <div class="caption">
+      STARFIELD <span class="mark">/</span> WARP-9<br>
+      900 STARS · 3 TIERS
+    </div>
+  </div>
+  <div class="deck">
+    <div class="ctl">
+      <label for="warp">Warp</label>
+      <input id="warp" type="range" min="0" max="100" value="35">
+      <output id="warpOut">0.35</output>
+    </div>
+    <button id="event" type="button">Event Horizon</button>
+  </div>
+<script>
+(function(){
+  "use strict";
+  var canvas = document.getElementById("sky");
+  var ctx = canvas.getContext("2d");
+  var velEl = document.getElementById("vel");
+  var modeEl = document.getElementById("mode");
+  var warpInput = document.getElementById("warp");
+  var warpOut = document.getElementById("warpOut");
+  var eventBtn = document.getElementById("event");
+
+  var W = 0, H = 0, DPR = 1;
+  var CX = 0, CY = 0;
+
+  var STAR_COUNT = 900;
+  var stars = [];
+
+  var warp = 0.35;
+  var pointer = { x: 0, y: 0, active: false };
+  var focus = { x: 0, y: 0 };
+  var flash = 0;
+  var eventT = -1; // -1 idle, else 0..1 progress of event horizon
+
+  var TIERS = [
+    { color: "255,255,255",  w: 0.55 },
+    { color: "255,217,160",  w: 0.28 },
+    { color: "127,168,255",  w: 0.17 }
+  ];
+
+  function fit(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    var rect = canvas.parentElement.getBoundingClientRect();
+    W = Math.max(1, Math.round(rect.width));
+    H = Math.max(1, Math.round(rect.height));
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    CX = W / 2;
+    CY = H / 2;
+    focus.x = CX;
+    focus.y = CY;
+  }
+
+  function tierFor(r){
+    var roll = r;
+    for (var i = 0; i < TIERS.length; i++){
+      roll -= TIERS[i].w;
+      if (roll <= 0) return i;
+    }
+    return 0;
+  }
+
+  function spawnStar(s, outside){
+    s.x = (Math.random() - 0.5) * 2;
+    s.y = (Math.random() - 0.5) * 2;
+    s.z = outside ? 1 + Math.random() * 1.5 : Math.random();
+    s.tier = tierFor(Math.random());
+    s.px = null;
+    s.py = null;
+  }
+
+  function seedStars(){
+    stars.length = 0;
+    for (var i = 0; i < STAR_COUNT; i++){
+      var s = {};
+      spawnStar(s, false);
+      stars.push(s);
+    }
+  }
+
+  function nebula(){
+    var g1 = ctx.createRadialGradient(CX - W * 0.28, CY - H * 0.3, 0, CX - W * 0.28, CY - H * 0.3, W * 0.75);
+    g1.addColorStop(0, "rgba(46,32,96,0.55)");
+    g1.addColorStop(0.55, "rgba(24,18,58,0.28)");
+    g1.addColorStop(1, "rgba(5,6,15,0)");
+    ctx.fillStyle = g1;
+    ctx.fillRect(0, 0, W, H);
+
+    var g2 = ctx.createRadialGradient(CX + W * 0.34, CY + H * 0.32, 0, CX + W * 0.34, CY + H * 0.32, W * 0.65);
+    g2.addColorStop(0, "rgba(96,44,52,0.38)");
+    g2.addColorStop(0.5, "rgba(58,26,60,0.2)");
+    g2.addColorStop(1, "rgba(5,6,15,0)");
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function speed(){
+    var base = 0.0025 + warp * warp * 0.075;
+    if (eventT >= 0){
+      var p = eventT;
+      // surge inward hard mid-event, then stars respawn far out
+      base += Math.sin(p * Math.PI) * 0.09;
+    }
+    return base;
+  }
+
+  function update(){
+    var sp = speed();
+    var fx = focus.x;
+    var fy = focus.y;
+
+    for (var i = 0; i < STAR_COUNT; i++){
+      var s = stars[i];
+      s.px = s.x;
+      s.py = s.y;
+
+      // ease toward center, keep radial direction, advance in z
+      s.x -= s.x * sp;
+      s.y -= s.y * sp;
+      s.z -= sp * (0.35 + warp * 1.3);
+
+      // during event, suck stars to focus then respawn outside
+      if (eventT >= 0 && eventT > 0.55 && s.z <= 0.02){
+        spawnStar(s, true);
+      } else if (s.z <= 0){
+        spawnStar(s, false);
+        s.px = null;
+        s.py = null;
+      }
+    }
+
+    if (eventT >= 0){
+      eventT += 0.012;
+      if (eventT >= 1.35){
+        eventT = -1;
+        flash = Math.min(1, flash + 0.15);
+      }
+    }
+    if (flash > 0){
+      flash -= 0.035;
+      if (flash < 0) flash = 0;
+    }
+  }
+
+  function draw(){
+    ctx.fillStyle = "#05060f";
+    ctx.fillRect(0, 0, W, H);
+    nebula();
+
+    var sp = speed();
+    var streak = warp; // 0..1 mix for line drawing
+    var fx = focus.x;
+    var fy = focus.y;
+
+    for (var i = 0; i < STAR_COUNT; i++){
+      var s = stars[i];
+      var inv = 1 / Math.max(0.02, s.z);
+      var sx = (s.x * inv) * (W * 0.5) + fx;
+      var sy = (s.y * inv) * (H * 0.5) + fy;
+
+      if (sx < -60 || sx > W + 60 || sy < -60 || sy > H + 60){
+        // off screen: keep previous projection for streak continuity
+        s.px = null;
+        s.py = null;
+        continue;
+      }
+
+      var t = 1 - s.z;
+      var size = 0.5 + t * 2.4;
+      var tier = TIERS[s.tier];
+
+      if (s.px !== null && (streak > 0.04 || sp > 0.02)){
+        var px = (s.px * inv) * (W * 0.5) + fx;
+        var py = (s.py * inv) * (H * 0.5) + fy;
+        var dx = sx - px;
+        var dy = sy - py;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 1.5 && dist < W * 1.2){
+          ctx.strokeStyle = "rgba(" + tier.color + "," + (0.25 + streak * 0.75 * t).toFixed(3) + ")";
+          ctx.lineWidth = size * 0.8;
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(sx, sy);
+          ctx.stroke();
+        }
+      }
+
+      var glow = 0.35 + t * 0.65;
+      ctx.fillStyle = "rgba(" + tier.color + "," + glow.toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.arc(sx, sy, size, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (t > 0.85 && streak > 0.3){
+        ctx.fillStyle = "rgba(255,255,255," + ((t - 0.85) * 2.2).toFixed(3) + ")";
+        ctx.beginPath();
+        ctx.arc(sx, sy, size * 1.7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    if (flash > 0){
+      ctx.fillStyle = "rgba(255,255,255," + (flash * 0.9).toFixed(3) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // vignette
+    var vg = ctx.createRadialGradient(fx, fy, Math.min(W, H) * 0.35, fx, fy, Math.max(W, H) * 0.75);
+    vg.addColorStop(0, "rgba(5,6,15,0)");
+    vg.addColorStop(1, "rgba(5,6,15,0.55)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function hud(){
+    var vel = 0.05 + warp * warp * 2.2;
+    if (eventT >= 0) vel += Math.sin(Math.min(1, eventT) * Math.PI) * 1.4;
+    velEl.textContent = vel.toFixed(2);
+    warpOut.textContent = warp.toFixed(2);
+    modeEl.textContent = eventT >= 0 ? "MODE · EVENT HORIZON" : (warp > 0.8 ? "MODE · STREAK" : "MODE · DRIFT");
+  }
+
+  var running = true;
+  function frame(){
+    if (!running) return;
+    try {
+      // ease focus toward pointer when active, else drift home
+      if (pointer.active){
+        focus.x += (pointer.x - focus.x) * 0.06;
+        focus.y += (pointer.y - focus.y) * 0.06;
+      } else {
+        focus.x += (CX - focus.x) * 0.02;
+        focus.y += (CY - focus.y) * 0.02;
+      }
+      update();
+      draw();
+      hud();
+    } catch (e) {
+      // guard: never let a frame kill the loop
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function onPointer(e){
+    var rect = canvas.getBoundingClientRect();
+    pointer.x = e.clientX - rect.left;
+    pointer.y = e.clientY - rect.top;
+    pointer.active = true;
+  }
+  function onPointerLeave(){
+    pointer.active = false;
+  }
+
+  canvas.addEventListener("pointermove", onPointer);
+  canvas.addEventListener("pointerdown", onPointer);
+  canvas.addEventListener("pointerleave", onPointerLeave);
+
+  warpInput.addEventListener("input", function(){
+    warp = parseInt(warpInput.value, 10) / 100;
+  });
+
+  eventBtn.addEventListener("click", function(){
+    if (eventT < 0){
+      eventT = 0;
+      flash = 0.9;
+    }
+  });
+
+  window.addEventListener("resize", fit);
+
+  fit();
+  seedStars();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

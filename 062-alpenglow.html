@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>062 Alpenglow - Ridge 5</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: #14101d;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .scene {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    background: linear-gradient(180deg, var(--sky-top, #7a5fd8) 0%, var(--sky-mid, #b48bc4) 55%, var(--sky-bot, #ffd9a8) 100%);
+    transition: background 0.05s linear;
+  }
+  .scene svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .glowdisc {
+    position: absolute;
+    left: 50%;
+    top: var(--sun-y, 30%);
+    width: clamp(160px, 30vw, 340px);
+    height: clamp(160px, 30vw, 340px);
+    margin-left: calc(clamp(160px, 30vw, 340px) / -2);
+    margin-top: calc(clamp(160px, 30vw, 340px) / -2);
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--sun-c, #fff3d6) 0%, rgba(255,243,214,0) 62%);
+    opacity: var(--sun-o, 0.9);
+    pointer-events: none;
+  }
+  .hud {
+    position: absolute;
+    top: clamp(12px, 2.4vh, 24px);
+    left: 0; right: 0;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .hud .tag {
+    font-size: clamp(10px, 1.5vw, 13px);
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: #fff;
+    text-shadow: 0 1px 12px rgba(20,10,40,0.8);
+    opacity: 0.92;
+  }
+  .dock {
+    flex: none;
+    width: 100%;
+    background: linear-gradient(180deg, rgba(16,12,26,0) 0%, rgba(16,12,26,0.92) 34%, #100c1a 100%);
+    padding: clamp(18px, 3.4vh, 30px) clamp(14px, 5vw, 56px) clamp(16px, 3vh, 26px);
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 2.6vw, 26px);
+  }
+  .dlabel {
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #9d8fb8;
+    min-width: 44px;
+    text-align: center;
+  }
+  .sunrange {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #ffd9a8 0%, #e8a0b8 38%, #7a5fd8 72%, #2a2a5e 100%);
+    outline: none;
+    cursor: pointer;
+  }
+  .sunrange::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff8e6, #ffcf8a 58%, #e8a054);
+    border: 2px solid rgba(255,255,255,0.75);
+    box-shadow: 0 0 18px rgba(255,205,130,0.9), 0 0 44px rgba(255,170,110,0.5);
+  }
+  .sunrange::-moz-range-thumb {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff8e6, #ffcf8a 58%, #e8a054);
+    border: 2px solid rgba(255,255,255,0.75);
+    box-shadow: 0 0 18px rgba(255,205,130,0.9);
+  }
+  .readout {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: clamp(13px, 2vw, 17px);
+    letter-spacing: 0.18em;
+    color: #ffd9a8;
+    min-width: 118px;
+    text-align: center;
+    text-shadow: 0 0 14px rgba(255,180,110,0.55);
+  }
+</style>
+</head>
+<body>
+  <div class="scene" id="scene">
+    <div class="glowdisc" id="sun"></div>
+    <svg id="sky" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMax slice" aria-label="Five alpine ridges at sunset">
+      <g id="stars"></g>
+      <g id="fog"></g>
+      <path id="r4" fill="#2a1e3a"></path>
+      <path id="r3" fill="#3b2b52"></path>
+      <path id="r2" fill="#4d3a68"></path>
+      <path id="r1" fill="#8f5f86"></path>
+      <path id="r0" fill="#d8a0c0"></path>
+      <g id="caps"><path id="cap1" fill="#ffc9dc" opacity="0.8"></path><path id="cap0" fill="#ffdcea" opacity="0.85"></path></g>
+      <path id="hawk" fill="#1a1226" opacity="0.85" d="M-16 0 Q-7 -7 0 -1.5 Q7 -7 16 0 Q7 2.5 0 1.2 Q-7 2.5 -16 0 Z"></path>
+    </svg>
+    <div class="hud"><span class="tag">Alpenglow &mdash; Ridge 5</span></div>
+  </div>
+  <div class="dock">
+    <span class="dlabel">Dawn</span>
+    <input type="range" class="sunrange" id="sunc" min="0" max="1000" value="240" aria-label="Time of day">
+    <span class="dlabel">Dusk</span>
+    <span class="readout" id="read">06:34</span>
+  </div>
+<script>
+(function () {
+  "use strict";
+  var VBW = 1000, VBH = 600;
+  var scene = document.getElementById("scene");
+  var sun = document.getElementById("sun");
+  var read = document.getElementById("read");
+  var sunc = document.getElementById("sunc");
+  var stars = document.getElementById("stars");
+  var fog = document.getElementById("fog");
+  var ridgeEls = [], capEls = [], fogEls = [];
+  var layerY = [];
+
+  function mulberry(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  function mixc(c1, c2, t) {
+    return [ lerp(c1[0], c2[0], t) | 0, lerp(c1[1], c2[1], t) | 0, lerp(c1[2], c2[2], t) | 0 ];
+  }
+  function rgb(c) { return "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")"; }
+
+  var rng = mulberry(78231);
+  var LAYERS = 5;
+  for (var i = 0; i < LAYERS; i++) {
+    var base = 176 + i * 74;
+    var amp = 16 + i * 15;
+    var f1 = 0.004 + rng() * 0.002, f2 = 0.011 + rng() * 0.005, p1 = rng() * 6.28, p2 = rng() * 6.28;
+    var step = 10, pts = [];
+    for (var x = 0; x <= VBW; x += step) {
+      var sm = Math.sin(x * f1 + p1) * 0.62 + Math.sin(x * f2 + p2) * 0.38;
+      var jag = Math.round((rng() - 0.5) * 1.6) * (amp * 0.16);
+      pts.push([x, base + sm * amp + jag]);
+    }
+    layerY.push(pts);
+    var d = "M0 " + VBH + " L0 " + pts[0][1].toFixed(1);
+    for (var k = 1; k < pts.length; k++) d += " L" + pts[k][0] + " " + pts[k][1].toFixed(1);
+    d += " L" + VBW + " " + VBH + " Z";
+    var el = document.getElementById("r" + i);
+    el.setAttribute("d", d);
+    ridgeEls.push(el);
+  }
+
+  /* snow caps on the two far ridges (indices 4,3 => path r0,r1 far-to-near mapping: r0 is far) */
+  function capPath(pts, idx) {
+    var out = "";
+    for (var k = 2; k < pts.length - 2; k++) {
+      var p = pts[k], pl = pts[k - 1], pr = pts[k + 1];
+      if (p[1] < pl[1] && p[1] < pr[1] && p[1] < 320) {
+        var w = 14 + idx * 0;
+        out += " M" + (p[0] - w).toFixed(1) + " " + (p[1] - 1).toFixed(1) +
+               " L" + p[0].toFixed(1) + " " + p[1].toFixed(1) +
+               " L" + (p[0] + w).toFixed(1) + " " + (p[1] + 2).toFixed(1) +
+               " Q" + p[0].toFixed(1) + " " + (p[1] + 9).toFixed(1) + " " + (p[0] - w).toFixed(1) + " " + (p[1] - 1).toFixed(1) + " Z";
+      }
+    }
+    return out;
+  }
+  document.getElementById("cap0").setAttribute("d", capPath(layerY[0], 0));
+  document.getElementById("cap1").setAttribute("d", capPath(layerY[1], 1));
+  capEls.push(document.getElementById("cap0"), document.getElementById("cap1"));
+
+  /* 120 stars */
+  var sstr = "";
+  for (var s = 0; s < 120; s++) {
+    var sx = (rng() * VBW).toFixed(1), sy = (rng() * 250 + 8).toFixed(1);
+    var sr = (rng() * 0.9 + 0.45).toFixed(2), sa = (rng() * 0.7 + 0.3).toFixed(2);
+    sstr += '<circle cx="' + sx + '" cy="' + sy + '" r="' + sr + '" fill="#fff" opacity="' + sa + '"></circle>';
+  }
+  stars.innerHTML = sstr;
+
+  /* fog bands between ridges */
+  var fstr = "";
+  for (var f = 0; f < 4; f++) {
+    var fy = 214 + f * 74;
+    fstr += '<ellipse id="fg' + f + '" cx="' + ((f * 260 + 90) % VBW) + '" cy="' + fy + '" rx="' + (250 + f * 34) + '" ry="' + (20 + f * 3) + '" fill="#f2e4ff" opacity="0.10"></ellipse>';
+  }
+  fog.innerHTML = fstr;
+  for (var q = 0; q < 4; q++) fogEls.push(document.getElementById("fg" + q));
+
+  /* palettes per t (0 dawn, .5 noon, 1 dusk) */
+  var SKY = {
+    top: [[122, 95, 216], [110, 168, 235], [42, 42, 94]],
+    mid: [[180, 139, 196], [186, 214, 242], [112, 74, 148]],
+    bot: [[255, 217, 168], [255, 236, 206], [255, 138, 94]]
+  };
+  var RIDGE = {
+    far: [[216, 160, 192], [168, 132, 172], [150, 100, 150]],
+    near: [[58, 44, 84], [42, 30, 58], [26, 18, 38]]
+  };
+  var GLOWPINK = [255, 201, 220];
+  var BLUESHAD = [38, 40, 96];
+
+  function palKey(arr3, t) {
+    var c;
+    if (t < 0.5) c = mixc(arr3[0], arr3[1], t / 0.5);
+    else c = mixc(arr3[1], arr3[2], (t - 0.5) / 0.5);
+    return c;
+  }
+
+  var t = 0.24;
+  var hawkA = 0.6, last = performance.now();
+  var hawk = document.getElementById("hawk");
+
+  function apply(tn) {
+    var top = palKey(SKY.top, tn), mid = palKey(SKY.mid, tn), bot = palKey(SKY.bot, tn);
+    scene.style.setProperty("--sky-top", rgb(top));
+    scene.style.setProperty("--sky-mid", rgb(mid));
+    scene.style.setProperty("--sky-bot", rgb(bot));
+    var elev = Math.sin(Math.PI * tn);
+    var low = 1 - elev;
+    var sunx = 88 + tn * 824;
+    sun.style.left = (sunx / VBW * 100).toFixed(2) + "%";
+    sun.style.top = (58 - elev * 40) + "%";
+    var suno = 0.25 + low * 0.65;
+    sun.style.setProperty("--sun-o", suno.toFixed(3));
+    var warm = tn < 0.5 ? tn / 0.5 : 1 - (tn - 0.5) / 0.5;
+    sun.style.setProperty("--sun-c", rgb(mixc([255, 150, 100], [255, 244, 220], warm * 0.9 + 0.1)));
+    for (var i = 0; i < LAYERS; i++) {
+      var f = i / (LAYERS - 1);
+      var c = mixc(palKey(RIDGE.far, tn), palKey(RIDGE.near, tn), f);
+      if (i < 3) c = mixc(c, GLOWPINK, low * 0.5 * (1 - i * 0.34));
+      else c = mixc(c, BLUESHAD, elev * 0.42 * (i - 1) * 0.5);
+      ridgeEls[i].setAttribute("fill", rgb(c));
+    }
+    for (var c2 = 0; c2 < capEls.length; c2++) {
+      capEls[c2].setAttribute("opacity", (0.25 + low * 0.7).toFixed(3));
+    }
+    var dusk = clamp01((tn - 0.7) / 0.3);
+    stars.setAttribute("opacity", dusk.toFixed(3));
+    var fop = 0.05 + low * 0.1;
+    for (var g = 0; g < fogEls.length; g++) fogEls[g].setAttribute("opacity", fop.toFixed(3));
+    var mins = Math.round(lerp(5 * 60 + 20, 20 * 60 + 40, tn));
+    var hh = (mins / 60) | 0, mm = mins % 60;
+    read.textContent = (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
+  }
+
+  function frame(now) {
+    try {
+      var dt = Math.min((now - last) / 1000, 0.06);
+      last = now;
+      apply(t);
+      for (var f = 0; f < fogEls.length; f++) {
+        var el = fogEls[f];
+        var cx = parseFloat(el.getAttribute("cx")) + dt * (10 + f * 7);
+        if (cx > VBW + 300) cx = -300;
+        el.setAttribute("cx", cx.toFixed(1));
+      }
+      hawkA += dt * 0.14;
+      var midY = 356;
+      var hx = 500 + Math.cos(hawkA) * 150;
+      var hy = midY - 96 + Math.sin(hawkA * 2) * 16;
+      var dir = Math.cos(hawkA + Math.PI / 2) >= 0 ? 1 : -1;
+      hawk.setAttribute("transform", "translate(" + hx.toFixed(1) + " " + hy.toFixed(1) + ") scale(" + dir.toFixed(1) + ",1)");
+    } catch (e) { /* guard */ }
+    window.requestAnimationFrame(frame);
+  }
+
+  sunc.addEventListener("input", function () { t = parseInt(sunc.value, 10) / 1000; });
+  apply(t);
+  window.requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

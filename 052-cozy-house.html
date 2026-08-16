@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>052 — The House at Maple 12</title>
+<style>
+  :root{
+    --ink:#e9edf7; --dim:#8b93ad; --accent:#ffd27a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden}
+  body{
+    background:#0d1226;
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    color:var(--ink);
+    display:flex;flex-direction:column;
+    height:100dvh;
+  }
+  #stage{position:relative;flex:1;min-height:0}
+  canvas{display:block;width:100%;height:100%}
+  #hud{
+    position:absolute;top:clamp(10px,2vw,22px);left:clamp(10px,2vw,22px);
+    display:flex;gap:14px;align-items:center;flex-wrap:wrap;
+    background:rgba(13,18,38,.55);
+    border:1px solid rgba(233,237,247,.12);
+    border-radius:10px;
+    padding:10px 14px;
+    backdrop-filter:blur(6px);
+  }
+  #hud label{
+    font-size:10px;letter-spacing:.22em;color:var(--dim);
+    text-transform:uppercase;display:flex;align-items:center;gap:8px;
+  }
+  #time{
+    -webkit-appearance:none;appearance:none;
+    width:clamp(90px,18vw,180px);height:3px;border-radius:2px;
+    background:linear-gradient(90deg,#5b6a9e,#131a33);
+    outline:none;cursor:pointer;
+  }
+  #time::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:13px;height:13px;border-radius:50%;
+    background:var(--accent);border:2px solid #0d1226;
+    box-shadow:0 0 8px rgba(255,210,122,.6);
+  }
+  #time::-moz-range-thumb{
+    width:13px;height:13px;border-radius:50%;border:2px solid #0d1226;
+    background:var(--accent);box-shadow:0 0 8px rgba(255,210,122,.6);
+  }
+  #phase{font-size:10px;letter-spacing:.18em;color:var(--accent);min-width:74px}
+  #hint{
+    position:absolute;top:clamp(10px,2vw,22px);right:clamp(10px,2vw,22px);
+    font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--dim);opacity:.8;text-align:right;line-height:1.9;
+  }
+  #caption{
+    flex:none;
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px clamp(14px,2.5vw,26px);
+    border-top:1px solid rgba(233,237,247,.1);
+    background:rgba(10,13,24,.9);
+  }
+  #caption .name{
+    font-size:clamp(10px,1.4vw,13px);
+    letter-spacing:.42em;text-transform:uppercase;
+    color:var(--ink);font-weight:600;
+  }
+  #caption .idx{
+    font-size:9px;letter-spacing:.3em;color:var(--dim);
+  }
+  @media (max-width:560px){
+    #hint{display:none}
+    #hud{position:static;margin:10px 10px 0}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hud">
+    <label>Time <input id="time" type="range" min="0" max="1000" value="0"> <span id="phase">DUSK</span></label>
+  </div>
+  <div id="hint">click windows · chimney · tree<br>someone's home</div>
+</div>
+<footer id="caption">
+  <span class="name">The House at Maple&nbsp;12</span>
+  <span class="idx">052 / 100</span>
+</footer>
+<script>
+(function(){
+  "use strict";
+  var cv=document.getElementById("cv");
+  var ctx=cv.getContext("2d");
+  var W=0,H=0,DPR=1;
+
+  var time01=0;            // 0 dusk -> 1 midnight
+  var lastPtrX=-1,lastPtrY=-1;
+
+  function lerp(a,b,t){return a+(b-a)*t;}
+  function mixCol(c1,c2,t){
+    return "rgb("+Math.round(lerp(c1[0],c2[0],t))+","+Math.round(lerp(c1[1],c2[1],t))+","+Math.round(lerp(c1[2],c2[2],t))+")";
+  }
+  var SKY_TOP=[42,53,96], SKY_BOT=[13,18,38];
+  var NIGHT_TOP=[6,9,20], NIGHT_BOT=[9,12,24];
+
+  // ---- geometry helpers -------------------------------------------------
+  var house=null;          // computed each fit
+  var windows=[];          // {pts:[...], on:true, flicker:false}
+  var chimneyPts=[];
+  var treeCrown=null;
+  var treeX=0, treeY=0;
+  var lampX=0, roadY=0, mailboxX=0;
+
+  function ptInPoly(x,y,poly){
+    var inside=false;
+    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+      const xi=poly[i][0], yi=poly[i][1], xj=poly[j][0], yj=poly[j][1];
+      if(((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) inside=!inside;
+    }
+    return inside;
+  }
+
+  function layout(){
+    windows=[];chimneyPts=[];treeCrown=null;
+    const cx=W*0.5, cy=H*0.56;
+    const s=Math.min(W,H)*0.0016*(Math.min(W,H)/560)+0; // noop guard
+    const u=Math.min(W/760,H/560); // uniform scale
+    const w=u*250, d=u*210, h=u*150, roof=u*95;
+    const ox=cx, oy=cy;
+    // isometric-ish: front-left wall faces viewer
+    const A=[ox-w*0.5,oy];                 // bottom-front-left
+    const B=[ox+w*0.32,oy+h*0.28];         // bottom-front-right (depth foreshortened)
+    const C=[ox+w*0.32,oy+h*0.28-h];       // top-front-right
+    const D=[ox-w*0.5,oy-h];               // top-front-left
+    const E=[ox+w*0.32+d*0.42,oy-h*0.12];  // back-right bottom
+    const F=[ox+w*0.32+d*0.42,oy-h*0.12-h*0.92]; // back-right top
+    // front wall
+    house={front:[A,B,C,D], side:[B,E,F,C],
+      roof:[D,C,F,[ox-w*0.5+d*0.42,oy-h-h*0.92]], apex:[ox+w*0.55,oy-h-roof*1.15]};
+    // windows on front wall (two on front, two on side)
+    function quad(p,q,r,s){return [p,q,r,s];}
+    function sub(p1,p2,t0,t1){
+      const ax=lerp(p1[0],p2[0],t0), ay=lerp(p1[1],p2[1],t0);
+      const bx=lerp(p1[0],p2[0],t1), by=lerp(p1[1],p2[1],t1);
+      return [ax,ay,bx,by];
+    }
+    function winOnWall(p1,p2,t0,t1,hf0,hf1,off){
+      const x0=lerp(p1[0],p2[0],t0), x1=lerp(p1[0],p2[0],t1);
+      const yTop0=lerp(lerp(p1[1],C[1],hf0), p1[1],0);
+      // simpler: interpolate between bottom edge p->q and top edge
+      const bx0=lerp(p1[0],p2[0],t0), by0=lerp(p1[1],p2[1],t0);
+      const bx1=lerp(p1[0],p2[0],t1), by1=lerp(p1[1],p2[1],t1);
+      const tx0=lerp(off[0],C[0],hf0), ty0=lerp(off[1],C[1],hf0)-Math.abs(C[1]-off[1])*0; 
+      // use top edge points
+      const tp0=[lerp(p1[0],C[0],t0===0?0:0.0),0];
+      const topA=[lerp(p1[0],D[0],hf0), lerp(p1[1],D[1],hf0)];
+      const topB=[lerp(p1[0],D[0],hf1), lerp(p1[1],D[1],hf1)];
+      const bA=[lerp(p1[0],p2[0],t0), lerp(p1[1],p2[1],t0)];
+      const bB=[lerp(p1[0],p2[0],t1), lerp(p1[1],p2[1],t1)];
+      void x0;void x1;void yTop0;void bx0;void bx1;void by0;void by1;void tx0;void ty0;void topA;void topB;void bA;void bB;void sub;void quad;void tp0;
+      // final: window quad between lower wall line (p1..p2) and upper wall line (D..C)
+      const L0=[lerp(p1[0],p2[0],t0),lerp(p1[1],p2[1],t0)];
+      const L1=[lerp(p1[0],p2[0],t1),lerp(p1[1],p2[1],t1)];
+      const U0=[lerp(off[0],C[0],t0),lerp(off[1],C[1],t0)];
+      const U1=[lerp(off[0],C[0],t1),lerp(off[1],C[1],t1)];
+      return [L0,U1,L1,U0];
+    }
+    // front wall bottom A->B, top D->C
+    windows.push({pts:winOnWall(A,B,0.14,0.36,0.55,0.82,D), on:true, flicker:false});
+    windows.push({pts:winOnWall(A,B,0.52,0.74,0.55,0.82,D), on:true, flicker:true});
+    // side wall bottom B->E, top C->F
+    windows.push({pts:winOnWall(B,E,0.2,0.44,0.5,0.78,F), on:true, flicker:false});
+    windows.push({pts:winOnWall(B,E,0.56,0.8,0.5,0.78,F), on:false, flicker:false});
+    // chimney on roof: small box off the roof
+    const chX=ox+w*0.32+d*0.42-u*46, chBaseY=oy-h*0.12-h*0.92-u*10;
+    chimneyPts=[
+      [chX-u*22,chBaseY-u*30],[chX+u*22,chBaseY-u*30],
+      [chX+u*26,chBaseY+u*8],[chX-u*26,chBaseY+u*8]
+    ];
+    // tree on the left
+    treeX=ox-w*0.85; treeY=oy+u*30;
+    const trR=u*64;
+    treeCrown={x:treeX,y:treeY-trR*0.9,r:trR};
+    // streetlamp right
+    lampX=ox+w*0.95;
+    roadY=oy+u*96;
+    mailboxX=ox-w*0.72;
+    return u;
+  }
+
+  function fit(){
+    DPR=Math.min(window.devicePixelRatio||1,2);
+    const r=cv.parentElement.getBoundingClientRect();
+    W=Math.max(1,r.width); H=Math.max(1,r.height);
+    cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    layout();
+    ensureSnow();
+  }
+  window.addEventListener("resize",fit);
+
+  // ---- snow -------------------------------------------------------------
+  var flakes=[];
+  function ensureSnow(){
+    // keep flake density relative to canvas
+    const target=150;
+    if(flakes.length<target){
+      for(let i=flakes.length;i<target;i++){
+        const layer=i%3;
+        flakes.push({x:Math.random()*W,y:Math.random()*H,
+          layer:layer,
+          r:layer===0?2.2:layer===1?1.4:0.8,
+          sway:Math.random()*Math.PI*2,
+          spd:layer===0?34:layer===1?20:11});
+      }
+    }
+  }
+  function stepSnow(dt,t){
+    // t (time-of-day 0..1) raises snow rate: recycle off-screen flakes faster
+    const rate=1+t*2.2;
+    for(let i=0;i<flakes.length;i++){
+      const f=flakes[i];
+      f.sway+=dt*(0.6+f.layer*0.3);
+      f.y+=f.spd*rate*dt*(0.7+f.layer*0.25);
+      f.x+=Math.sin(f.sway)*14*dt+f.spd*0.18*dt*rate;
+      if(f.y>H+6){f.y=-6;f.x=Math.random()*W;}
+      if(f.x>W+8)f.x=-8; else if(f.x<-8)f.x=W+8;
+    }
+  }
+
+  // ---- smoke ------------------------------------------------------------
+  var puffs=[];
+  function smokeEmitters(){
+    if(house===null)return;
+    for(let i=0;i<chimneyPts.length;i++){
+      void i;
+    }
+  }
+  function spawnPuff(big){
+    if(chimneyPts.length<4)return;
+    const top=[(chimneyPts[0][0]+chimneyPts[1][0])/2,(chimneyPts[0][1]+chimneyPts[1][1])/2];
+    puffs.push({x:top[0]+(Math.random()-0.5)*6,y:top[1],
+      r:big?9:5,life:0,max:big?4.2:2.8,drift:(Math.random()-0.5)*8});
+  }
+  let smokeTimer=0;
+  function stepSmoke(dt,t){
+    smokeTimer-=dt;
+    if(smokeTimer<=0){spawnPuff(false);smokeTimer=lerp(0.9,0.45,t)+Math.random()*0.25;}
+    for(let i=puffs.length-1;i>=0;i--){
+      const p=puffs[i];
+      p.life+=dt;
+      p.y-=dt*16; p.x+=p.drift*dt;
+      p.r+=dt*(p.max>4?3.4:2.2);
+      if(p.life>=p.max)puffs.splice(i,1);
+    }
+  }
+
+  // ---- cat --------------------------------------------------------------
+  var cat={active:false,t:0,nextIn:8,winIndex:0};
+  function stepCat(dt,t){
+    if(cat.active){
+      cat.t+=dt/3.2; // crosses in ~3.2s
+      if(cat.t>=1){cat.active=false;cat.nextIn=24+Math.random()*12;}
+    }else{
+      cat.nextIn-=dt;
+      if(cat.nextIn<=0){
+        // pick a lit window
+        const lit=[];
+        for(let i=0;i<windows.length;i++)if(windows[i].on)lit.push(i);
+        if(lit.length>0){cat.winIndex=lit[Math.floor(Math.random()*lit.length)];cat.active=true;cat.t=0;}
+      }
+    }
+  }
+
+  // ---- tree stars -------------------------------------------------------
+  var treeStars=[];
+  var treeGlow=0;
+  function burstTreeStars(){
+    if(!treeCrown)return;
+    treeGlow=1;
+    for(let i=0;i<7;i++){
+      const a=Math.random()*Math.PI*2, rr=Math.random()*treeCrown.r*0.75;
+      treeStars.push({x:treeCrown.x+Math.cos(a)*rr,y:treeCrown.y+Math.sin(a)*rr*0.8,
+        ph:Math.random()*Math.PI*2,life:0,max:2.4+Math.random()});
+    }
+  }
+  function stepTreeStars(dt){
+    treeGlow=Math.max(0,treeGlow-dt*0.35);
+    for(let i=treeStars.length-1;i>=0;i--){
+      const s=treeStars[i];
+      s.life+=dt; s.ph+=dt*3;
+      if(s.life>=s.max)treeStars.splice(i,1);
+    }
+  }
+
+  // ---- pointer ----------------------------------------------------------
+  var hoverWin=-1;
+  cv.addEventListener("pointermove",function(e){
+    const r=cv.getBoundingClientRect();
+    lastPtrX=e.clientX-r.left; lastPtrY=e.clientY-r.top;
+  });
+  cv.addEventListener("pointerdown",function(e){
+    const r=cv.getBoundingClientRect();
+    const x=e.clientX-r.left, y=e.clientY-r.top;
+    for(let i=0;i<windows.length;i++){
+      if(ptInPoly(x,y,windows[i].pts)){windows[i].on=!windows[i].on;return;}
+    }
+    if(chimneyPts.length===4 && ptInPoly(x,y,chimneyPts)){
+      spawnPuff(true);spawnPuff(true);spawnPuff(true);return;
+    }
+    if(treeCrown && Math.hypot(x-treeCrown.x,y-treeCrown.y)<treeCrown.r){burstTreeStars();return;}
+  });
+
+  const timeEl=document.getElementById("time");
+  const phaseEl=document.getElementById("phase");
+  timeEl.addEventListener("input",function(){time01=timeEl.value/1000;});
+
+  // ---- drawing ----------------------------------------------------------
+  function drawSky(t){
+    const g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,mixCol(SKY_TOP,NIGHT_TOP,t));
+    g.addColorStop(1,mixCol(SKY_BOT,NIGHT_BOT,t));
+    ctx.fillStyle=g;
+    ctx.fillRect(0,0,W,H);
+    // stars
+    const n=70;
+    for(let i=0;i<n;i++){
+      const sx=(i*97.3)%W, sy=(i*57.7)%(H*0.55);
+      const tw=0.4+0.6*Math.abs(Math.sin(performance.now()/900+i*1.7));
+      ctx.globalAlpha=tw*(0.25+t*0.75)*0.8;
+      ctx.fillStyle="#cfd8ff";
+      ctx.fillRect(sx,sy,t>0.5?1.6:1, t>0.5?1.6:1);
+    }
+    ctx.globalAlpha=1;
+    // moon
+    ctx.globalAlpha=0.5+t*0.5;
+    ctx.fillStyle="#e8ecff";
+    ctx.beginPath();
+    ctx.arc(W*0.82,H*0.16,14+ t*4,0,Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha=1;
+  }
+
+  function poly(pts,fill,stroke,lw){
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+    ctx.closePath();
+    if(fill){ctx.fillStyle=fill;ctx.fill();}
+    if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke();}
+  }
+
+  function drawGround(t){
+    const g=ctx.createLinearGradient(0,H*0.62,0,H);
+    g.addColorStop(0,mixCol([34,42,64],[16,20,34],t));
+    g.addColorStop(1,mixCol([24,30,48],[11,14,26],t));
+    ctx.fillStyle=g;
+    ctx.fillRect(0,H*0.62,W,H*0.38);
+    // snow drifts
+    ctx.fillStyle="rgba(214,224,244,"+(0.14+t*0.1)+")";
+    ctx.beginPath();
+    ctx.moveTo(0,H*0.68);
+    for(let x=0;x<=W;x+=32){
+      ctx.lineTo(x,H*0.68+Math.sin(x*0.013+2)*5);
+    }
+    ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+    // road
+    const ry=roadY;
+    ctx.fillStyle=mixCol([38,44,66],[22,26,42],t);
+    ctx.fillRect(0,ry,W,Math.min(46,H*0.09));
+    ctx.strokeStyle="rgba(230,236,255,.28)";
+    ctx.setLineDash([16,14]);
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(0,ry+Math.min(46,H*0.09)/2);ctx.lineTo(W,ry+Math.min(46,H*0.09)/2);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function drawTree(t){
+    if(!treeCrown)return;
+    const cx=treeCrown.x, cy=treeCrown.y, r=treeCrown.r;
+    // trunk
+    ctx.strokeStyle=mixCol([46,38,40],[30,26,30],t);
+    ctx.lineWidth=Math.max(4,r*0.12);
+    ctx.beginPath();ctx.moveTo(cx,cy+r*0.7);ctx.lineTo(cx,r>0?cy+r*1.5:cy);ctx.stroke();
+    // crown: layered blobs
+    const col=mixCol([34,52,44],[18,30,26],t);
+    ctx.fillStyle=col;
+    ctx.beginPath();
+    ctx.arc(cx-r*0.3,cy+r*0.1,r*0.55,0,Math.PI*2);
+    ctx.arc(cx+r*0.3,cy+r*0.05,r*0.5,0,Math.PI*2);
+    ctx.arc(cx,cy-r*0.3,r*0.5,0,Math.PI*2);
+    ctx.arc(cx+r*0.05,cy+r*0.35,r*0.45,0,Math.PI*2);
+    ctx.fill();
+    // snow caps
+    ctx.fillStyle="rgba(220,230,248,"+(0.25+t*0.2)+")";
+    ctx.beginPath();
+    ctx.arc(cx-r*0.28,cy-r*0.18,r*0.3,0,Math.PI*2);
+    ctx.arc(cx+r*0.3,cy-r*0.12,r*0.26,0,Math.PI*2);
+    ctx.fill();
+    // twinkling stars inside
+    for(let i=0;i<treeStars.length;i++){
+      const s=treeStars[i];
+      const fade=1-s.life/s.max;
+      const tw=0.5+0.5*Math.sin(s.ph);
+      ctx.globalAlpha=fade*tw;
+      ctx.fillStyle="#ffe9a8";
+      ctx.beginPath();ctx.arc(s.x,s.y,1.8,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=fade*tw*0.5;
+      ctx.beginPath();ctx.arc(s.x,s.y,4.5,0,Math.PI*2);
+      ctx.strokeStyle="#ffe9a8";ctx.lineWidth=0.6;ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    // glow while fresh
+    if(treeGlow>0.01){
+      ctx.globalAlpha=treeGlow*0.16;
+      ctx.fillStyle="#ffe9a8";
+      ctx.beginPath();ctx.arc(cx,cy,r*0.9,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=1;
+    }
+  }
+
+  function drawLamp(t){
+    const x=lampX, base=roadY;
+    const postH=Math.min(120,H*0.22);
+    ctx.strokeStyle=mixCol([70,76,96],[44,48,66],t);
+    ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(x,base);ctx.lineTo(x,base-postH);ctx.stroke();
+    ctx.beginPath();ctx.arc(x,base-postH,5,0,Math.PI*2);ctx.fill();
+    // cone of light
+    const g=ctx.createLinearGradient(0,base-postH,0,base);
+    g.addColorStop(0,"rgba(255,214,140,"+(0.30+t*0.12)+")");
+    g.addColorStop(1,"rgba(255,214,140,0)");
+    ctx.fillStyle=g;
+    ctx.beginPath();
+    ctx.moveTo(x-6,base-postH+2);
+    ctx.lineTo(x+6,base-postH+2);
+    ctx.lineTo(x+postH*0.85,base);
+    ctx.lineTo(x-postH*0.85,base);
+    ctx.closePath();ctx.fill();
+    ctx.fillStyle="#ffd68c";
+    ctx.beginPath();ctx.arc(x,base-postH,3,0,Math.PI*2);ctx.fill();
+  }
+
+  function drawMailbox(t){
+    const x=mailboxX, base=roadY;
+    ctx.strokeStyle=mixCol([120,80,70],[80,54,48],t);
+    ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(x,base);ctx.lineTo(x,base-34);ctx.stroke();
+    ctx.fillStyle=mixCol([150,96,80],[96,62,52],t);
+    ctx.beginPath();
+    ctx.moveTo(x-13,base-34);ctx.lineTo(x+13,base-34);ctx.lineTo(x+13,base-50);
+    ctx.arc(x,base-50,13,0,Math.PI,true);
+    ctx.closePath();ctx.fill();
+    // flag
+    ctx.strokeStyle="#e2543e";ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(x+13,base-48);ctx.lineTo(x+13,base-58);ctx.stroke();
+    ctx.fillStyle="#e2543e";ctx.fillRect(x+13,base-58,7,4);
+  }
+
+  function drawHouse(t){
+    const flick=performance.now()/1000;
+    // side wall
+    poly(house.side,mixCol([116,102,120],[70,62,80],t));
+    // front wall
+    poly(house.front,mixCol([142,124,134],[88,78,94],t));
+    // roof
+    poly(house.roof,mixCol([92,78,98],[52,44,62],t));
+    poly([house.front[0],house.front[3],house.apex],mixCol([120,104,124],[66,58,76],t));
+    poly([house.front[2],house.front[3],house.apex],mixCol([84,70,90],[48,42,58],t));
+    // snow on roof
+    ctx.strokeStyle="rgba(226,234,250,"+(0.5+t*0.3)+")";
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(house.front[0][0],house.front[0][1]-1);
+    ctx.lineTo(house.apex[0],house.apex[1]-1);
+    ctx.lineTo(house.front[2][0],house.front[2][1]-1);
+    ctx.stroke();
+    // chimney
+    if(chimneyPts.length===4){
+      poly(chimneyPts,mixCol([100,90,104],[58,52,64],t));
+      ctx.fillStyle="rgba(226,234,250,"+(0.55+t*0.25)+")";
+      ctx.fillRect(chimneyPts[0][0]-2,chimneyPts[0][1]-4,chimneyPts[1][0]-chimneyPts[0][0]+4,5);
+    }
+    // door on front wall
+    const A=house.front[0], B=house.front[1];
+    const dl=[lerp(A[0],B[0],0.02),lerp(A[1],B[1],0.02)];
+    const dr=[lerp(A[0],B[0],0.12),lerp(A[1],B[1],0.12)];
+    const du=[lerp(A[0],house.front[3][0],0.46),lerp(A[1],house.front[3][1],0.46)];
+    poly([dl,dr,[dr[0],du[1]],[dl[0],du[1]]],mixCol([88,58,50],[54,36,32],t));
+    ctx.fillStyle="#ffd27a";
+    ctx.beginPath();ctx.arc(dr[0]-4,lerp(dl[1],du[1],0.5),1.6,0,Math.PI*2);ctx.fill();
+
+    // windows
+    for(let i=0;i<windows.length;i++){
+      const wn=windows[i];
+      const p=wn.pts;
+      let lit=wn.on;
+      if(wn.flicker && lit){
+        lit=Math.sin(flick*7.3)+Math.sin(flick*13.7)>-0.92;
+      }
+      // one window goes dark near midnight (the top side one, index 3, unless user toggled it off already)
+      if(i===3 && time01>0.62 && !touchedSleep){lit=false;}
+      ctx.save();
+      if(lit){
+        const warm="rgba(255,210,122,"+(0.35+time01*0.15)+")";
+        ctx.shadowColor=warm;ctx.shadowBlur=26;
+        poly(p,"#ffd27a");
+        ctx.shadowBlur=0;
+        // crossbar
+        ctx.strokeStyle="rgba(120,70,20,.55)";ctx.lineWidth=1.4;
+        ctx.beginPath();
+        ctx.moveTo(lerp(p[0][0],p[2][0],0.5),lerp(p[0][1],p[2][1],0.5));
+        ctx.lineTo(lerp(p[1][0],p[3][0],0.5),lerp(p[1][1],p[3][1],0.5));
+        ctx.moveTo(lerp(p[0][0],p[3][0],0.5),lerp(p[0][1],p[3][1],0.5));
+        ctx.lineTo(lerp(p[1][0],p[2][0],0.5),lerp(p[1][1],p[2][1],0.5));
+        ctx.stroke();
+      }else{
+        poly(p,mixCol([38,42,62],[24,27,42],time01));
+      }
+      // frame
+      ctx.strokeStyle="rgba(20,22,34,.85)";ctx.lineWidth=2.4;
+      ctx.stroke();
+      ctx.restore();
+      // cat crossing this window
+      if(cat.active && cat.winIndex===i && lit){
+        const cA=p[0], cB=p[1], cC=p[2], cD=p[3];
+        const tt=cat.t;
+        const hx=lerp(lerp(cA[0],cB[0],0.5),lerp(cC[0],cD[0],0.5),tt);
+        const hy=lerp(lerp(cA[1],cB[1],0.5),lerp(cC[1],cD[1],0.5),tt);
+        const dir=tt<0.5?1:-1;
+        ctx.save();
+        ctx.translate(hx,hy);
+        ctx.scale(dir,1);
+        ctx.fillStyle="rgba(20,18,30,.85)";
+        ctx.beginPath(); // body
+        ctx.ellipse(0,0,7,4.2,0,0,Math.PI*2);ctx.fill();
+        ctx.beginPath(); // head
+        ctx.arc(6,-3,2.8,0,Math.PI*2);ctx.fill();
+        ctx.beginPath(); // ears
+        ctx.moveTo(4.6,-4.6);ctx.lineTo(5.4,-7.4);ctx.lineTo(6.6,-5);ctx.fill();
+        ctx.moveTo(6.4,-4.8);ctx.lineTo(7.8,-7);ctx.lineTo(8.4,-4.6);ctx.fill();
+        // tail
+        ctx.strokeStyle="rgba(20,18,30,.85)";ctx.lineWidth=1.6;
+        ctx.beginPath();ctx.moveTo(-6.5,-0.5);
+        ctx.quadraticCurveTo(-11,-5,-9.5,-8);ctx.stroke();
+        ctx.restore();
+      }
+      // hover ring
+      if(hoverWin===i){
+        ctx.strokeStyle="rgba(255,210,122,.5)";ctx.lineWidth=1;
+        poly(p,null,"rgba(255,210,122,.5)",1);
+      }
+    }
+  }
+
+  let touchedSleep=false;
+
+  function drawSnow(){
+    for(let i=0;i<flakes.length;i++){
+      const f=flakes[i];
+      ctx.globalAlpha=f.layer===0?0.9:f.layer===1?0.65:0.4;
+      ctx.fillStyle="#eef3ff";
+      ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function drawSmoke(){
+    for(let i=0;i<puffs.length;i++){
+      const p=puffs[i];
+      const a=Math.max(0,1-p.life/p.max)*0.24;
+      ctx.globalAlpha=a;
+      ctx.fillStyle="#c9d2e6";
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function updateHover(){
+    hoverWin=-1;
+    if(lastPtrX>=0){
+      for(let i=0;i<windows.length;i++){
+        if(ptInPoly(lastPtrX,lastPtrY,windows[i].pts)){hoverWin=i;break;}
+      }
+    }
+  }
+
+  // ---- main loop ---------------------------------------------------------
+  let lastT=performance.now();
+  let running=true;
+  function frame(now){
+    if(!running)return;
+    let dt=(now-lastT)/1000;
+    lastT=now;
+    if(dt>0.1)dt=0.1;
+    if(dt<0)dt=0;
+    const t=time01;
+    try{
+      if(t>0.62)touchedSleep=touchedSleep; // keep explicit toggle state honored
+      updateHover();
+      stepSnow(dt,t);
+      stepSmoke(dt,t);
+      stepCat(dt,t);
+      stepTreeStars(dt);
+      drawSky(t);
+      drawTree(t);
+      drawGround(t);
+      drawMailbox(t);
+      drawLamp(t);
+      drawHouse(t);
+      drawSmoke();
+      drawSnow();
+      phaseEl.textContent=t<0.25?"DUSK":t<0.55?"EVENING":t<0.85?"NIGHT":"MIDNIGHT";
+      cv.style.cursor=(hoverWin>=0)?"pointer":"default";
+    }catch(err){
+      // never let a frame kill the page
+    }
+    requestAnimationFrame(frame);
+  }
+
+  fit();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

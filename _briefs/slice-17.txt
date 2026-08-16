@@ -1,0 +1,11 @@
+=== 049 ===
+049-abyss-descent.html
+ABYSS DESCENT - scroll-driven dive into the deep. Fixed-viewport scene; world is 4000vh and scrolling descends: light gradient #7fd4ff surface -> #020a14 hadal; HUD right: live depth meter mono (-0 m -> -4000 m), pressure bar, O2 that slowly depletes and resets after 10s idle. Depth bands: 0-200m plankton motes + fish silhouettes (parallax); 200-1000m glowing jellies (bezier bells, #9fd8ff); 1000-4000m anglerfish (lure dot + blink); 4000m+ hydrothermal vent (smoke particles + orange glow). Pointer adds gentle swim current. Caption 'ABYSS - DESCENT LOG'.
+
+=== 050 ===
+050-shadow-study.html
+SHADOW STUDY - a single chess king, layered SVG (string-built): silhouette #17181a with three faceted highlight tone bands (#2a2c33, #3d404a, #6b7080) on a warm stage #f2e8d8, huge soft radial shadow cast lower-left. LIGHT slider moves the source angle: highlight bands shift position + the shadow's direction/length morph (precomputed polygon offsets). MATERIAL chips: BONE (#f4efe4/#d8cfc0), BRONZE (#c8a05a/#8a6a2f), EBONY (#1c1d22/#3a3d47) swap palettes with a crossfade. Click: king does a 360 spin (Y-scale wobble) with the shadow stretching. Caption 'STUDY I - THE KING, ONE LIGHT' serif italic.
+
+=== 051 ===
+051-meteor-rain.html
+METEOR RAIN - night #050810 with a subtle milky-way band + 200 static stars. 12-24 meteors per minute: streaks (gradient line, head #dfe8ff bright -> tail #5a6fa8 fading) spawning from a fixed upper-left radiant, speeds 800-1400px/s, lengths 120-320px, persistence via low-alpha bg fade rect. One in eight is a rare fireball: orange #ffb454, 3x size, slight curved path. Pointer hold = FOCUS: time slows to 0.3x and streaks lengthen. Caption 'PERSEIDS - ACTIVE' + live 'streaks tonight' counter. Cinematic, patient, wondrous.

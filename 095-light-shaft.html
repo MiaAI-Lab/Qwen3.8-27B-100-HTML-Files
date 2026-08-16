@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<title>Light Shaft - 3:12 PM</title>
+<style>
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:#14100c;
+    overflow:hidden;
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    height:100dvh;
+    position:relative;
+  }
+  #room{
+    position:fixed; inset:0;
+    width:100%; height:100%;
+    display:block;
+  }
+  .hud{
+    position:fixed; left:0; right:0; bottom:0;
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding:clamp(12px,2.6vh,26px) clamp(14px,3vw,36px);
+    pointer-events:none;
+    gap:20px;
+  }
+  .caption{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:clamp(9px,1.35vw,12px);
+    letter-spacing:.42em; text-transform:uppercase;
+    color:#6f6353;
+    line-height:2;
+  }
+  .caption b{color:#c9b389; font-weight:600;}
+  .sunbox{
+    pointer-events:auto;
+    display:flex; flex-direction:column; gap:8px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  .sunlabel{
+    font-size:clamp(9px,1.2vw,11px);
+    letter-spacing:.4em; text-transform:uppercase;
+    color:#8a7a5f;
+    display:flex; justify-content:space-between; gap:18px;
+  }
+  .sunlabel span{color:#ffd9a0; letter-spacing:.18em;}
+  input[type=range]{
+    -webkit-appearance:none; appearance:none;
+    width:clamp(150px,26vw,260px); height:2px;
+    background:#3a3126;
+    outline:none; cursor:ew-resize;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:15px; height:15px; border-radius:50%;
+    background:#ffd9a0;
+    border:2px solid #14100c;
+    box-shadow:0 0 12px rgba(255,217,160,.7);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:13px; height:13px; border-radius:50%;
+    background:#ffd9a0; border:2px solid #14100c;
+    box-shadow:0 0 12px rgba(255,217,160,.7);
+  }
+  input[type=range]::-moz-range-track{height:2px; background:#3a3126;}
+</style>
+</head>
+<body>
+  <canvas id="room" aria-label="Minimal cathedral interior with one diagonal light shaft and drifting dust motes"></canvas>
+  <div class="hud">
+    <div class="caption">
+      SHAFT / <b>400 MOTES</b> - 3:12 PM<br>
+      NAVE - NORTH LIGHT
+    </div>
+    <div class="sunbox">
+      <label class="sunlabel" for="sun">SUN <span id="sunVal">45&deg;</span></label>
+      <input id="sun" type=range min="30" max="60" value="45" step="1" aria-label="Sun angle 30 to 60 degrees">
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  var canvas = document.getElementById("room");
+  var ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  var W = 0, H = 0, DPR = 1;
+  var sun = 45;                    // degrees from vertical, 30..60
+  var sunEl = document.getElementById("sun");
+  var sunVal = document.getElementById("sunVal");
+  var pointer = {x: -9999, y: -9999, on: false};
+
+  var N = 400;
+  var motes = [];
+  var catchMote = null;            // mote currently catching light
+  var catchUntil = 0;
+  var nextCatch = 0;
+
+  function rnd(a, b){ return a + Math.random() * (b - a); }
+
+  /* ---------- shaft geometry ---------- */
+  function shaft(){
+    var a = sun * Math.PI / 180;
+    var dx = -Math.sin(a);         // into the room: down-left
+    var dy = Math.cos(a);
+    var ox = W * 0.865, oy = H * 0.20;   // through the upper-right window
+    var L = H * 2.4;
+    var hw = H * 0.155;            // outer half-width
+    return {dx: dx, dy: dy, ox: ox, oy: oy, L: L, hw: hw,
+            b: 0.78 + ((sun - 30) / 30) * 0.42};  // brightness factor
+  }
+  function inShaft(x, y, s, hwMul){
+    var vx = x - s.ox, vy = y - s.oy;
+    var t = vx * s.dx + vy * s.dy;
+    if (t < 0 || t > s.L) return false;
+    var px = vx - t * s.dx, py = vy - t * s.dy;
+    var hw = s.hw * (hwMul || 1);
+    return px * px + py * py <= hw * hw;
+  }
+
+  function fit(){
+    W = Math.max(320, window.innerWidth);
+    H = Math.max(320, window.innerHeight);
+    DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    seedMotes();
+  }
+
+  function seedMotes(){
+    motes = [];
+    for (var i = 0; i < N; i++){
+      // seed ~half the motes inside the shaft so the scene reads instantly
+      var s = shaft();
+      var inside = i < N * 0.5;
+      var t = rnd(0, s.L * 0.8);
+      var off = (Math.random() < 0.5 ? -1 : 1) * Math.abs(rnd(0, s.hw * 0.8));
+      var x, y;
+      if (inside){
+        x = s.ox + s.dx * t + (-s.dy) * off;
+        y = s.oy + s.dy * t + ( s.dx) * off;
+      } else {
+        x = rnd(0, W); y = rnd(0, H);
+      }
+      motes.push({
+        x: x, y: y,
+        vx: rnd(-4, 4), vy: rnd(-9, -3),
+        r: rnd(0.5, 1.1),
+        ph: rnd(0, 6.2832), sp: rnd(0.5, 1.6)
+      });
+    }
+    nextCatch = performance.now() + rnd(1500, 4000);
+  }
+
+  /* ---------- windows (arched, #0d0a08) ---------- */
+  function drawWindow(cx, topY, botY, ww){
+    var x0 = cx - ww / 2, r = ww / 2;
+    ctx.beginPath();
+    ctx.moveTo(x0, botY);
+    ctx.lineTo(x0, topY + r);
+    ctx.arc(cx, topY + r, r, Math.PI, 0);
+    ctx.lineTo(x0 + ww, botY);
+    ctx.closePath();
+    ctx.fillStyle = "#0d0a08";
+    ctx.fill();
+    ctx.strokeStyle = "#241c13";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // mullions
+    ctx.beginPath();
+    ctx.moveTo(cx, topY + 2); ctx.lineTo(cx, botY - 2);
+    ctx.moveTo(x0 + 3, (topY + botY) / 2); ctx.lineTo(x0 + ww - 3, (topY + botY) / 2);
+    ctx.strokeStyle = "#1a140d";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  function drawRoom(s){
+    // walls
+    ctx.fillStyle = "#14100c";
+    ctx.fillRect(0, 0, W, H);
+    // faint floor line
+    ctx.strokeStyle = "rgba(255,217,160,.05)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, H * 0.92); ctx.lineTo(W, H * 0.92); ctx.stroke();
+
+    var ww = Math.min(W * 0.115, 130);
+    drawWindow(W * 0.865, H * 0.055, H * 0.62, ww);   // right (light source)
+    drawWindow(W * 0.085, H * 0.11, H * 0.55, ww * 0.82); // left, darker, no shaft
+
+    // shaft: outer parallelogram alpha .12, core alpha .2 (both x brightness)
+    var nx = -s.dy, ny = s.dx;   // perpendicular
+    function quad(hwMul){
+      var hw = s.hw * hwMul;
+      ctx.beginPath();
+      ctx.moveTo(s.ox + nx * hw, s.oy + ny * hw);
+      ctx.lineTo(s.ox + s.dx * s.L + nx * hw, s.oy + s.dy * s.L + ny * hw);
+      ctx.lineTo(s.ox + s.dx * s.L - nx * hw, s.oy + s.dy * s.L - ny * hw);
+      ctx.lineTo(s.ox - nx * hw, s.oy - ny * hw);
+      ctx.closePath();
+    }
+    ctx.fillStyle = "rgba(255,217,160," + (0.12 * s.b).toFixed(3) + ")";
+    quad(1); ctx.fill();
+    ctx.fillStyle = "rgba(255,233,200," + (0.2 * s.b).toFixed(3) + ")";
+    quad(0.42); ctx.fill();
+    // bright spill where the shaft meets the right window
+    ctx.save();
+    ctx.globalAlpha = 0.5 * s.b;
+    ctx.fillStyle = "#ffd9a0";
+    ctx.beginPath();
+    ctx.arc(W * 0.865, H * 0.2, ww * 0.55, 0, 6.2832);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /* ---------- motes ---------- */
+  function updateMotes(dt, now, s){
+    var repelR = 70;
+    for (var i = 0; i < motes.length; i++){
+      var m = motes[i];
+      // slow upward-Brownian drift
+      m.vx += (Math.random() - 0.5) * 26 * dt;
+      m.vy += (Math.random() - 0.5) * 16 * dt;
+      m.vy -= 1.6 * dt;                 // net lift
+      m.vx *= (1 - 0.5 * dt);           // drag
+      m.vy *= (1 - 0.3 * dt);
+      // pointer inside the shaft gently repels
+      if (pointer.on && inShaft(pointer.x, pointer.y, s)){
+        var dx = m.x - pointer.x, dy = m.y - pointer.y;
+        var d2 = dx * dx + dy * dy;
+        if (d2 < repelR * repelR && d2 > 0.01){
+          var d = Math.sqrt(d2);
+          var f = (1 - d / repelR) * 140;
+          m.vx += (dx / d) * f * dt;
+          m.vy += (dy / d) * f * dt;
+        }
+      }
+      m.x += m.vx * dt;
+      m.y += m.vy * dt;
+      // recycle
+      if (m.y < -6){ m.y = H + 6; m.x = Math.random() * W; }
+      if (m.x < -6) m.x = W + 6; else if (m.x > W + 6) m.x = -6;
+    }
+    // occasional big catch: one mote, 3x brightness for 1s
+    if (now >= nextCatch){
+      nextCatch = now + rnd(2600, 6000);
+      var cands = [];
+      for (var j = 0; j < motes.length; j++){
+        if (inShaft(motes[j].x, motes[j].y, s) && motes[j].r > 0.8) cands.push(motes[j]);
+      }
+      if (cands.length > 0){
+        catchMote = cands[(Math.random() * cands.length) | 0];
+        catchUntil = now + 1000;
+      }
+    }
+    if (catchMote && now >= catchUntil) catchMote = null;
+  }
+
+  function drawMotes(now, s){
+    ctx.save();
+    for (var i = 0; i < motes.length; i++){
+      var m = motes[i];
+      var tw = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(now * 0.001 * m.sp + m.ph));
+      var inside = inShaft(m.x, m.y, s);
+      var a = inside ? tw : 0.05;
+      if (inside) a *= s.b;
+      if (m === catchMote && inside){
+        a = Math.min(1, a * 3);
+        ctx.fillStyle = "#fff3dd";
+        ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 2.6, 0, 6.2832); ctx.fill();
+        // halo
+        ctx.globalAlpha = a * 0.35;
+        ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 6, 0, 6.2832); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.globalAlpha = Math.min(1, a);
+      ctx.fillStyle = "#ffe9c8";
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, m.r, 0, 6.2832);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ---------- input ---------- */
+  function onMove(e){
+    var r = canvas.getBoundingClientRect();
+    pointer.x = e.clientX - r.left;
+    pointer.y = e.clientY - r.top;
+    pointer.on = pointer.x >= 0 && pointer.y >= 0 && pointer.x <= W && pointer.y <= H;
+  }
+  canvas.addEventListener("pointermove", onMove);
+  canvas.addEventListener("pointerdown", onMove);
+  window.addEventListener("pointerleave", function(){ pointer.on = false; pointer.x = -9999; });
+  sunEl.addEventListener("input", function(){
+    sun = Number(sunEl.value);
+    sunVal.innerHTML = sun + "&deg;";
+  });
+  window.addEventListener("resize", fit);
+
+  /* ---------- loop ---------- */
+  var last = performance.now();
+  function frame(now){
+    var dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    try{
+      var s = shaft();
+      drawRoom(s);
+      updateMotes(dt, now, s);
+      drawMotes(now, s);
+    }catch(err){ /* never kill the page on one bad frame */ }
+    requestAnimationFrame(frame);
+  }
+  fit();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

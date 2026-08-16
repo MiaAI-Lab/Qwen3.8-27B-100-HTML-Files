@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>053 — Type Specimen: System Stacks, Set in Scale</title>
+<style>
+  :root{
+    --bg:#f4f1ea;
+    --ink:#17181a;
+    --card:#fbfaf7;
+    --line:rgba(23,24,26,.14);
+    --red:#d63a3a;
+    --dim:rgba(23,24,26,.55);
+    --body:34px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{min-height:100%}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    display:flex;flex-direction:column;
+    min-height:100dvh;
+    padding:clamp(14px,3vw,36px) clamp(12px,3.5vw,44px) 0;
+  }
+  header{
+    display:flex;flex-wrap:wrap;gap:18px 28px;
+    align-items:flex-end;justify-content:space-between;
+    padding-bottom:18px;margin-bottom:clamp(14px,2.4vw,26px);
+    border-bottom:2px solid var(--ink);
+  }
+  .mast h1{
+    font-size:clamp(26px,4.6vw,52px);
+    font-weight:800;letter-spacing:-.02em;line-height:.95;
+  }
+  .mast .sub{
+    margin-top:6px;
+    font-size:clamp(10px,1.3vw,13px);
+    letter-spacing:.34em;text-transform:uppercase;
+    color:var(--dim);font-weight:600;
+  }
+  .controls{display:flex;gap:14px 20px;align-items:center;flex-wrap:wrap}
+  .ctl{display:flex;align-items:center;gap:10px}
+  .ctl label{
+    font-size:10px;letter-spacing:.24em;text-transform:uppercase;
+    font-weight:700;color:var(--dim);
+  }
+  #size{-webkit-appearance:none;appearance:none;width:clamp(120px,20vw,220px);height:3px;background:var(--ink);border-radius:2px;outline:none;cursor:pointer}
+  #size::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:15px;height:15px;border-radius:50%;background:var(--red);border:2px solid var(--bg);box-shadow:0 0 0 1px var(--ink)}
+  #size::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--red);border:2px solid var(--bg);box-shadow:0 0 0 1px var(--ink)}
+  #sizev{font-size:12px;font-weight:700;letter-spacing:.08em;min-width:44px;font-variant-numeric:tabular-nums}
+  #casebtn{
+    font:inherit;font-size:10px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;
+    padding:8px 14px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);
+    cursor:pointer;border-radius:2px;transition:background .15s,color .15s;
+  }
+  #casebtn:hover{background:var(--ink);color:var(--bg)}
+  main{
+    flex:1;
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:clamp(10px,1.6vw,18px);
+  }
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:6px;
+    overflow:hidden;
+    display:flex;flex-direction:column;
+    cursor:pointer;
+    transition:transform .18s ease,box-shadow .18s ease;
+  }
+  .card:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(23,24,26,.10)}
+  .card:active{transform:translateY(-1px)}
+  .c-head{
+    display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+    padding:10px 14px 8px;
+    border-bottom:1px solid var(--line);
+  }
+  .c-name{font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+  .c-tag{font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--dim)}
+  .c-canvas{display:block;width:100%;height:clamp(120px,16vw,190px)}
+  .c-alph{
+    padding:2px 14px 6px;
+    font-size:calc(var(--body)*0.42);
+    line-height:1.5;letter-spacing:.02em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-weight:500;
+  }
+  .c-alph span{display:inline-block}
+  .c-sample{
+    padding:2px 14px 14px;
+    font-size:calc(var(--body)*0.30);
+    line-height:1.45;
+    color:var(--dim);
+    min-height:calc(var(--body)*1.35);
+  }
+  footer{
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:16px 0 18px;margin-top:clamp(14px,2.4vw,26px);
+    border-top:1px solid var(--line);
+  }
+  footer .f-name{font-size:10px;font-weight:700;letter-spacing:.4em;text-transform:uppercase}
+  footer .f-idx{font-size:9px;letter-spacing:.3em;color:var(--dim)}
+  @media (max-width:900px){main{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:580px){main{grid-template-columns:1fr}header{align-items:flex-start}}
+</style>
+</head>
+<body>
+<header>
+  <div class="mast">
+    <h1>Type Specimen</h1>
+    <p class="sub">System stacks, set in scale</p>
+  </div>
+  <div class="controls">
+    <div class="ctl">
+      <label for="size">Size</label>
+      <input id="size" type="range" min="12" max="120" value="34">
+      <span id="sizev">34px</span>
+    </div>
+    <button id="casebtn" type="button">Case: Upper</button>
+  </div>
+</header>
+<main id="grid"></main>
+<footer>
+  <span class="f-name">Specimen Sheet 03 - No External Fonts</span>
+  <span class="f-idx">053 / 100</span>
+</footer>
+<script>
+(function(){
+  "use strict";
+
+  var INK="#17181a", RED="#d63a3a";
+  var FOUNDS=[
+    {name:"Georgia",       tag:"serif",  stack:"Georgia,'Times New Roman',serif"},
+    {name:"System UI",     tag:"sans",   stack:"system-ui,-apple-system,'Segoe UI',sans-serif"},
+    {name:"Mono",          tag:"mono",   stack:"ui-monospace,'Cascadia Mono',Consolas,monospace"},
+    {name:"Times New Roman",tag:"serif", stack:"'Times New Roman',Times,serif"},
+    {name:"Courier New",   tag:"mono",   stack:"'Courier New',Courier,monospace"},
+    {name:"Arial",         tag:"sans",   stack:"Arial,Helvetica,sans-serif"},
+    {name:"Verdana",       tag:"sans",   stack:"Verdana,Geneva,sans-serif"},
+    {name:"Trebuchet MS",  tag:"sans",   stack:"'Trebuchet MS',Tahoma,sans-serif"},
+    {name:"Palatino",      tag:"serif",  stack:"'Palatino Linotype',Palatino,Georgia,serif"}
+  ];
+  var UPPER="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  var LOWER="abcdefghijklmnopqrstuvwxyz";
+  var SAMPLE_LOWER="Hamburgevons. The quick brown fox jumps over the lazy dog; pack my box with five dozen liquor jugs. 0123456789.";
+  var POOL="ABCDEFGHIJKLMNPQRSTUVWXYZ0123456789!<>-_/[]{}=+*^?#&%$@~";
+
+  var bodySize=34;
+  var caseUpper=true;
+  var cards=[];      // {canvas, ctx, alph: [span...], base: [string...]}
+  var running=true;
+  var dpr=1;
+
+  var grid=document.getElementById("grid");
+  var sizeEl=document.getElementById("size");
+  var sizev=document.getElementById("sizev");
+  var caseBtn=document.getElementById("casebtn");
+
+  // ---- build cards ------------------------------------------------------
+  for(let i=0;i<FOUNDS.length;i++){
+    const f=FOUNDS[i];
+    const sec=document.createElement("section");
+    sec.className="card";
+    sec.setAttribute("data-i",String(i));
+    sec.innerHTML=
+      "<div class='c-head'><span class='c-name'>"+f.name+"</span>"+
+      "<span class='c-tag'>"+f.tag+" stack</span></div>"+
+      "<canvas class='c-canvas'></canvas>"+
+      "<div class='c-alph'></div>"+
+      "<div class='c-sample'></div>";
+    grid.appendChild(sec);
+    const alphEl=sec.querySelector(".c-alph");
+    const sampleEl=sec.querySelector(".c-sample");
+    const spans=[];
+    for(let j=0;j<UPPER.length;j++){
+      const sp=document.createElement("span");
+      sp.dataset.base=UPPER[j]+LOWER[j];
+      alphEl.appendChild(sp);
+      spans.push(sp);
+    }
+    const card={canvas:sec.querySelector(".c-canvas"),ctx:null,spans:spans,
+      sampleEl:sampleEl,scramble:null,stack:f.stack};
+    card.ctx=card.canvas.getContext("2d");
+    cards.push(card);
+    sec.addEventListener("pointerdown",function(){startScramble(i);});
+  }
+
+  function textOf(card){
+    if(caseUpper)return SAMPLE_LOWER.toUpperCase();
+    return SAMPLE_LOWER;
+  }
+  function applyCase(){
+    for(let i=0;i<cards.length;i++){
+      const c=cards[i];
+      c.sampleEl.textContent=textOf(c);
+      for(let j=0;j<c.spans.length;j++){
+        const s=c.spans[j];
+        if(!s.dataset.scrambling)s.textContent=caseUpper?s.dataset.base.charAt(0):s.dataset.base.charAt(1);
+      }
+      c.stack=cards[i].stack;
+    }
+  }
+
+  // ---- canvas metric drawing --------------------------------------------
+  function bboxAscent(m,fb){return (m&&typeof m.actualBoundingBoxAscent==="number")?m.actualBoundingBoxAscent:fb;}
+
+  function drawCard(i){
+    const c=cards[i];
+    const cssW=Math.max(2,c.canvas.clientWidth);
+    const cssH=Math.max(2,c.canvas.clientHeight);
+    if(c.canvas.width!==Math.round(cssW*dpr)||c.canvas.height!==Math.round(cssH*dpr)){
+      c.canvas.width=Math.round(cssW*dpr);
+      c.canvas.height=Math.round(cssH*dpr);
+    }
+    const d=c.ctx;
+    d.setTransform(dpr,0,0,dpr,0,0);
+    d.clearRect(0,0,cssW,cssH);
+    try{
+      const S=Math.min(cssH*0.62,Math.max(34,bodySize*3.4));
+      const stack=c.stack;
+      const text="Ag";
+      d.font=S+"px "+stack;
+      d.textBaseline="alphabetic";
+      const m=d.measureText(text);
+      const asc=bboxAscent(m,S*0.72);
+      const baseY=cssH/2+asc*0.34;
+      // faint panel
+      d.fillStyle="rgba(23,24,26,.03)";
+      d.fillRect(0,0,cssW,cssH);
+      // guides: baseline, cap height, x-height
+      const capA=bboxAscent(d.measureText("A"),S*0.72);
+      const xhA=bboxAscent(d.measureText("x"),S*0.52);
+      const gx0=10,gx1=cssW-10;
+      d.lineWidth=1;
+      d.strokeStyle=RED;
+      d.globalAlpha=0.9;
+      d.beginPath();d.moveTo(gx0,baseY+0.5);d.lineTo(gx1,baseY+0.5);d.stroke();
+      d.beginPath();d.moveTo(gx0,baseY-capA+0.5);d.lineTo(gx1,baseY-capA+0.5);d.stroke();
+      d.beginPath();d.moveTo(gx0,baseY-xhA+0.5);d.lineTo(gx1,baseY-xhA+0.5);d.stroke();
+      d.globalAlpha=1;
+      // glyph
+      d.fillStyle=INK;
+      d.fillText(text,cssW/2-m.width/2,baseY);
+      // guide labels
+      d.font="600 9px system-ui,sans-serif";
+      d.fillStyle=RED;
+      d.textAlign="right";
+      d.fillText("BASELINE",gx1-2,baseY-4);
+      d.fillText("CAP",gx1-2,baseY-capA-4);
+      d.fillText("X-HEIGHT",gx1-2,baseY-xhA-4);
+      d.textAlign="left";
+    }catch(err){
+      // guarded: a bad metric must not kill the page
+    }
+  }
+  function drawAll(){for(let i=0;i<cards.length;i++)drawCard(i);}
+
+  // ---- scramble ----------------------------------------------------------
+  function startScramble(i){
+    const c=cards[i];
+    if(c.scramble)return;
+    c.scramble={t0:performance.now(),dur:980,raf:0};
+    for(let j=0;j<c.spans.length;j++){
+      c.spans[j].dataset.scrambling="1";
+    }
+    function tick(now){
+      if(!running){c.scramble=null;return;}
+      const el=now-c.scramble.t0;
+      const dur=c.scramble.dur;
+      let done=true;
+      for(let j=0;j<c.spans.length;j++){
+        const s=c.spans[j];
+        const resolveAt=(j/(c.spans.length-1))*dur*0.72;
+        if(el>=resolveAt+dur*0.28){
+          s.textContent=caseUpper?s.dataset.base.charAt(0):s.dataset.base.charAt(1);
+          delete s.dataset.scrambling;
+        }else{
+          done=false;
+          let g="";
+          for(let k=0;k<2;k++){
+            g+=POOL.charAt(Math.floor(Math.random()*POOL.length));
+          }
+          s.textContent=g;
+        }
+      }
+      if(done){c.scramble=null;return;}
+      c.scramble.raf=requestAnimationFrame(tick);
+    }
+    c.scramble.raf=requestAnimationFrame(tick);
+  }
+
+  // ---- controls -----------------------------------------------------------
+  sizeEl.addEventListener("input",function(){
+    bodySize=parseInt(sizeEl.value,10)||34;
+    sizev.textContent=bodySize+"px";
+    document.documentElement.style.setProperty("--body",bodySize+"px");
+    drawAll();
+  });
+  caseBtn.addEventListener("click",function(){
+    caseUpper=!caseUpper;
+    caseBtn.textContent=caseUpper?"Case: Upper":"Case: Lower";
+    applyCase();
+  });
+
+  // ---- boot / resize ------------------------------------------------------
+  function fit(){
+    dpr=Math.min(window.devicePixelRatio||1,2);
+    drawAll();
+  }
+  window.addEventListener("resize",function(){fit();});
+
+  applyCase();
+  fit();
+  // keep page alive: light rAF heartbeat to resume after tab sleep
+  function heartbeat(){
+    if(!running)return;
+    requestAnimationFrame(heartbeat);
+  }
+  requestAnimationFrame(heartbeat);
+})();
+</script>
+</body>
+</html>

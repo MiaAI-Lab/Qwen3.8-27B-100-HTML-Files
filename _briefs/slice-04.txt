@@ -1,0 +1,11 @@
+=== 010 ===
+010-mesh-dream.html
+MESH DREAM - morphing gradient-mesh dreamscape. Five radial-gradient orbs (#ff9de2, #7c6bff, #4ff0d4, #ffd76f, #274bff) at 40-90vw, composited with 'screen'/'lighter' over deep #140a2e; each orb drifts on a Lissajous path and hue-shifts slowly. Floating glass pill nav with 5 color chips: clicking a chip springs that orb toward the cursor (damped spring) and marks it 'focus' (slightly larger). Wordmark lower-left 'DREAMMESH' thin wide-tracked caps. No hard edges anywhere - everything soft. One canvas, orbs drawn as radial gradients.
+
+=== 011 ===
+011-pocket-synth.html
+POCKET SYNTH - monophonic synth toy. Rounded device panel #23262b, centered card with soft shadow: 12-key keyboard (minor pentatonic from C4) as HTML keys that flash on press; WebAudio oscillator (sine/square/saw/tri selectable via chips), 4 rotary knobs for A/D/S/R (conic-gradient dials, pointer-drag), feedback delay + gain. Visual: oscilloscope canvas strip across the top drawing the live waveform; each keypress spawns a rising note glyph. Create/resume AudioContext inside first pointer gesture. Idle: scope shows a calm flat sine.
+
+=== 012 ===
+012-terrain-atlas.html
+TERRAIN ATLAS - generative topographic map, full-bleed canvas, dark #0d1a12. Terrain height = value-noise FBM (5 octaves), contours via marching squares as thin #9fe6b8 lines at 12 elevation levels; 4 major elevation bands get translucent green (low)/ochre (high) fills. Drag to pan, wheel to zoom (0.4-3x); noise tiles via integer-lattice wrap so panning never runs out of terrain. HUD: fixed compass rose N, fake lat/lon readout derived from offset, scale bar. On load: slow auto-pan drift until first input. Integer edge-keys for contour loop walking - test it.

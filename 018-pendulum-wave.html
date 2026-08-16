@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>018 · Pendulum Wave Lab</title>
+<style>
+/* PENDULUM WAVE LAB — gallery 100 · 018 */
+:root{
+  --bg:#101318;
+  --panel:#151a22;
+  --ink:#d9e0ea;
+  --dim:#78829a;
+  --line:#242c3a;
+  --accent:#ffd489;
+  --ok:#5fe08c;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  height:100dvh;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+.stage{display:flex;flex-direction:column;height:100dvh}
+.top{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:14px 20px 10px;
+}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.idx{
+  font-family:var(--mono);font-size:11px;letter-spacing:.18em;
+  color:var(--accent);border:1px solid var(--line);border-radius:2px;
+  padding:3px 8px;flex:none;
+}
+h1{
+  font-size:clamp(14px,2.4vw,22px);font-weight:600;
+  letter-spacing:.34em;text-transform:uppercase;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.status{
+  font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--dim);
+  display:flex;align-items:center;gap:8px;white-space:nowrap;flex:none;
+}
+.status::before{
+  content:"";width:7px;height:7px;border-radius:50%;flex:none;
+  background:var(--ok);box-shadow:0 0 9px rgba(95,224,140,.8);
+  animation:pulse 2.4s ease-in-out infinite;
+}
+.status.held::before{
+  background:var(--accent);box-shadow:0 0 9px rgba(255,212,137,.8);
+  animation:none;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.wrap{flex:1;min-height:0;position:relative}
+canvas{display:block;width:100%;height:100%}
+.bar{
+  display:flex;align-items:center;gap:14px 18px;flex-wrap:wrap;
+  padding:12px 20px 16px;border-top:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(21,26,34,.55),rgba(16,19,24,.95));
+}
+.readout{
+  font-family:var(--mono);font-size:clamp(11px,1.7vw,13px);
+  letter-spacing:.14em;color:var(--accent);white-space:nowrap;
+}
+.sliders{display:flex;gap:20px;flex:1;min-width:200px;flex-wrap:wrap}
+.slider{display:flex;flex-direction:column;gap:7px;flex:1;min-width:140px;max-width:230px}
+.s-label{
+  font-family:var(--mono);font-size:9px;letter-spacing:.26em;color:var(--dim);
+  display:flex;justify-content:space-between;gap:8px;
+}
+.s-label em{font-style:normal;color:var(--ink)}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:4px;
+  background:var(--line);border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:2px;
+  background:var(--ink);border:1px solid var(--accent);
+  box-shadow:0 0 8px rgba(255,212,137,.35);
+}
+input[type=range]::-moz-range-thumb{
+  width:14px;height:14px;border-radius:2px;background:var(--ink);
+  border:1px solid var(--accent);box-shadow:0 0 8px rgba(255,212,137,.35);
+}
+input[type=range]:focus-visible{outline:1px solid var(--accent);outline-offset:3px}
+.chip:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+.chips{display:flex;gap:8px;flex:none}
+.chip{
+  font-family:var(--mono);font-size:10px;letter-spacing:.2em;
+  color:var(--dim);background:transparent;border:1px solid var(--line);
+  border-radius:2px;padding:8px 14px;cursor:pointer;
+  transition:color .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease;
+}
+.chip:hover{color:var(--ink);border-color:var(--dim)}
+.chip.on{
+  color:#0d0f13;background:var(--accent);border-color:var(--accent);
+  box-shadow:0 0 14px rgba(255,212,137,.35);
+}
+@media (max-width:520px){
+  .readout{width:100%}
+  .chips{margin-left:auto}
+  .top{padding:12px 14px 8px}
+  .bar{padding:10px 14px 14px}
+}
+</style>
+</head>
+<body>
+<main class="stage">
+  <header class="top">
+    <div class="brand">
+      <span class="idx">018</span>
+      <h1>Pendulum Wave Lab</h1>
+    </div>
+    <div class="status" id="status">RUNNING · 15 PENDULA</div>
+  </header>
+  <div class="wrap" id="wrap">
+    <canvas id="scene"></canvas>
+  </div>
+  <footer class="bar">
+    <div class="readout" id="readout">PHASE BEAT t=0.0s</div>
+    <div class="sliders">
+      <label class="slider">
+        <span class="s-label">PERIOD T0<em id="t0v">6.0s</em></span>
+        <input id="t0" type="range" min="4" max="8" step="0.1" value="6" aria-label="base period">
+      </label>
+      <label class="slider">
+        <span class="s-label">AMPLITUDE<em id="ampv">85%</em></span>
+        <input id="amp" type="range" min="10" max="100" step="1" value="85" aria-label="amplitude">
+      </label>
+    </div>
+    <div class="chips">
+      <button id="pause" class="chip" type="button">PAUSE</button>
+      <button id="reset" class="chip" type="button">RESET</button>
+      <button id="slow" class="chip" type="button">SLOW-MO</button>
+    </div>
+  </footer>
+</main>
+<script>
+(function(){
+"use strict";
+const N = 15;
+const canvas = document.getElementById("scene");
+const wrap = document.getElementById("wrap");
+const ctx = canvas.getContext("2d");
+const readout = document.getElementById("readout");
+const statusEl = document.getElementById("status");
+const t0Input = document.getElementById("t0");
+const ampInput = document.getElementById("amp");
+const t0Val = document.getElementById("t0v");
+const ampVal = document.getElementById("ampv");
+const pauseBtn = document.getElementById("pause");
+const resetBtn = document.getElementById("reset");
+const slowBtn = document.getElementById("slow");
+const BG = "#101318";
+const state = {
+  t:0, T0:6, ampPct:85, paused:false, slow:false,
+  w:0, h:0, dpr:1, pivotY:34, L:100, margin:24, step:20, r:6, A:0
+};
+let last = performance.now();
+
+function fit(){
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  if(!w || !h) return;
+  state.w = w; state.h = h;
+  state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(w * state.dpr);
+  canvas.height = Math.round(h * state.dpr);
+  ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+  state.margin = Math.max(22, w * 0.05);
+  state.step = (w - 2 * state.margin) / (N - 1);
+  state.L = h - state.pivotY - Math.max(54, h * 0.14);
+  state.r = Math.max(4, Math.min(10, state.step * 0.2));
+  state.A = (state.ampPct / 100) * state.margin * 0.95;
+  paintBackground();
+}
+
+function paintBackground(){
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, state.w, state.h);
+}
+
+function colorOf(i, alpha){
+  const f = i / (N - 1);
+  const hue = Math.round(12 + 218 * f);
+  return "hsla(" + hue + ",85%,62%," + alpha + ")";
+}
+
+function draw(){
+  const w = state.w, h = state.h;
+  if(!w || !h) return;
+  // alpha-fade the previous frame so bobs leave faint trails
+  ctx.fillStyle = "rgba(16,19,24,0.16)";
+  ctx.fillRect(0, 0, w, h);
+
+  // suspension beam
+  ctx.strokeStyle = "rgba(120,130,154,0.5)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(state.margin - 12, state.pivotY);
+  ctx.lineTo(w - state.margin + 12, state.pivotY);
+  ctx.stroke();
+
+  // lowest-point reference line
+  ctx.strokeStyle = "rgba(120,130,154,0.08)";
+  ctx.beginPath();
+  ctx.moveTo(state.margin, state.pivotY + state.L + state.r + 8);
+  ctx.lineTo(w - state.margin, state.pivotY + state.L + state.r + 8);
+  ctx.stroke();
+
+  // pivot index labels 01..15
+  ctx.font = "9px ui-monospace, Menlo, monospace";
+  ctx.textAlign = "center";
+  for(let i = 0; i < N; i++){
+    ctx.fillStyle = "rgba(120,130,154,0.35)";
+    ctx.fillText(String(i + 1).padStart(2, "0"), state.margin + i * state.step, state.pivotY + 15);
+  }
+  ctx.textAlign = "left";
+
+  let syncSum = 0;
+  for(let i = 0; i < N; i++){
+    const T = state.T0 * (1 + i * 0.02);
+    const phase = 2 * Math.PI * state.t / T;
+    const s = Math.sin(phase);
+    syncSum += s;
+    const x = state.margin + i * state.step;
+    const dx = state.A * s;
+    const cosv = Math.sqrt(Math.max(0, 1 - (dx / state.L) * (dx / state.L)));
+    const bx = x + dx;
+    const by = state.pivotY + state.L * cosv;
+
+    // rod
+    ctx.strokeStyle = colorOf(i, 0.3);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, state.pivotY);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+
+    // pivot tick
+    ctx.fillStyle = "rgba(120,130,154,0.85)";
+    ctx.fillRect(x - 1, state.pivotY - 3, 2, 6);
+
+    // bob with glow
+    ctx.save();
+    ctx.shadowColor = colorOf(i, 0.85);
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = colorOf(i, 1);
+    ctx.beginPath();
+    ctx.arc(bx, by, state.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // hot core
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.beginPath();
+    ctx.arc(bx, by, state.r * 0.34, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // flash when all bobs reach a common extreme
+  if(Math.abs(syncSum / N) > 0.96){
+    ctx.fillStyle = "rgba(255,212,137,0.9)";
+    ctx.font = "600 10px ui-monospace, Menlo, monospace";
+    ctx.fillText("SYNC", w - 14, state.pivotY - 8);
+  }
+
+  readout.textContent = "PHASE BEAT t=" + state.t.toFixed(1) + "s"
+    + (state.slow ? " · SLOW-MO" : "") + (state.paused ? " · HELD" : "");
+}
+
+function frame(now){
+  requestAnimationFrame(frame);
+  try{
+    let dt = (now - last) / 1000;
+    last = now;
+    if(dt < 0) dt = 0;
+    if(dt > 0.1) dt = 0.1;
+    if(state.paused) return;
+    state.t += dt * (state.slow ? 0.25 : 1);
+    draw();
+  }catch(e){
+    /* guard: keep the loop alive */
+  }
+}
+
+function updateStatus(){
+  statusEl.textContent = state.paused ? "HELD"
+    : state.slow ? "SLOW-MO · 0.25X" : "RUNNING · 15 PENDULA";
+  statusEl.classList.toggle("held", state.paused);
+}
+
+t0Input.addEventListener("input", function(){
+  state.T0 = parseFloat(t0Input.value);
+  t0Val.textContent = state.T0.toFixed(1) + "s";
+});
+ampInput.addEventListener("input", function(){
+  state.ampPct = parseInt(ampInput.value, 10);
+  ampVal.textContent = state.ampPct + "%";
+  state.A = (state.ampPct / 100) * state.margin * 0.95;
+});
+pauseBtn.addEventListener("click", function(){
+  state.paused = !state.paused;
+  pauseBtn.textContent = state.paused ? "RESUME" : "PAUSE";
+  pauseBtn.classList.toggle("on", state.paused);
+  if(!state.paused) last = performance.now();
+  updateStatus();
+});
+resetBtn.addEventListener("click", function(){
+  state.t = 0;
+  last = performance.now();
+  paintBackground();
+});
+slowBtn.addEventListener("click", function(){
+  state.slow = !state.slow;
+  slowBtn.classList.toggle("on", state.slow);
+  updateStatus();
+});
+window.addEventListener("resize", fit);
+updateStatus();
+fit();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

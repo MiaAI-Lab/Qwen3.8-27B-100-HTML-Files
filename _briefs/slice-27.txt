@@ -1,0 +1,11 @@
+=== 079 ===
+079-greenhouse.html
+GLASS GREENHOUSE - front view of a glass house (SVG mullion grid #2a3a3a frame, glass panes rgba(180,220,240,.18)) over a garden. Inside: 5 plant silhouettes in pots, distinct shapes; 8 steam wisps rise from one pot (bezier curves, alpha fade, loop). SUN slider: light direction moves - pane highlights slide, interior shadows shift. RAIN chip: drops slide down the glass with trails + plants sway. WATER tool: click a pot -> soil darkens briefly, steam burst, plant grows 5% (three size stages). BG soft #dfe8e0 morning fog. Caption 'GREENHOUSE - 5 SPECIMENS'.
+
+=== 080 ===
+080-neon-racetrack.html
+NEON GP - top-down oval racetrack: rounded-rect loop, glow border #27e0ff, wide #1a3a52 lane, checkered start line. Four AI cars (small trapezoids: #ff2e88, #ffd76f, #46ff9e, #8a7dff) auto-race with distinct personalities (aggressive/clean/cautious/overtaker); they rotate toward the track normal with lateral wobble, and slow for corners. Two boost strips (#ff2e88 glow zones): crossing flashes + 1.4x speed burst + longer trail. Cars leave 12-frame ghost trails. HUD: leader lap counter, live position list (1-4), 'LAP TIME 00:00'. Click a car: eased 1.6x zoom on it. Caption 'NEON GP - LAP 2/5'.
+
+=== 081 ===
+081-paper-boat.html
+PAPER BOAT ON WAVES - serene sea. Sky #dfeaf2; sea = three layered sine wave bands (canvas, #4a7a9e / #3a6a8e / #2a5a7e, different parallax speeds). A white origami boat (SVG, #f4f4f2 + fold shadow) rides the main wave: y = wave(x,t), pitch = wave slope - it bobs and tilts like it's real. WIND slider: amplitude + frequency (calm -> choppy). Click the sea: a ripple ring at the click + a traveling wave impulse nudges the boat. Occasional tiny duck crosses. SUNNY / STORMY chip: storm = #5a6a7a sky, rain streaks, whitecap foam dots. Caption 'BOAT / SEA - WIND 3 KN'.

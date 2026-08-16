@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retro TV — CH 04</title>
+<style>
+  :root{
+    --wood:#3a2a1c; --wood-hi:#5a4230; --wood-lo:#241811;
+    --metal:#8b8f96; --ink:#f2ede2; --dim:#9b8f7a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(140% 100% at 50% 0%, #1c1a17 0%, #12100e 55%, #0a0908 100%);
+    color:var(--ink);
+    font-family:system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height:100dvh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  header{
+    width:min(92vw, 720px); display:flex; justify-content:space-between; align-items:baseline;
+    padding:0 0 .6rem;
+  }
+  h1{font-size:clamp(.9rem,2.2vw,1.25rem); font-weight:600; letter-spacing:.3em; text-transform:uppercase}
+  .sub{font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:clamp(.55rem,1.2vw,.68rem); letter-spacing:.22em; color:var(--dim)}
+
+  #console{
+    width:min(92vw, 640px);
+    background:
+      linear-gradient(180deg, var(--wood-hi) 0%, var(--wood) 22%, var(--wood-lo) 100%);
+    border-radius:18px;
+    padding:clamp(.9rem,3vw,1.5rem);
+    box-shadow:
+      inset 0 1px 0 rgba(255,235,200,.18),
+      inset 0 -8px 18px rgba(0,0,0,.45),
+      0 26px 60px rgba(0,0,0,.6);
+    position:relative;
+  }
+  #console::before{
+    content:""; position:absolute; inset:6px; border-radius:13px;
+    background:repeating-linear-gradient(94deg, rgba(255,255,255,.025) 0 2px, transparent 2px 7px);
+    pointer-events:none;
+  }
+  #screenbezel{
+    position:relative;
+    background:#151310;
+    border-radius:12px;
+    padding:clamp(.5rem,1.6vw,.8rem);
+    box-shadow:inset 0 2px 8px rgba(0,0,0,.9), inset 0 0 0 1px rgba(0,0,0,.6);
+  }
+  #screen{
+    position:relative;
+    aspect-ratio:4/3;
+    border-radius:16px / 22px;
+    overflow:hidden;
+    background:#000;
+    box-shadow:
+      inset 0 0 26px rgba(0,0,0,.95),
+      inset 0 0 60px rgba(10,30,40,.35);
+  }
+  #screen::after{
+    content:""; position:absolute; inset:0; pointer-events:none; z-index:4;
+    background:
+      radial-gradient(120% 90% at 30% 18%, rgba(255,255,255,.10) 0%, rgba(255,255,255,.03) 26%, transparent 46%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px);
+    border-radius:inherit;
+  }
+  canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+
+  .deck{
+    display:flex; align-items:center; gap:clamp(.7rem,2.5vw,1.4rem);
+    margin-top:clamp(.8rem,2.4vw,1.2rem);
+    flex-wrap:wrap; justify-content:center;
+  }
+  .knob{
+    width:clamp(38px,7vw,48px); height:clamp(38px,7vw,48px);
+    border-radius:50%;
+    background:radial-gradient(circle at 34% 30%, #b9bec6, #6d727a 55%, #3c4046);
+    box-shadow:0 3px 6px rgba(0,0,0,.55), inset 0 1px 1px rgba(255,255,255,.4);
+    position:relative; cursor:grab; touch-action:none;
+    flex:0 0 auto;
+  }
+  .knob .mark{
+    position:absolute; left:50%; top:5px; width:3px; height:12px;
+    background:#f5e9c8; border-radius:2px; transform:translateX(-50%);
+    box-shadow:0 0 3px rgba(0,0,0,.6);
+  }
+  .knob-label{
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    font-size:.55rem; letter-spacing:.22em; color:var(--dim);
+    text-transform:uppercase; text-align:center; margin-top:.35rem;
+  }
+  .knobwrap{display:flex; flex-direction:column; align-items:center}
+
+  .volbar{
+    flex:1; min-width:120px; display:flex; align-items:center; gap:.6rem;
+  }
+  .volbar .track{
+    flex:1; height:6px; border-radius:3px;
+    background:linear-gradient(90deg, #2a2018, #171009);
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.9), inset 0 -1px 0 rgba(255,230,180,.08);
+    overflow:hidden; position:relative;
+  }
+  .volbar .fill{
+    position:absolute; inset:0; width:70%;
+    background:linear-gradient(90deg, #c9973f, #f2d078);
+    border-radius:3px;
+    transition:width .15s;
+  }
+  .volbar span{
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    font-size:.55rem; letter-spacing:.2em; color:var(--dim); text-transform:uppercase;
+  }
+
+  .power{
+    display:flex; flex-direction:column; align-items:center; gap:.35rem;
+  }
+  #powerbtn{
+    width:34px; height:34px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #d8dde3, #767c85 60%, #40454c);
+    border:none; cursor:pointer; position:relative;
+    box-shadow:0 3px 6px rgba(0,0,0,.55), inset 0 1px 1px rgba(255,255,255,.45);
+  }
+  #powerbtn::after{
+    content:""; position:absolute; left:50%; top:7px;
+    width:3px; height:11px; background:#e8e0cc; border-radius:2px;
+    transform:translateX(-50%);
+    box-shadow:0 0 4px rgba(0,0,0,.5);
+  }
+  #powerbtn.on{
+    background:radial-gradient(circle at 35% 30%, #ffe9a8, #e8b04a 60%, #8a5f1e);
+  }
+  #powerbtn.on::after{background:#3a2708; box-shadow:0 0 2px rgba(0,0,0,.7)}
+  .power .knob-label{color:var(--dim)}
+
+  .caption{
+    margin-top:clamp(.7rem,2vw,1.1rem);
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    font-size:clamp(.58rem,1.4vw,.7rem); letter-spacing:.3em;
+    color:var(--dim); text-transform:uppercase;
+  }
+  .hint{
+    margin-top:.4rem; text-align:center;
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    font-size:.55rem; letter-spacing:.14em; color:rgba(155,143,122,.6);
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Retro TV</h1>
+  <span class="sub">PARLOUR SET / 1978</span>
+</header>
+
+<div id="console">
+  <div id="screenbezel">
+    <div id="screen">
+      <canvas id="crt"></canvas>
+    </div>
+  </div>
+
+  <div class="deck">
+    <div class="knobwrap">
+      <div class="knob" id="knob1"><div class="mark"></div></div>
+      <div class="knob-label">Tune</div>
+    </div>
+    <div class="knobwrap">
+      <div class="knob" id="knob2"><div class="mark"></div></div>
+      <div class="knob-label">Fine</div>
+    </div>
+    <div class="knobwrap">
+      <div class="knob" id="knob3"><div class="mark"></div></div>
+      <div class="knob-label">CH</div>
+    </div>
+    <div class="volbar">
+      <span>Vol</span>
+      <div class="track"><div class="fill" id="volfill"></div></div>
+    </div>
+    <div class="power">
+      <button id="powerbtn" class="on" aria-pressed="true"></button>
+      <div class="knob-label">Power</div>
+    </div>
+  </div>
+
+  <div class="caption" id="caption">CH 01 &mdash; STATIC</div>
+  <div class="hint">drag tune knob or &larr;/&rarr; keys to change channel &middot; space = power</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var canvas = document.getElementById("crt");
+  var screen = document.getElementById("screen");
+  var ctx = canvas.getContext("2d");
+  var W = 0, H = 0, DPR = 1;
+
+  var chNames = ["STATIC", "COLOR BARS", "NO SIGNAL", "PIXEL BALL"];
+  var caption = document.getElementById("caption");
+
+  var state = {
+    ch: 0,            // 0..3
+    power: true,
+    powerPhase: 1,    // 1 = fully on; <1 animating off; >1 animating on
+    lastNow: 0,
+    ball: { x: 0.3, y: 0.3, vx: 0.62, vy: 0.44, trail: [] },
+    rollY: 0.15,
+    flick: 0,
+    vol: 0.7,
+    staticBurst: 0    // 1..0 after channel whump
+  };
+
+  function fit(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    var r = screen.getBoundingClientRect();
+    W = Math.max(1, Math.round(r.width));
+    H = Math.max(1, Math.round(r.height));
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener("resize", fit);
+
+  function squash(){
+    // Y-squeeze for the 150ms "whump"
+    var s = state.staticBurst;
+    if (s <= 0) return 1;
+    var t = s;
+    return 1 - 0.85 * Math.sin(t * Math.PI);
+  }
+
+  function drawStatic(){
+    // chunky noise: fill small cells randomly
+    var cell = 3;
+    for (var y = 0; y < H; y += cell){
+      for (var x = 0; x < W; x += cell){
+        var v = Math.random();
+        var g = Math.floor(90 + v * 165);
+        ctx.fillStyle = "rgb(" + g + "," + g + "," + g + ")";
+        ctx.fillRect(x, y, cell, cell);
+      }
+    }
+    // horizontal roll bar
+    var barH = Math.max(8, H * 0.12);
+    var grad = ctx.createLinearGradient(0, state.rollY * H - barH, 0, state.rollY * H + barH);
+    grad.addColorStop(0, "rgba(255,255,255,0)");
+    grad.addColorStop(0.5, "rgba(255,255,255,.28)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, state.rollY * H - barH, W, barH * 2);
+  }
+
+  function drawBars(){
+    var cols = ["#c8c8c8", "#c8c800", "#00c8c8", "#00c800", "#c800c8", "#c80000", "#0000c8"];
+    var bw = W / 7;
+    for (var i = 0; i < 7; i++){
+      ctx.fillStyle = cols[i];
+      ctx.fillRect(i * bw, 0, bw + 1, H * 0.72);
+    }
+    // bottom strip
+    var strip = ["#0000c8", "#000000", "#c80000", "#000000", "#00c8c8", "#000000", "#c8c8c8"];
+    var sh = H * 0.08;
+    for (var j = 0; j < 7; j++){
+      ctx.fillStyle = strip[j];
+      ctx.fillRect(j * bw, H * 0.72, bw + 1, sh);
+    }
+    // black bar bottom
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, H * 0.8, W, H * 0.2);
+    // center circle
+    ctx.fillStyle = "#0a0a0a";
+    ctx.beginPath();
+    ctx.arc(W * 0.5, H * 0.45, H * 0.17, 0, 6.2831853);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(200,200,200,.5)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = "rgba(230,230,230,.75)";
+    ctx.font = "600 " + Math.round(H * 0.055) + "px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("CH 02", W * 0.5, H * 0.45);
+  }
+
+  function drawNoSignal(){
+    ctx.fillStyle = "#e8e4da";
+    ctx.fillRect(0, 0, W, H);
+    // dark border band
+    ctx.fillStyle = "#20242c";
+    ctx.fillRect(0, 0, W, H * 0.12);
+    ctx.fillRect(0, H * 0.88, W, H * 0.12);
+    // big circle + cross
+    ctx.strokeStyle = "#20242c";
+    ctx.lineWidth = Math.max(4, W * 0.012);
+    ctx.beginPath();
+    ctx.arc(W * 0.5, H * 0.5, H * 0.26, 0, 6.2831853);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(W * 0.5, H * 0.24);
+    ctx.lineTo(W * 0.5, H * 0.76);
+    ctx.moveTo(W * 0.24, H * 0.5);
+    ctx.lineTo(W * 0.76, H * 0.5);
+    ctx.stroke();
+    // flickering text
+    if (state.flick > 0.4){
+      ctx.fillStyle = "#20242c";
+      ctx.font = "700 " + Math.round(H * 0.075) + "px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("PLEASE STAND BY", W * 0.5, H * 0.94);
+    }
+    ctx.font = "600 " + Math.round(H * 0.045) + "px ui-monospace, monospace";
+    ctx.fillStyle = "rgba(32,36,44,.8)";
+    ctx.fillText("CH 03  \u00b7  NO CARRIER", W * 0.5, H * 0.06);
+  }
+
+  function drawBall(){
+    ctx.fillStyle = "#05070c";
+    ctx.fillRect(0, 0, W, H);
+    // faint grid floor
+    ctx.strokeStyle = "rgba(90,140,200,.12)";
+    ctx.lineWidth = 1;
+    var step = 24;
+    ctx.beginPath();
+    for (var gx = step; gx < W; gx += step){ ctx.moveTo(gx + .5, 0); ctx.lineTo(gx + .5, H); }
+    for (var gy = step; gy < H; gy += step){ ctx.moveTo(0, gy + .5); ctx.lineTo(W, gy + .5); }
+    ctx.stroke();
+    // trail
+    var tr = state.ball.trail;
+    for (var i = 0; i < tr.length; i++){
+      var a = (i / tr.length) * 0.5;
+      ctx.fillStyle = "rgba(120,220,255," + a.toFixed(3) + ")";
+      var s2 = 3 + (i / tr.length) * 5;
+      ctx.fillRect(tr[i].x - s2 / 2, tr[i].y - s2 / 2, s2, s2);
+    }
+    // pixel ball (blocky)
+    var b = state.ball;
+    ctx.fillStyle = "#7ee0ff";
+    ctx.fillRect(b.x - 5, b.y - 5, 10, 10);
+    ctx.fillStyle = "rgba(255,255,255,.9)";
+    ctx.fillRect(b.x - 2, b.y - 2, 4, 4);
+  }
+
+  function update(dt){
+    // power transitions
+    if (!state.power && state.powerPhase < 1){
+      state.powerPhase = Math.max(0, state.powerPhase - dt * 3.2);
+    } else if (state.power && state.powerPhase < 1.6){
+      state.powerPhase = Math.min(1, state.powerPhase + dt * 3.2);
+    }
+    state.rollY = (state.rollY + dt * 0.55) % 1;
+    state.flick = Math.random() > 0.12 ? 1 : 0;
+    state.staticBurst = Math.max(0, state.staticBurst - dt / 0.15);
+
+    // pixel ball
+    var b = state.ball;
+    b.x += b.vx * dt * W * 0.45;
+    b.y += b.vy * dt * H * 0.45;
+    if (b.x < 6){ b.x = 6; b.vx = Math.abs(b.vx); }
+    if (b.x > W - 6){ b.x = W - 6; b.vx = -Math.abs(b.vx); }
+    if (b.y < 6){ b.y = 6; b.vy = Math.abs(b.vy); }
+    if (b.y > H - 6){ b.y = H - 6; b.vy = -Math.abs(b.vy); }
+    b.trail.push({ x: b.x, y: b.y });
+    if (b.trail.length > 14) b.trail.shift();
+  }
+
+  function render(){
+    ctx.clearRect(0, 0, W, H);
+
+    // CRT off: bright line -> dot
+    if (!state.power || state.powerPhase < 1){
+      var p = state.powerPhase;
+      if (p <= 0.001){
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(W * 0.5, H * 0.5, 1.4, 0, 6.2831853);
+        ctx.fill();
+        return;
+      }
+      // collapsing vertical line
+      var hgt = H * p;
+      var grad = ctx.createLinearGradient(0, H * 0.5 - hgt / 2, 0, H * 0.5 + hgt / 2);
+      grad.addColorStop(0, "rgba(255,255,255,0)");
+      grad.addColorStop(0.5, "rgba(235,245,255,.95)");
+      grad.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(W * 0.5 - 1, H * 0.5 - hgt / 2, 2, hgt);
+      return;
+    }
+
+    // squeeze transform for the whump
+    ctx.save();
+    var q = squash();
+    ctx.translate(0, H * 0.5 * (1 - q));
+    ctx.scale(1, q);
+    ctx.translate(0, 0);
+
+    if (state.ch === 0) drawStatic();
+    else if (state.ch === 1) drawBars();
+    else if (state.ch === 2) drawNoSignal();
+    else drawBall();
+
+    // static burst overlay after channel switch
+    if (state.staticBurst > 0){
+      var alpha = state.staticBurst * 0.8;
+      for (var i = 0; i < 90; i++){
+        var sx = Math.random() * W, sy = Math.random() * H;
+        var g = Math.floor(120 + Math.random() * 135);
+        ctx.fillStyle = "rgba(" + g + "," + g + "," + g + "," + alpha.toFixed(3) + ")";
+        ctx.fillRect(sx, sy, 4, 3);
+      }
+    }
+    ctx.restore();
+  }
+
+  function frame(now){
+    try{
+      var dt = Math.min(0.05, (now - state.lastNow) / 1000 || 0);
+      state.lastNow = now;
+      if (state.power) update(dt);
+      else {
+        state.powerPhase = Math.max(0, state.powerPhase - dt * 3.2);
+        state.flick = Math.random() > 0.12 ? 1 : 0;
+      }
+      render();
+    }catch(e){ /* guard */ }
+    requestAnimationFrame(frame);
+  }
+
+  function setChannel(n){
+    var next = ((n % 4) + 4) % 4;
+    if (next === state.ch && state.power) return;
+    state.ch = next;
+    state.staticBurst = 1;
+    if (next === 3){
+      caption.textContent = "CH 04 \u2014 75HZ";
+    } else {
+      caption.textContent = "CH 0" + (next + 1) + " \u2014 " + chNames[next];
+    }
+  }
+
+  // knob dragging
+  function bindKnob(el, fine){
+    var lastX = 0, active = false, acc = 0;
+    el.addEventListener("pointerdown", function(e){
+      active = true; lastX = e.clientX;
+      el.setPointerCapture(e.pointerId);
+      el.style.cursor = "grabbing";
+      e.preventDefault();
+    });
+    el.addEventListener("pointermove", function(e){
+      if (!active) return;
+      var dx = e.clientX - lastX;
+      lastX = e.clientX;
+      acc += dx;
+      var step = fine ? 46 : 30;
+      if (acc >= step){
+        acc = 0;
+        setChannel(state.ch + 1);
+      } else if (acc <= -step){
+        acc = 0;
+        setChannel(state.ch - 1);
+      }
+      // rotate knob mark
+      el.style.transform = "rotate(" + (acc * 0.8 * (fine ? 0.5 : 1)) + "deg)";
+    });
+    function end(){
+      active = false;
+      el.style.cursor = "grab";
+      el.style.transform = "";
+      acc = 0;
+    }
+    el.addEventListener("pointerup", end);
+    el.addEventListener("pointercancel", end);
+  }
+  bindKnob(document.getElementById("knob1"), false);
+  bindKnob(document.getElementById("knob2"), true);
+  bindKnob(document.getElementById("knob3"), false);
+
+  // volume bar: click to set
+  var volfill = document.getElementById("volfill");
+  volfill.parentElement.addEventListener("pointerdown", function(e){
+    var r = volfill.parentElement.getBoundingClientRect();
+    state.vol = Math.max(0.05, Math.min(1, (e.clientX - r.left) / r.width));
+    volfill.style.width = (state.vol * 100).toFixed(1) + "%";
+  });
+
+  // power
+  var powerBtn = document.getElementById("powerbtn");
+  function togglePower(){
+    state.power = !state.power;
+    powerBtn.classList.toggle("on", state.power);
+    powerBtn.setAttribute("aria-pressed", String(state.power));
+    if (state.power) state.powerPhase = 0;
+    else state.powerPhase = 1;
+  }
+  powerBtn.addEventListener("click", togglePower);
+
+  window.addEventListener("keydown", function(e){
+    if (e.key === "ArrowRight"){ setChannel(state.ch + 1); }
+    else if (e.key === "ArrowLeft"){ setChannel(state.ch - 1); }
+    else if (e.key === " " && e.target === document.body){
+      e.preventDefault();
+      togglePower();
+    }
+  });
+
+  fit();
+  state.ch = -1;
+  setChannel(3);
+  state.lastNow = performance.now();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

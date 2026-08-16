@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Second</title>
+<style>
+:root{
+  --bone:#efece4; --coal:#141517; --acc:#ff4d2e;
+  --sys:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--coal);
+  color:var(--bone);
+  font-family:var(--sys);
+  height:100dvh;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+}
+
+/* film grain: two offset dot lattices, whisper low */
+.grain{
+  position:fixed;inset:0;pointer-events:none;z-index:9;
+  background-image:
+    radial-gradient(rgba(239,236,228,0.05) 1px, transparent 1.35px),
+    radial-gradient(rgba(239,236,228,0.032) 1px, transparent 1.5px);
+  background-size:5px 5px, 11px 11px;
+  background-position:0 0, 3px 5px;
+  mix-blend-mode:screen;
+  opacity:.55;
+}
+
+.clock{
+  display:flex;
+  align-items:center;
+  gap:0.10em;
+  font-size:clamp(2.9rem, 18vw, 21rem);
+  font-weight:300;
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+  letter-spacing:0;
+  user-select:none;
+}
+.digit{
+  position:relative;
+  width:0.58em;
+  height:1em;
+  overflow:hidden;
+  display:block;
+}
+.digit span{
+  position:absolute;
+  left:0;top:0;
+  width:100%;height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  line-height:1;
+  transform:translateY(0);
+  transition:transform 120ms cubic-bezier(0.42, 0, 0.16, 1);
+  will-change:transform;
+}
+.colon{
+  width:0.24em;
+  display:flex;
+  flex-direction:column;
+  gap:0.34em;
+  align-self:center;
+}
+.colon i{
+  display:block;
+  width:0.085em;height:0.085em;
+  border-radius:50%;
+  background:var(--bone);
+  opacity:.38;
+}
+
+/* foot: beat dot + day + progress line */
+.foot{
+  position:fixed;
+  left:0;right:0;
+  bottom:clamp(16px, 4.5vh, 46px);
+  display:flex;
+  align-items:center;
+  gap:clamp(10px, 1.6vw, 18px);
+  padding:0 clamp(16px, 4.5vw, 56px);
+  z-index:5;
+}
+.beat{
+  flex:0 0 auto;
+  width:6px;height:6px;
+  border-radius:50%;
+  background:var(--acc);
+  opacity:.4;
+}
+.beat.pulse{animation:beat 340ms ease-out}
+@keyframes beat{
+  0%{transform:scale(1);opacity:1}
+  28%{transform:scale(2.4);opacity:1}
+  100%{transform:scale(1);opacity:.4}
+}
+.day{
+  flex:0 0 auto;
+  font-size:clamp(0.52rem, 1.5vw, 0.68rem);
+  letter-spacing:0.52em;
+  text-transform:uppercase;
+  opacity:.85;
+  white-space:nowrap;
+}
+.track{
+  flex:1 1 auto;
+  position:relative;
+  height:1px;
+  background:rgba(239,236,228,0.16);
+}
+.fill{
+  position:absolute;
+  left:0;top:0;bottom:0;
+  width:0;
+  background:var(--acc);
+}
+.fill::after{
+  content:"";
+  position:absolute;
+  right:-2.5px;top:50%;
+  width:5px;height:5px;
+  border-radius:50%;
+  background:var(--acc);
+  transform:translateY(-50%);
+}
+
+@media (max-width:430px){
+  .clock{gap:0.07em}
+  .digit{width:0.56em}
+}
+</style>
+</head>
+<body>
+
+<div class="grain" aria-hidden="true"></div>
+
+<div class="clock" role="timer" aria-label="Current time">
+  <span class="digit" id="d0"><span>0</span><span>0</span></span>
+  <span class="digit" id="d1"><span>0</span><span>0</span></span>
+  <span class="colon" aria-hidden="true"><i></i><i></i></span>
+  <span class="digit" id="d2"><span>0</span><span>0</span></span>
+  <span class="digit" id="d3"><span>0</span><span>0</span></span>
+  <span class="colon" aria-hidden="true"><i></i><i></i></span>
+  <span class="digit" id="d4"><span>0</span><span>0</span></span>
+  <span class="digit" id="d5"><span>0</span><span>0</span></span>
+</div>
+
+<footer class="foot" aria-label="Day progress">
+  <span class="beat" id="beat" aria-hidden="true"></span>
+  <span class="day" id="day">DAY</span>
+  <span class="track" aria-hidden="true"><span class="fill" id="fill"></span></span>
+</footer>
+
+<script>
+(function(){
+"use strict";
+
+var NAMES = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+var DAY_MS = 86400000;
+
+var cells = [];
+for(let k = 0; k < 6; k++){
+  var el = document.getElementById("d" + k);
+  var spans = el.querySelectorAll("span");
+  cells.push({ front:0, s:[spans[0], spans[1]], val:null });
+}
+var dayEl = document.getElementById("day");
+var fillEl = document.getElementById("fill");
+var beatEl = document.getElementById("beat");
+
+function pad2(n){
+  return (n < 10 ? "0" : "") + String(n);
+}
+
+function roll(cell, newCh){
+  var f = cell.front;
+  var front = cell.s[f];
+  var back = cell.s[1 - f];
+  back.textContent = newCh;
+  back.style.transition = "none";
+  back.style.transform = "translateY(100%)";
+  void back.offsetWidth;
+  back.style.transition = "";
+  front.style.transform = "translateY(-100%)";
+  back.style.transform = "translateY(0)";
+  cell.front = 1 - f;
+}
+
+function paint(d){
+  var h = pad2(d.getHours());
+  var m = pad2(d.getMinutes());
+  var s = pad2(d.getSeconds());
+  var str = h + m + s;
+  for(let k = 0; k < 6; k++){
+    var ch = str.charAt(k);
+    if(cells[k].val !== ch){
+      roll(cells[k], ch);
+      cells[k].val = ch;
+    }
+  }
+  dayEl.textContent = NAMES[d.getDay()];
+  var mid = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  var frac = (d.getTime() - mid) / DAY_MS;
+  if(frac < 0) frac = 0;
+  if(frac > 1) frac = 1;
+  fillEl.style.width = (frac * 100).toFixed(3) + "%";
+}
+
+function beat(){
+  beatEl.classList.remove("pulse");
+  void beatEl.offsetWidth;
+  beatEl.classList.add("pulse");
+}
+
+var lastSec = -1;
+function frame(){
+  try{
+    var now = new Date();
+    var sec = Math.floor(now.getTime() / 1000);
+    if(sec !== lastSec){
+      lastSec = sec;
+      paint(now);
+      beat();
+    }
+  }catch(e){ /* tick guard */ }
+  requestAnimationFrame(frame);
+}
+
+paint(new Date());
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

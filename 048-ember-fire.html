@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EMBER FIRE - GRID 120x70</title>
+<style>
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: #0a0505;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+#fire {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+  touch-action: none;
+}
+#fire.spark { cursor: crosshair; }
+.hud-top {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: clamp(14px, 3vw, 32px);
+  pointer-events: none;
+}
+.title {
+  color: #ffe9b0;
+  font-weight: 800;
+  font-size: clamp(13px, 2vmin, 19px);
+  letter-spacing: .5em;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(224,90,31,.55);
+}
+.title .sub {
+  display: block;
+  margin-top: 6px;
+  font-size: clamp(8px, 1.1vmin, 10px);
+  font-weight: 600;
+  letter-spacing: .32em;
+  color: rgba(255,180,58,.55);
+}
+.ctrl {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: auto;
+}
+.lab {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .3em;
+  color: rgba(255,233,176,.75);
+  text-transform: uppercase;
+}
+.lab b { color: #ffb43a; }
+input[type=range] {
+  width: clamp(110px, 22vw, 220px);
+  height: 18px;
+  accent-color: #e05a1f;
+  cursor: ew-resize;
+}
+#spark {
+  font: 700 10px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  color: #ffe9b0;
+  background: rgba(20,10,8,.6);
+  border: 1px solid rgba(224,90,31,.45);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .25s, border-color .25s, box-shadow .25s, color .25s;
+}
+#spark.on {
+  background: rgba(224,90,31,.4);
+  border-color: #ffb43a;
+  color: #fff6e0;
+  box-shadow: 0 0 18px rgba(255,180,58,.4);
+}
+#spark:hover { border-color: rgba(255,180,58,.8); }
+.hint {
+  position: fixed;
+  top: clamp(76px, 13vh, 118px);
+  right: clamp(14px, 3vw, 32px);
+  z-index: 2;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: rgba(255,180,58,.85);
+  background: rgba(20,10,8,.55);
+  border: 1px solid rgba(255,180,58,.3);
+  padding: 7px 11px;
+  border-radius: 999px;
+  opacity: 0;
+  transition: opacity .3s;
+  pointer-events: none;
+}
+.hint.show { opacity: 1; }
+.caption {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: clamp(14px, 3vh, 30px);
+  z-index: 2;
+  text-align: center;
+  font-size: clamp(10px, 1.6vmin, 14px);
+  font-weight: 800;
+  letter-spacing: .48em;
+  text-transform: uppercase;
+  color: rgba(255,233,176,.8);
+  text-shadow: 0 0 14px rgba(160,40,18,.8);
+  pointer-events: none;
+}
+@media (max-width: 480px) {
+  .ctrl { align-items: flex-start; }
+  .title .sub { letter-spacing: .22em; }
+}
+</style>
+</head>
+<body>
+<canvas id="fire" aria-label="Cellular automaton fire"></canvas>
+<div class="hud-top">
+  <div class="title">EMBER FIRE<span class="sub">cellular automaton &middot; full bleed</span></div>
+  <div class="ctrl">
+    <div class="lab">WIND <b id="windv">0.50</b></div>
+    <input type="range" id="wind" min="0" max="100" step="1" value="50" aria-label="Wind tilt">
+    <button id="spark" type="button">SPARK OFF</button>
+  </div>
+</div>
+<div class="hint" id="hint">drag across the fire to ignite</div>
+<div class="caption">EMBER - GRID 120x70</div>
+<script>
+(() => {
+  'use strict';
+  const canvas = document.getElementById('fire');
+  const ctx = canvas.getContext('2d');
+  const windEl = document.getElementById('wind');
+  const windV = document.getElementById('windv');
+  const sparkBtn = document.getElementById('spark');
+  const hint = document.getElementById('hint');
+
+  const COLS = 120;
+  const ROWS = 70;
+  const CHUNK = 17; // rows per sim chunk
+  const MAX_EMBERS = 200;
+
+  const PAL = [
+    [10, 5, 5],
+    [74, 15, 10],
+    [160, 40, 18],
+    [224, 90, 31],
+    [255, 180, 58],
+    [255, 233, 176]
+  ];
+  const PR = new Uint8Array(30), PG = new Uint8Array(30), PB = new Uint8Array(30);
+  for (let i = 0; i < PAL.length; i++) {
+    for (let k = 0; k < 5; k++) {
+      PR[i * 6 + k] = PAL[i][0];
+      PG[i * 6 + k] = PAL[i][1];
+      PB[i * 6 + k] = PAL[i][2];
+    }
+  }
+
+  let heat = new Uint8Array(COLS * ROWS);
+  let next = new Uint8Array(COLS * ROWS);
+  let wind = 0.5;
+  let sparkOn = false;
+  let embers = [];
+  let seedHeat = false;
+
+  const off = document.createElement('canvas');
+  off.width = COLS;
+  off.height = ROWS;
+  const offCtx = off.getContext('2d');
+  const img = offCtx.createImageData(COLS, ROWS);
+  const px = img.data;
+  for (let i = 0; i < px.length; i += 4) px[i + 3] = 255;
+
+  function fit() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.max(1, Math.round(window.innerWidth * dpr));
+    canvas.height = Math.max(1, Math.round(window.innerHeight * dpr));
+    ctx.imageSmoothingEnabled = false;
+  }
+
+  function ignite(x, y) {
+    // x,y in grid coords; light a short line of fuel
+    for (let dy = -1; dy <= 1; dy++) {
+      const r = y + dy;
+      if (r < 0 || r >= ROWS) continue;
+      for (let dx = -2; dx <= 2; dx++) {
+        const c = x + dx;
+        if (c < 0 || c >= COLS) continue;
+        const i = r * COLS + c;
+        const v = Math.abs(dx) <= 1 ? 5 : 4;
+        if (v > heat[i]) heat[i] = v;
+      }
+    }
+  }
+
+  function simStep() {
+    // 1) carry + flicker decay, in row chunks
+    for (let r0 = 0; r0 < ROWS; r0 += CHUNK) {
+      const r1 = Math.min(ROWS, r0 + CHUNK);
+      for (let r = r0; r < r1; r++) {
+        const base = r * COLS;
+        for (let c = 0; c < COLS; c++) {
+          const i = base + c;
+          const h = heat[i];
+          if (h === 0) { next[i] = 0; continue; }
+          let v = h - 1;
+          if (Math.random() < 0.45) v = h;          // hold
+          if (Math.random() < 0.22) v = h - 2;      // flicker down
+          if (v < 0) v = 0;
+          next[i] = v;
+        }
+      }
+    }
+    // 2) upward spread + wind-tilted lateral spread
+    const pLat = 0.34;
+    const pL = pLat * (0.15 + 0.85 * (1 - wind));
+    const pR = pLat * (0.15 + 0.85 * wind);
+    for (let r0 = 1; r0 < ROWS; r0 += CHUNK) {
+      const r1 = Math.min(ROWS, r0 + CHUNK);
+      for (let r = r0; r < r1; r++) {
+        const base = r * COLS;
+        for (let c = 0; c < COLS; c++) {
+          const i = base + c;
+          const h = heat[i];
+          if (h < 2) continue;
+          const up = i - COLS;
+          if (Math.random() < 0.8) {
+            let v = h - 1;
+            if (Math.random() < 0.35) v++;
+            if (v > 5) v = 5;
+            if (v > next[up]) next[up] = v;
+          }
+          if (c > 0 && Math.random() < pL) {
+            const t = i - COLS - 1;
+            if (h - 2 > 0 && h - 2 > next[t]) next[t] = h - 2;
+          }
+          if (c < COLS - 1 && Math.random() < pR) {
+            const t = i - COLS + 1;
+            if (h - 2 > 0 && h - 2 > next[t]) next[t] = h - 2;
+          }
+          if (h === 5 && Math.random() < 0.045 && embers.length < MAX_EMBERS) {
+            embers.push({
+              x: c + 0.5,
+              y: r + 0.5,
+              vx: (Math.random() - 0.5) * 0.5 + wind * 0.55,
+              vy: -(0.25 + Math.random() * 0.55),
+              a: 1,
+              s: 0.5 + Math.random() * 0.8
+            });
+          }
+        }
+      }
+    }
+    // 3) log line: bottom row re-ignites continuously
+    const bBase = (ROWS - 1) * COLS;
+    for (let c = 0; c < COLS; c++) {
+      const i = bBase + c;
+      if (heat[i] === 0) {
+        if (Math.random() < 0.5) next[i] = 4;
+        else if (Math.random() < 0.6) next[i] = 3;
+      } else if (Math.random() < 0.15) {
+        if (4 > next[i]) next[i] = 4; // re-boost the log
+      }
+    }
+    // swap
+    const tmp = heat;
+    heat = next;
+    next = tmp;
+    seedHeat = false;
+  }
+
+  function render() {
+    for (let i = 0; i < heat.length; i++) {
+      const v = heat[i] * 6;
+      const j = i * 4;
+      px[j] = PR[v];
+      px[j + 1] = PG[v];
+      px[j + 2] = PB[v];
+    }
+    offCtx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, COLS, ROWS, 0, 0, canvas.width, canvas.height);
+
+    // embers on top
+    if (embers.length > 0) {
+      const sx = canvas.width / COLS;
+      const sy = canvas.height / ROWS;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let e of embers) {
+        e.x += e.vx * 0.016;
+        e.y += e.vy * 0.016;
+        e.a -= 0.012;
+        if (e.a <= 0 || e.y < 0) continue;
+        const xx = e.x * sx;
+        const yy = e.y * sy;
+        const rr = Math.max(1.5, Math.min(sx, sy) * 0.5 * e.s);
+        ctx.fillStyle = 'rgba(255,180,58,' + (e.a * 0.28).toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.arc(xx, yy, rr * 2.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,233,176,' + e.a.toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.arc(xx, yy, rr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      const keep = [];
+      for (let e of embers) {
+        if (e.a > 0 && e.y > -1) keep.push(e);
+      }
+      embers = keep;
+    }
+  }
+
+  function seed() {
+    // starting log bed
+    for (let c = 0; c < COLS; c++) {
+      if (Math.random() < 0.8) heat[(ROWS - 1) * COLS + c] = 4;
+      if (Math.random() < 0.3) heat[(ROWS - 2) * COLS + c] = 2;
+    }
+  }
+
+  let last = performance.now();
+
+  function tick() {
+    requestAnimationFrame(tick);
+    const now = performance.now();
+    last = now;
+    try {
+      if (!seedHeat) {
+        seedHeat = true;
+        seed();
+      }
+      simStep();
+      simStep(); // two substeps per frame for a taller, livelier burn
+      render();
+    } catch (err) {
+      /* keep the loop alive */
+    }
+  }
+
+  let dragging = false;
+
+  function gridPos(ev) {
+    const r = canvas.getBoundingClientRect();
+    const gx = Math.floor((ev.clientX - r.left) / r.width * COLS);
+    const gy = Math.floor((ev.clientY - r.top) / r.height * ROWS);
+    return { gx: Math.max(0, Math.min(COLS - 1, gx)), gy: Math.max(0, Math.min(ROWS - 1, gy)) };
+  }
+
+  canvas.addEventListener('pointerdown', (ev) => {
+    if (!sparkOn) return;
+    dragging = true;
+    canvas.setPointerCapture(ev.pointerId);
+    const p = gridPos(ev);
+    ignite(p.gx, p.gy);
+  });
+  canvas.addEventListener('pointermove', (ev) => {
+    if (!sparkOn || !dragging) return;
+    const p = gridPos(ev);
+    ignite(p.gx, p.gy);
+  });
+  const stopDrag = () => { dragging = false; };
+  canvas.addEventListener('pointerup', stopDrag);
+  canvas.addEventListener('pointercancel', stopDrag);
+
+  windEl.addEventListener('input', () => {
+    wind = Number(windEl.value) / 100;
+    windV.textContent = wind.toFixed(2);
+  });
+
+  sparkBtn.addEventListener('click', () => {
+    sparkOn = !sparkOn;
+    sparkBtn.textContent = sparkOn ? 'SPARK ON' : 'SPARK OFF';
+    sparkBtn.classList.toggle('on', sparkOn);
+    canvas.classList.toggle('spark', sparkOn);
+    hint.classList.toggle('show', sparkOn);
+  });
+
+  window.addEventListener('resize', fit);
+  fit();
+  tick();
+})();
+</script>
+</body>
+</html>

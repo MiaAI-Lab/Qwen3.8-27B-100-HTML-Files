@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<title>011 · Pocket Synth — Gallery 100</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  min-height:100vh;min-height:100dvh;
+  background:#0d0e11;
+  background-image:radial-gradient(120% 90% at 50% 8%,#191b20 0%,#0d0e11 55%,#08090b 100%);
+  color:#d5d9e0;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:clamp(10px,2vh,18px);
+  padding:clamp(12px,3vw,28px);
+  overflow-x:hidden;
+}
+.hud-top{display:flex;align-items:center;gap:10px;letter-spacing:.3em;font:600 10px/1 ui-monospace,monospace;color:#5d6470;text-transform:uppercase}
+.hud-top .idx{color:#ffb350;border:1px solid #3a3428;background:#1c1a15;padding:3px 9px;border-radius:999px;letter-spacing:.2em}
+.device{
+  width:min(94vw,540px);
+  background:linear-gradient(180deg,#2a2d33 0%,#23262b 18%,#1e2126 100%);
+  border:1px solid #34383f;
+  border-radius:26px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 34px 70px -18px rgba(0,0,0,.7),0 12px 28px rgba(0,0,0,.45);
+  padding:clamp(14px,3.5vw,22px);
+  display:flex;flex-direction:column;gap:clamp(10px,2.4vw,16px);
+}
+.dev-head{display:flex;align-items:center;justify-content:space-between;padding:2px 4px}
+.brand{display:flex;align-items:center;gap:8px;font:700 13px/1 ui-monospace,monospace;letter-spacing:.22em;color:#e8ebf0}
+.led{width:8px;height:8px;border-radius:50%;background:#3a3f33;box-shadow:inset 0 1px 2px rgba(0,0,0,.6);transition:background .3s,box-shadow .3s}
+.led.on{background:#ffb350;box-shadow:0 0 10px rgba(255,179,80,.9),0 0 2px rgba(255,179,80,.9)}
+.model{font:600 9px/1 ui-monospace,monospace;letter-spacing:.3em;color:#6a7280;text-transform:uppercase}
+.scope-wrap{position:relative;height:clamp(74px,20vw,112px);background:#0f1114;border:1px solid #2a2e35;border-radius:14px;overflow:hidden;box-shadow:inset 0 2px 10px rgba(0,0,0,.55)}
+#scope{position:absolute;inset:0;width:100%;height:100%;display:block}
+.scope-tag{position:absolute;right:8px;top:6px;font:600 8px/1 ui-monospace,monospace;letter-spacing:.26em;color:#4b5563;pointer-events:none}
+.controls{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid #3a3f47;background:#2a2e35;color:#9aa2ae;font:700 10px/1 ui-monospace,monospace;letter-spacing:.14em;padding:8px 11px;border-radius:999px;cursor:pointer;transition:border-color .15s,color .15s,background .15s,box-shadow .15s}
+.chip:hover{border-color:#545c68;color:#c7cdd7}
+.chip.on{background:#332a1c;border-color:#ffb350;color:#ffcf9a;box-shadow:0 0 10px rgba(255,179,80,.25),inset 0 0 6px rgba(255,179,80,.12)}
+.knobs{display:flex;gap:clamp(6px,1.6vw,12px)}
+.knob-block{display:flex;flex-direction:column;align-items:center;gap:4px}
+.knob{position:relative;width:clamp(46px,13vw,58px);height:clamp(46px,13vw,58px);border-radius:50%;cursor:grab;touch-action:none;border:1px solid #15181c;box-shadow:0 4px 10px rgba(0,0,0,.5)}
+.knob:active{cursor:grabbing}
+.knob .face{position:absolute;inset:5px;border-radius:50%;background:radial-gradient(circle at 34% 30%,#414752 0%,#2b2f36 58%,#23262c 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),inset 0 -3px 6px rgba(0,0,0,.5)}
+.knob .ind{position:absolute;inset:0}
+.knob .ind::before{content:"";position:absolute;top:8%;left:50%;width:3px;height:22%;margin-left:-1.5px;border-radius:3px;background:#ffb350;box-shadow:0 0 6px rgba(255,179,80,.8)}
+.knob-block label{font:700 10px/1 ui-monospace,monospace;letter-spacing:.2em;color:#8a93a1}
+.knob-block output{font:600 9px/1 ui-monospace,monospace;color:#5f6875;letter-spacing:.05em}
+.keys{position:relative;display:grid;grid-template-columns:repeat(6,1fr);gap:clamp(6px,1.4vw,9px);z-index:2}
+.key{
+  position:relative;height:clamp(54px,15vw,74px);border-radius:11px;border:1px solid #191c21;
+  background:linear-gradient(180deg,#3d434c 0%,#2e333b 55%,#282d34 100%);
+  box-shadow:0 3px 0 #14171b,inset 0 1px 0 rgba(255,255,255,.09),inset 0 -4px 8px rgba(0,0,0,.35);
+  cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;
+  font-family:ui-monospace,monospace;color:#c3c9d3;
+  transition:transform .04s,box-shadow .08s,background .08s;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+}
+.key .kl{font-size:clamp(13px,3.4vw,16px);font-weight:700;letter-spacing:.04em}
+.key .ko{font-size:8px;font-weight:600;color:#79818e;letter-spacing:.12em}
+.key.down{
+  transform:translateY(2px);
+  background:linear-gradient(180deg,#5b636f 0%,#414855 60%,#3a414d 100%);
+  box-shadow:0 1px 0 #14171b,inset 0 0 20px rgba(255,179,80,.28),0 0 16px rgba(255,179,80,.22);
+  color:#ffd9a8;
+}
+.key.down .ko{color:#c99a5e}
+.glyph{
+  position:absolute;z-index:3;font:700 11px/1 ui-monospace,monospace;color:#ffb350;
+  text-shadow:0 0 8px rgba(255,179,80,.8);pointer-events:none;
+  transform:translate(-50%,0);animation:rise 1.15s cubic-bezier(.2,.7,.3,1) forwards;letter-spacing:.08em;
+}
+@keyframes rise{
+  0%{opacity:0;transform:translate(-50%,4px) scale(.8)}
+  12%{opacity:1}
+  100%{opacity:0;transform:translate(-50%,-64px) scale(1.06)}
+}
+.dev-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px;flex-wrap:wrap}
+.echo{font:600 8px/1 ui-monospace,monospace;letter-spacing:.22em;color:#5f6875}
+.cap{font:600 10px/1 ui-monospace,monospace;letter-spacing:.34em;color:#8a93a1;text-transform:uppercase}
+.hint{font:600 8px/1 ui-monospace,monospace;letter-spacing:.18em;color:#565e6a}
+</style>
+</head>
+<body>
+<header class="hud-top"><span>Gallery 100</span><span class="idx">011</span></header>
+
+<section class="device" id="device" aria-label="Pocket synth">
+  <div class="dev-head">
+    <div class="brand"><span class="led" id="led"></span>SPK-12</div>
+    <div class="model">Mono Wave · 12 Key</div>
+  </div>
+
+  <div class="scope-wrap">
+    <canvas id="scope"></canvas>
+    <span class="scope-tag">SCOPE · 1kHz/DIV</span>
+  </div>
+
+  <div class="controls">
+    <div class="chips" id="chips" role="group" aria-label="Waveform">
+      <button type="button" class="chip on" data-w="sine">SIN</button>
+      <button type="button" class="chip" data-w="square">SQR</button>
+      <button type="button" class="chip" data-w="sawtooth">SAW</button>
+      <button type="button" class="chip" data-w="triangle">TRI</button>
+    </div>
+    <div class="knobs">
+      <div class="knob-block">
+        <div class="knob" id="kA"><div class="face"></div><div class="ind"></div></div>
+        <label for="kA">ATT</label><output id="oA">–</output>
+      </div>
+      <div class="knob-block">
+        <div class="knob" id="kD"><div class="face"></div><div class="ind"></div></div>
+        <label for="kD">DEC</label><output id="oD">–</output>
+      </div>
+      <div class="knob-block">
+        <div class="knob" id="kS"><div class="face"></div><div class="ind"></div></div>
+        <label for="kS">SUS</label><output id="oS">–</output>
+      </div>
+      <div class="knob-block">
+        <div class="knob" id="kR"><div class="face"></div><div class="ind"></div></div>
+        <label for="kR">REL</label><output id="oR">–</output>
+      </div>
+    </div>
+  </div>
+
+  <div class="keys" id="keys"></div>
+
+  <div class="dev-foot">
+    <span class="echo">ECHO 0.28s · FB 40%</span>
+    <span class="cap">Pocket Synth</span>
+    <span class="hint">Tap keys · Drag knobs</span>
+  </div>
+</section>
+
+<script>
+(function(){
+"use strict";
+
+var scope=document.getElementById("scope");
+var sctx=scope.getContext("2d");
+var led=document.getElementById("led");
+var keysWrap=document.getElementById("keys");
+var scW=0,scH=0;
+
+var LETTERS=["C","D\u266d","E\u266d","F","G","B\u266d","C","D\u266d","E\u266d","F","G","B\u266d"];
+var MIDDIS=[60,61,63,65,67,70,72,73,75,77,79,82];
+var PEAK=0.5;
+
+function freq(m){return 440*Math.pow(2,(m-69)/12);}
+
+/* ---------- audio engine ---------- */
+var ctx=null,bus=null,analyser=null,data=null,wave="sine";
+var active={};
+
+function ensureAudio(){
+  if(ctx){if(ctx.state==="suspended"){ctx.resume();}return;}
+  try{
+    var AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC)return;
+    ctx=new AC();
+    bus=ctx.createGain();bus.gain.value=1;
+    var master=ctx.createGain();master.gain.value=0.5;
+    analyser=ctx.createAnalyser();
+    analyser.fftSize=2048;
+    analyser.smoothingTimeConstant=0.2;
+    data=new Uint8Array(analyser.fftSize);
+    var dry=ctx.createGain();dry.gain.value=1;
+    var dly=ctx.createDelay(1.0);dly.delayTime.value=0.28;
+    var fb=ctx.createGain();fb.gain.value=0.4;
+    var wet=ctx.createGain();wet.gain.value=0.55;
+    bus.connect(master);
+    master.connect(dry);
+    dry.connect(analyser);
+    master.connect(dly);
+    dly.connect(fb);
+    fb.connect(dly);
+    dly.connect(wet);
+    wet.connect(analyser);
+    analyser.connect(ctx.destination);
+    led.classList.add("on");
+    if(ctx.state==="suspended"){ctx.resume();}
+  }catch(e){ctx=null;}
+}
+
+function noteOn(m,name,el){
+  ensureAudio();
+  if(!ctx)return;
+  var t=ctx.currentTime;
+  var A=Math.max(0.003,kval("A")),D=Math.max(0.02,kval("D")),S=kval("S");
+  var osc=ctx.createOscillator();
+  osc.type=wave;
+  osc.frequency.setValueAtTime(freq(m),t);
+  var g=ctx.createGain();
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.linearRampToValueAtTime(PEAK,t+A);
+  g.gain.linearRampToValueAtTime(PEAK*S,t+A+D);
+  osc.connect(g);
+  g.connect(bus);
+  osc.start(t);
+  active[name]={osc:osc,g:g};
+  spawnGlyph(name,el);
+}
+
+function noteOff(name){
+  var rec=active[name];
+  if(!rec)return;
+  delete active[name];
+  if(!ctx)return;
+  var t=ctx.currentTime;
+  var R=Math.max(0.05,kval("R"));
+  var gv=rec.g.gain;
+  gv.cancelScheduledValues(t);
+  gv.setValueAtTime(Math.max(0.0001,gv.value),t);
+  gv.setTargetAtTime(0.0001,t,R/4);
+  rec.osc.stop(t+R+0.35);
+}
+
+function spawnGlyph(name,el){
+  try{
+    var g=document.createElement("span");
+    g.className="glyph";
+    g.textContent=name;
+    var kr=el.getBoundingClientRect();
+    var hr=keysWrap.getBoundingClientRect();
+    g.style.left=(kr.left-hr.left+kr.width/2+(Math.random()*16-8)).toFixed(1)+"px";
+    g.style.top=(kr.top-hr.top-6).toFixed(1)+"px";
+    keysWrap.appendChild(g);
+    g.addEventListener("animationend",function(){if(g.parentNode){g.parentNode.removeChild(g);}});
+  }catch(e){}
+}
+
+function releaseAll(){
+  var ds=keysWrap.querySelectorAll(".key.down");
+  for(let i=0;i<ds.length;i++){ds[i].classList.remove("down");}
+  var names=Object.keys(active);
+  for(let i=0;i<names.length;i++){noteOff(names[i]);}
+}
+window.addEventListener("pointerup",releaseAll);
+window.addEventListener("pointercancel",releaseAll);
+
+/* ---------- keyboard ---------- */
+MIDDIS.forEach(function(m,i){
+  var b=document.createElement("button");
+  b.type="button";
+  b.className="key";
+  var l=document.createElement("span");
+  l.className="kl";
+  l.textContent=LETTERS[i];
+  var o=document.createElement("span");
+  o.className="ko";
+  o.textContent=(i<6?"4":"5");
+  b.appendChild(l);
+  b.appendChild(o);
+  var name=LETTERS[i]+(i<6?"4":"5");
+  b.addEventListener("pointerdown",function(e){
+    e.preventDefault();
+    b.classList.add("down");
+    noteOn(m,name,b);
+  });
+  b.addEventListener("contextmenu",function(e){e.preventDefault();});
+  keysWrap.appendChild(b);
+});
+
+/* ---------- waveform chips ---------- */
+var chips=document.getElementById("chips");
+chips.addEventListener("click",function(e){
+  var b=e.target.closest(".chip");
+  if(!b)return;
+  wave=b.getAttribute("data-w");
+  var all=chips.querySelectorAll(".chip");
+  for(let i=0;i<all.length;i++){all[i].classList.toggle("on",all[i]===b);}
+});
+
+/* ---------- knobs ---------- */
+var KNOBS=[
+  {id:"kA",out:"oA",p:"A",min:0.002,max:0.5,def:0.18,v:0.18},
+  {id:"kD",out:"oD",p:"D",min:0.02,max:1.0,def:0.30,v:0.30},
+  {id:"kS",out:"oS",p:"S",min:0,max:0.9,def:0.45,v:0.45},
+  {id:"kR",out:"oR",p:"R",min:0.05,max:1.4,def:0.30,v:0.30}
+];
+
+function kval(p){
+  for(let i=0;i<KNOBS.length;i++){
+    if(KNOBS[i].p===p){return KNOBS[i].min+KNOBS[i].v*(KNOBS[i].max-KNOBS[i].min);}
+  }
+  return 0;
+}
+
+function paintKnob(k){
+  var deg=Math.round(k.v*270);
+  k.eln.style.background="conic-gradient(from -135deg,#ffb350 0deg "+deg+"deg,rgba(255,255,255,0.07) "+deg+"deg 270deg,transparent 270deg 360deg)";
+  k.ind.style.transform="rotate("+(k.v*270-135)+"deg)";
+  var val=k.min+k.v*(k.max-k.min);
+  k.out.textContent=(k.p==="S")?Math.round(val*100)+"%":val.toFixed(2)+"s";
+}
+
+KNOBS.forEach(function(k){
+  k.eln=document.getElementById(k.id);
+  k.ind=k.eln.querySelector(".ind");
+  k.out=document.getElementById(k.out);
+  paintKnob(k);
+  let drag=null;
+  k.eln.addEventListener("pointerdown",function(e){
+    e.preventDefault();
+    ensureAudio();
+    drag={y:e.clientY,v:k.v};
+    try{k.eln.setPointerCapture(e.pointerId);}catch(err){}
+  });
+  k.eln.addEventListener("pointermove",function(e){
+    if(!drag)return;
+    k.v=Math.min(1,Math.max(0,drag.v-(e.clientY-drag.y)/140));
+    paintKnob(k);
+  });
+  var end=function(){drag=null;};
+  k.eln.addEventListener("pointerup",end);
+  k.eln.addEventListener("pointercancel",end);
+  k.eln.addEventListener("dblclick",function(){k.v=k.def;paintKnob(k);});
+});
+
+/* ---------- oscilloscope ---------- */
+function fit(){
+  var dpr=Math.min(2,window.devicePixelRatio||1);
+  var r=scope.getBoundingClientRect();
+  scW=Math.max(10,r.width);
+  scH=Math.max(10,r.height);
+  scope.width=Math.round(scW*dpr);
+  scope.height=Math.round(scH*dpr);
+  sctx.setTransform(dpr,0,0,dpr,0,0);
+}
+
+function draw(){
+  requestAnimationFrame(draw);
+  try{
+    var w=scW,h=scH;
+    if(!w||!h||!sctx)return;
+    sctx.clearRect(0,0,w,h);
+    sctx.lineWidth=1;
+    sctx.strokeStyle="rgba(255,255,255,0.05)";
+    sctx.beginPath();
+    for(let x=0.5;x<w;x+=28){sctx.moveTo(x,0);sctx.lineTo(x,h);}
+    for(let y=0.5;y<h;y+=16){sctx.moveTo(0,y);sctx.lineTo(w,y);}
+    sctx.stroke();
+    sctx.strokeStyle="rgba(127,255,203,0.18)";
+    sctx.beginPath();
+    sctx.moveTo(0,h/2+0.5);
+    sctx.lineTo(w,h/2+0.5);
+    sctx.stroke();
+
+    var live=false;
+    if(analyser&&data){
+      analyser.getByteTimeDomainData(data);
+      let mx=0;
+      for(let i=0;i<data.length;i+=8){
+        var v=Math.abs(data[i]-128);
+        if(v>mx)mx=v;
+      }
+      if(mx>4)live=true;
+    }
+
+    sctx.lineWidth=2;
+    sctx.strokeStyle="#7dffcb";
+    sctx.shadowColor="rgba(127,255,203,0.55)";
+    sctx.shadowBlur=8;
+    sctx.beginPath();
+    if(live){
+      var step=Math.max(1,Math.floor(data.length/w));
+      for(let i=0;i<=w;i++){
+        var idx=Math.min(data.length-1,i*step);
+        var y=h/2-((data[idx]-128)/128)*(h/2-6);
+        if(i===0){sctx.moveTo(i,y);}else{sctx.lineTo(i,y);}
+      }
+    }else{
+      var t=performance.now()*0.00045;
+      var amp=Math.min(4,h*0.05);
+      for(let i=0;i<=w;i+=2){
+        var yy=h/2+Math.sin(i*0.045+t)*amp;
+        if(i===0){sctx.moveTo(i,yy);}else{sctx.lineTo(i,yy);}
+      }
+    }
+    sctx.stroke();
+    sctx.shadowBlur=0;
+  }catch(e){}
+}
+
+fit();
+window.addEventListener("resize",fit);
+draw();
+
+})();
+</script>
+</body>
+</html>

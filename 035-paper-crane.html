@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAPER CRANE</title>
+<style>
+  :root{
+    --bg:#10131a;
+    --paper:#f4efe4;
+    --edge:#d8cfc0;
+    --ink:rgba(228,220,204,.92);
+    --dim:rgba(180,170,150,.55);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden}
+  body{
+    background:radial-gradient(ellipse 70% 55% at 50% 44%, #1a1f2b 0%, #12151d 48%, var(--bg) 100%);
+    font-family:system-ui,-apple-system,Segoe UI,sans-serif;
+    color:var(--ink);
+    -webkit-user-select:none;user-select:none;
+    touch-action:none;
+  }
+  #spot{
+    position:fixed;left:50%;top:44%;width:min(72vmin,640px);height:min(72vmin,640px);
+    transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle, rgba(255,248,230,.10) 0%, rgba(255,248,230,.04) 42%, transparent 70%);
+    animation:spotPulse 7s ease-in-out infinite;
+  }
+  @keyframes spotPulse{0%,100%{opacity:.75}50%{opacity:1}}
+  #floor{
+    position:fixed;left:50%;bottom:12%;width:64vmin;height:10vmin;transform:translateX(-50%);
+    background:radial-gradient(ellipse, rgba(0,0,0,.5) 0%, transparent 70%);
+    border-radius:50%;pointer-events:none;filter:blur(2px);
+  }
+  #scene{
+    position:fixed;inset:0;display:grid;place-items:center;perspective:1100px;perspective-origin:50% 46%;
+  }
+  #crane{
+    position:relative;width:340px;height:240px;transform-style:preserve-3d;
+    cursor:grab;will-change:transform;
+  }
+  #crane.dragging{cursor:grabbing}
+  .f{
+    position:absolute;background:var(--edge);transform-style:preserve-3d;
+  }
+  .f::before{
+    content:"";position:absolute;inset:1.5px;
+    clip-path:inherit;
+    background:linear-gradient(135deg,#fdfaf3 0%, var(--paper) 46%, #e6ddca 100%);
+  }
+  .f.dark::before{
+    background:linear-gradient(215deg,#f7f2e7 0%, #efe8d9 45%, #d9cfba 100%);
+  }
+  .f.darker::before{
+    background:linear-gradient(215deg,#eee7d8 0%, #e3d9c6 45%, #cfc4ad 100%);
+  }
+  /* ---- body (4) ---- */
+  #f1{left:88px;top:74px;width:84px;height:64px;clip-path:polygon(0 100%,58% 0,100% 100%);transform:translateZ(2px)}
+  #f2{left:168px;top:74px;width:84px;height:64px;clip-path:polygon(0 100%,42% 0,100% 100%);transform:translateZ(3px)}
+  #f3{left:96px;top:132px;width:72px;height:44px;clip-path:polygon(0 0,100% 0,46% 100%);transform:translateZ(1px)}
+  #f4{left:170px;top:132px;width:72px;height:44px;clip-path:polygon(0 0,100% 0,54% 100%);transform:translateZ(0px)}
+  /* ---- tail (2) ---- */
+  #tg{position:absolute;left:30px;top:26px;width:84px;height:74px;transform-origin:85% 95%;
+      transform:rotateZ(-24deg) translateZ(4px);transform-style:preserve-3d}
+  #f5{position:absolute;inset:0;clip-path:polygon(18% 100%,52% 0,86% 100%)}
+  #f6{position:absolute;inset:0;clip-path:polygon(50% 100%,64% 12%,86% 100%)}
+  /* ---- wings (6) ---- */
+  #wingL{
+    position:absolute;left:-2px;top:-30px;width:172px;height:116px;
+    transform-origin:96% 88%;transform-style:preserve-3d;
+    animation:flapL 2s ease-in-out infinite alternate;
+  }
+  #wingR{
+    position:absolute;left:170px;top:-30px;width:172px;height:116px;
+    transform-origin:4% 88%;transform-style:preserve-3d;
+    animation:flapR 2s ease-in-out infinite alternate;
+  }
+  @keyframes flapL{
+    0%{transform:rotateZ(-7deg) translateZ(9px)}
+    100%{transform:rotateZ(-34deg) translateZ(14px)}
+  }
+  @keyframes flapR{
+    0%{transform:rotateZ(7deg) translateZ(9px)}
+    100%{transform:rotateZ(34deg) translateZ(14px)}
+  }
+  #f7{position:absolute;inset:0;clip-path:polygon(100% 88%,14% 4%,0 58%)}
+  #f8{position:absolute;inset:0;clip-path:polygon(100% 88%,30% 16%,16% 52%)}
+  #f9{position:absolute;inset:0;clip-path:polygon(0 58%,22% 6%,9% 0)}
+  #f10{position:absolute;inset:0;clip-path:polygon(0% 88%,86% 4%,100% 58%)}
+  #f11{position:absolute;inset:0;clip-path:polygon(0% 88%,70% 16%,84% 52%)}
+  #f12{position:absolute;inset:0;clip-path:polygon(100% 58%,78% 6%,91% 0)}
+  /* ---- neck + head (4) ---- */
+  #neck{
+    position:absolute;left:238px;top:22px;width:66px;height:96px;
+    transform-origin:18% 96%;transform:rotateZ(26deg) translateZ(6px);transform-style:preserve-3d;
+  }
+  #f13{position:absolute;inset:0;clip-path:polygon(10% 100%,52% 0,96% 100%)}
+  #f14{position:absolute;inset:0;clip-path:polygon(44% 100%,68% 8%,96% 100%)}
+  #head{
+    position:absolute;left:276px;top:2px;width:58px;height:34px;
+    transform:rotateZ(10deg) translateZ(8px);transform-style:preserve-3d;
+  }
+  #head .f::before{background:linear-gradient(135deg,#f8f3e9 0%,#efe8d9 55%,#ddd2bd 100%)}
+  .h1{position:absolute;inset:0;clip-path:polygon(0 100%,42% 0,100% 64%)}
+  .h2{position:absolute;inset:0;clip-path:polygon(52% 26%,100% 52%,52% 78%)}
+
+  .hud{position:fixed;letter-spacing:.3em;text-transform:uppercase;
+       font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;pointer-events:none}
+  #cap{
+    bottom:30px;left:50%;transform:translateX(-50%);text-align:center;white-space:nowrap;
+  }
+  #cap .name{font-size:clamp(12px,1.7vw,16px);letter-spacing:.62em;color:var(--ink)}
+  #cap .fold{margin-top:8px;font-size:9px;letter-spacing:.42em;color:var(--dim)}
+  #cap .rule{width:56px;height:1px;margin:0 auto 10px;background:linear-gradient(90deg,transparent,rgba(216,207,192,.7),transparent)}
+  #hud-tl{top:22px;left:24px;color:var(--dim)}
+  #hud-tr{top:22px;right:24px;color:var(--dim);text-align:right}
+  #hud-bl{bottom:24px;left:24px;color:var(--dim)}
+  #hud-br{bottom:24px;right:24px;color:var(--dim);text-align:right}
+  .hud .v{color:rgba(232,224,206,.85)}
+</style>
+</head>
+<body>
+<div id="spot"></div>
+<div id="floor"></div>
+<div id="scene">
+  <div id="crane">
+    <div id="tg">
+      <div class="f darker" id="f6"></div>
+      <div class="f" id="f5"></div>
+    </div>
+    <div id="wingL">
+      <div class="f dark" id="f8"></div>
+      <div class="f darker" id="f9"></div>
+      <div class="f" id="f7"></div>
+    </div>
+    <div id="wingR">
+      <div class="f dark" id="f11"></div>
+      <div class="f darker" id="f12"></div>
+      <div class="f" id="f10"></div>
+    </div>
+    <div id="f4" class="f"></div>
+    <div id="f3" class="f dark"></div>
+    <div id="f1" class="f"></div>
+    <div id="f2" class="f"></div>
+    <div id="neck">
+      <div class="f dark" id="f14"></div>
+      <div class="f" id="f13"></div>
+    </div>
+    <div id="head">
+      <div class="f h2 dark"></div>
+      <div class="f h1"></div>
+    </div>
+  </div>
+</div>
+
+<div class="hud" id="hud-tl">
+  <div><span>STOCK</span> <span class="v">WASHI 72&#8201;g/m&#178;</span></div>
+  <div><span>CREASES</span> <span class="v">VALLEY + MOUNTAIN</span></div>
+</div>
+<div class="hud" id="hud-tr">
+  <div><span>AXIS-Y</span> <span class="v" id="v-y">+000&#176;</span></div>
+  <div><span>AXIS-X</span> <span class="v" id="v-x">+000&#176;</span></div>
+</div>
+<div class="hud" id="hud-bl">
+  <div><span>DRAG</span> <span class="v">TO SPIN</span></div>
+</div>
+<div class="hud" id="hud-br">
+  <div><span>FLAP</span> <span class="v">2.0&#8201;S EASE</span></div>
+</div>
+<div class="hud" id="cap">
+  <div class="rule"></div>
+  <div class="name">ORIGAMI &mdash; CRANE, FOLD 14</div>
+  <div class="fold">PURE CSS 3D &#183; 14 FACES &#183; PAGE 035</div>
+</div>
+<script>
+(function(){
+  "use strict";
+  var crane = document.getElementById("crane");
+  if(!crane) return;
+  var vy = document.getElementById("v-y");
+  var vx = document.getElementById("v-x");
+
+  var rotX = -14, rotY = -28;         // user-controlled
+  var velX = 0, velY = 0;             // inertia
+  var dragging = false;
+  var lastPX = 0, lastPY = 0;
+  var idle = 1;                       // 1 = full auto float, 0 while dragging
+  var t = 0, last = performance.now();
+  var running = true;
+
+  function fmt(v){
+    var n = Math.round(v);
+    var s = (n < 0 ? "\u2212" : "+") + String(Math.abs(n)).padStart(3, "0");
+    return s + "\u00b0";
+  }
+
+  function paint(){
+    try{
+      var floatY = Math.sin(t * 0.7) * 12 * idle;      // rotateY +/-12 deg
+      var bob = Math.sin(t * 0.9 + 1.1) * 10 * idle;   // translateY bob
+      crane.style.transform =
+        "translateY(" + bob.toFixed(2) + "px) " +
+        "rotateX(" + (rotX).toFixed(2) + "deg) " +
+        "rotateY(" + (rotY + floatY).toFixed(2) + "deg)";
+      if (vy) vy.textContent = fmt(rotY + floatY);
+      if (vx) vx.textContent = fmt(rotX);
+    }catch(e){ running = false; }
+  }
+
+  function frame(){
+    if(!running) return;
+    var now = performance.now();
+    var dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    t += dt;
+
+    if(!dragging){
+      rotX += velX * dt;
+      rotY += velY * dt;
+      var damp = Math.pow(0.14, dt);                   // inertia decay
+      velX *= damp;
+      velY *= damp;
+      if (Math.abs(velX) < 0.05) velX = 0;
+      if (Math.abs(velY) < 0.05) velY = 0;
+      idle += (1 - idle) * Math.min(1, dt * 2.2);      // auto float eases back
+    } else {
+      idle += (0 - idle) * Math.min(1, dt * 9);
+    }
+    // clamp tilt
+    rotX = Math.max(-70, Math.min(70, rotX));
+
+    paint();
+    requestAnimationFrame(frame);
+  }
+
+  function down(e){
+    if(!crane) return;
+    dragging = true;
+    crane.classList.add("dragging");
+    velX = 0; velY = 0;
+    lastPX = e.clientX; lastPY = e.clientY;
+    window.addEventListener("pointermove", move, { passive:false });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  }
+  function move(e){
+    if(!dragging) return;
+    e.preventDefault();
+    var dx = e.clientX - lastPX;
+    var dy = e.clientY - lastPY;
+    lastPX = e.clientX; lastPY = e.clientY;
+    rotY += dx * 0.42;
+    rotX -= dy * 0.34;
+    velY = dx * 0.42 * 30;   // capture release velocity
+    velX = -dy * 0.34 * 30;
+    rotX = Math.max(-70, Math.min(70, rotX));
+  }
+  function up(){
+    if(!crane) return;
+    dragging = false;
+    crane.classList.remove("dragging");
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", up);
+  }
+
+  var craneEl = document.getElementById("crane");
+  if(craneEl) craneEl.addEventListener("pointerdown", down);
+
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

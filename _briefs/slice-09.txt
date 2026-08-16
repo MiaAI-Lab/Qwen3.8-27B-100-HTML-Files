@@ -1,0 +1,11 @@
+=== 025 ===
+025-pixel-garden.html
+PIXEL GARDEN - 16x10 big-tile farm (~6vmin tiles). Seasons auto-cycle every 40s: SPRING #7cc46a, SUMMER #e7d05a, AUTUMN #d0803f, WINTER #dfe8f0 with smooth tile tint lerp. Click: plant a seed -> 4 growth stages over 20s -> bloom sparkles; WATER tool doubles growth speed; HARVEST adds to score; in winter unharvested flowers frost over (desaturate + snow cap). Top bar: 'GARDEN 16x10 - SPRING' in tracked mono caps + harvest score. Tool chips bottom: SEED / WATER / HARVEST. Cozy, tactile, satisfying growth.
+
+=== 026 ===
+026-scramble-hero.html
+SCRAMBLE HERO - pitch black #0a0a0a, one hero sentence at a time from 5 phrases (first: 'WE BUILD INVISIBLE MACHINES'), each word its own span. Continuous decode: letters not yet locked show random glyphs (0-9 a-f section-sign) re-rolling every 90ms; a left-to-right sweep locks letters in; after full resolve hold 2s, next phrase. One word per phrase in accent #ff4d2e. Pointer hover over a word pins it (its letters stop scrambling). Bottom: 'SCRAMBLE / RESOLVE - v0.9' tiny mono + a tick bar showing phrase progress. No images, all type.
+
+=== 027 ===
+027-polar-weather.html
+POLAR WEATHER STATION - console for polar night. BG #060913; top 60%: aurora sky - 3-4 canvas curtain ribbons (green #46ff9e -> violet #7a5cff, vertical gradient, sine-displaced, slowly waving) over stars + milky-way band. Bottom 40%: glass panel with 6 data tiles (temp -23.4C, wind 12kn, KP index, UV 0, ozone, aurora forecast sparkline) - values drift every 3s with odometer ticks. KP slider (0-9) drives aurora brightness/length live. All caps, mono HUD, hairline borders. Feels like a real instrument.

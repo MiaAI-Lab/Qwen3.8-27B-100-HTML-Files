@@ -1,0 +1,9 @@
+TITLE: Alpenglow - Ridge 5
+
+PROMPT: ALPENGLOW - five ridge layers (SVG silhouettes, jagged-smooth hybrid: far #d8a0c0 alpenglow-pink -> near #2a1e3a) over a sky gradient #ffd9a8->#7a5fd8. SUN slider DAWN->DUSK sweeps: sky hue lerps, ridges retint (alpenglow strongest at low sun; near ridges fall into blue shadow), snow caps on the two far ridges glow pink at dawn. 120 stars fade in at dusk; translucent fog bands drift between ridges; one hawk silhouette circles slowly on the middle ridge. Caption 'ALPENGLOW - RIDGE 5' + time-of-day readout. Serene, painterly, big.
+
+DESCRIPTION: A full-bleed, painterly alpine vista built from five SVG ridge silhouettes generated at boot as a jagged-smooth hybrid (low-frequency sine stacks plus quantized jitter). The sky is a three-stop gradient that lerps from dawn pink through midday blue into dusk violet as the SUN slider sweeps. At low sun, alpenglow: the two far ridges wash toward #d8a0c0 and their snow caps bloom pink; as the sun rises the near ridges sink into blue shadow toward #2a1e3a. 120 stars fade in at dusk, four translucent fog bands drift slowly between the ridges, and a single hawk silhouette circles the middle ridge. A glowing sun disc tracks across the scene, and a monospace HUD shows the caption plus a live time-of-day readout (05:20 -> 20:40).
+
+TECHNIQUES: procedurally generated SVG mountain silhouettes (seeded PRNG, jagged-smooth hybrid curves), time-of-day palette lerp across dawn/noon/dusk keyframes, CSS custom-property sky gradient, additive sun glow disc, star field dusk fade, drifting translucent fog ellipses, animated hawk orbit, slider-driven scene state
+
+INTERACTION: One SUN slider (DAWN -> DUSK) sweeps the entire scene: sky hue, sun position and glow, ridge retinting, snow-cap alpenglow, star visibility and the time readout. Fog drift and the hawk circle are autonomous ambient motion.

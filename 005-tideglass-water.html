@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIDE / GLASS</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: #04121c;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+#sea {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  display: block;
+  touch-action: none;
+  cursor: pointer;
+}
+.hud {
+  position: fixed;
+  top: 22px;
+  right: 26px;
+  z-index: 5;
+  text-align: right;
+  pointer-events: none;
+  color: #f4efe4;
+}
+.hud .name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  text-shadow: 0 1px 8px rgba(4, 18, 28, 0.9);
+}
+.hud .name b { color: #ffd9a0; font-weight: 800; }
+.hud .eb-label {
+  font-size: 8px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  opacity: 0.65;
+  margin-bottom: 4px;
+}
+.hud .eb {
+  width: 132px;
+  height: 2px;
+  margin-left: auto;
+  background: rgba(244, 239, 228, 0.22);
+}
+.hud .eb-fill {
+  width: 4%;
+  height: 100%;
+  background: #ffe9c4;
+  transition: width 120ms linear;
+}
+.hint {
+  position: fixed;
+  left: 26px;
+  bottom: 22px;
+  z-index: 5;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(244, 239, 228, 0.55);
+  pointer-events: none;
+  text-shadow: 0 1px 6px rgba(4, 18, 28, 0.8);
+}
+.hint b { color: #ffd9a0; }
+</style>
+</head>
+<body>
+
+<canvas id="sea"></canvas>
+
+<div class="hud">
+  <div class="name">TIDE <b>/</b> GLASS</div>
+  <div class="eb-label">WAVE ENERGY</div>
+  <div class="eb"><div class="eb-fill" id="ebfill"></div></div>
+</div>
+
+<div class="hint">TOUCH / DRAG THE WATER &mdash; <b>SLOW LIGHT</b></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById("sea");
+  const ctx = canvas.getContext("2d");
+  const ebFill = document.getElementById("ebfill");
+
+  const sim = document.createElement("canvas");
+  const sctx = sim.getContext("2d");
+
+  const HORIZON = 0.34;
+  const SUN_X = 0.5;
+  const SUN_Y = 0.30;
+  const SUN_R = 0.052;
+
+  const SKY_TOP = [255, 217, 160];
+  const SKY_BOT = [127, 200, 255];
+  const WATER_TOP = [11, 53, 80];
+  const WATER_BOT = [6, 30, 44];
+  const SUN_COL = [255, 244, 214];
+
+  let simW = 0;
+  let simH = 0;
+  let dw = 0;
+  let dh = 0;
+  let cur = null;
+  let nxt = null;
+  let img = null;
+  let flecks = [];
+  let t = 0;
+  let last = performance.now();
+  let hudClock = 0;
+  let dragging = false;
+  let energy = 0;
+
+  const pending = [
+    { at: 0.45, fx: 0.30, fy: 0.58, r: 5, amp: 1200 },
+    { at: 1.50, fx: 0.66, fy: 0.46, r: 4, amp: 850 },
+    { at: 2.70, fx: 0.47, fy: 0.80, r: 6, amp: 1500 }
+  ];
+
+  function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+  function fit() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const cw = Math.max(320, Math.round(window.innerWidth * dpr));
+    const chh = Math.max(240, Math.round(window.innerHeight * dpr));
+    canvas.width = cw;
+    canvas.height = chh;
+
+    simW = Math.floor(cw / 8);
+    simH = Math.floor(chh / 8);
+    let budget = 100000;
+    if (simW * simH > budget) {
+      const f = Math.sqrt(budget / (simW * simH));
+      simW = Math.floor(simW * f);
+      simH = Math.floor(simH * f);
+    }
+    dw = simW;
+    dh = simH;
+
+    sim.width = dw;
+    sim.height = dh;
+    img = sctx.createImageData(dw, dh);
+
+    cur = new Float32Array(dw * dh);
+    nxt = new Float32Array(dw * dh);
+
+    flecks = [];
+    const count = 84;
+    for (let i = 0; i < count; i++) {
+      flecks.push({
+        x: Math.random(),
+        y: HORIZON + Math.random() * (1 - HORIZON),
+        vx: (Math.random() - 0.5) * 0.012,
+        vy: (Math.random() - 0.5) * 0.004,
+        s: 0.8 + Math.random() * 1.7,
+        ph: Math.random() * Math.PI * 2
+      });
+    }
+    ctx.imageSmoothingEnabled = true;
+    if (ctx.imageSmoothingQuality !== undefined) ctx.imageSmoothingQuality = "high";
+  }
+
+  function drop(simX, simY, radius, amp) {
+    if (!cur) return;
+    const x0 = Math.floor(simX - radius);
+    const x1 = Math.ceil(simX + radius);
+    const y0 = Math.floor(simY - radius);
+    const y1 = Math.ceil(simY + radius);
+    const r2 = radius * radius;
+    for (let yy = y0; yy <= y1; yy++) {
+      if (yy < 1 || yy > dh - 2) continue;
+      for (let xx = x0; xx <= x1; xx++) {
+        if (xx < 1 || xx > dw - 2) continue;
+        const ddx = xx - simX;
+        const ddy = yy - simY;
+        const d2 = ddx * ddx + ddy * ddy;
+        if (d2 > r2 * 4) continue;
+        const g = Math.exp(-d2 / r2);
+        const idx = yy * dw + xx;
+        cur[idx] += amp * g;
+      }
+    }
+  }
+
+  function advanceSim() {
+    if (!cur || !nxt) return;
+    for (let y = 1; y < dh - 1; y++) {
+      let row = y * dw;
+      for (let x = 1; x < dw - 1; x++) {
+        const i = row + x;
+        let v = (cur[i - 1] + cur[i + 1] + cur[i - dw] + cur[i + dw]) * 0.5 - nxt[i];
+        v *= 0.9875;
+        nxt[i] = v;
+      }
+    }
+    const tmp = cur;
+    cur = nxt;
+    nxt = tmp;
+  }
+
+  function renderWater() {
+    if (!cur || !img) return;
+    const data = img.data;
+    let e2 = 0;
+    let n = 0;
+    for (let y = 0; y < dh; y++) {
+      const py = (y + 0.5) / dh;
+      const inSky = py < HORIZON;
+      const rowOff = y * dw;
+      for (let x = 0; x < dw; x++) {
+        const i = rowOff + x;
+        const px = (x + 0.5) / dw;
+        const hL = cur[i - 1] || 0;
+        const hR = cur[i + 1] || 0;
+        const hU = cur[i - dw] || 0;
+        const hD = cur[i + dw] || 0;
+        const gx = hR - hL;
+        const gy = hD - hU;
+        e2 += gx * gx + gy * gy;
+        n++;
+
+        const ox = clamp(Math.round(gx * 9), -6, 6);
+        const oy = clamp(Math.round(gy * 9), -6, 6);
+        const sx = clamp(x + ox, 0, dw - 1);
+        const sy = clamp(y + oy, 0, dh - 1);
+        const spx = (sx + 0.5) / dw;
+        const spy = (sy + 0.5) / dh;
+
+        let r, g, b;
+        if (spy < HORIZON) {
+          const s = spy / HORIZON;
+          r = SKY_TOP[0] + (SKY_BOT[0] - SKY_TOP[0]) * s;
+          g = SKY_TOP[1] + (SKY_BOT[1] - SKY_TOP[1]) * s;
+          b = SKY_TOP[2] + (SKY_BOT[2] - SKY_TOP[2]) * s;
+          const ddx = spx - SUN_X;
+          const ddy = spy - SUN_Y;
+          const d = Math.sqrt(ddx * ddx + ddy * ddy);
+          let m = 1 - d / SUN_R;
+          if (m < 0) m = 0;
+          m = m * m * (3 - 2 * m);
+          r += (SUN_COL[0] - r) * m * 0.96;
+          g += (SUN_COL[1] - g) * m * 0.96;
+          b += (SUN_COL[2] - b) * m * 0.96;
+          const gl = Math.exp(-d * 24) * 24;
+          r += gl * 0.9;
+          g += gl * 0.72;
+          b += gl * 0.38;
+        } else {
+          const s = (spy - HORIZON) / (1 - HORIZON);
+          r = WATER_TOP[0] + (WATER_BOT[0] - WATER_TOP[0]) * s;
+          g = WATER_TOP[1] + (WATER_BOT[1] - WATER_TOP[1]) * s;
+          b = WATER_TOP[2] + (WATER_BOT[2] - WATER_TOP[2]) * s;
+          const ddx = spx - SUN_X;
+          const refl = Math.exp(-ddx * ddx * 150) * (1 - s * 0.85);
+          let sh = Math.sin(spy * 150 - t * 0.55) * Math.sin(spx * 36 + t * 0.21);
+          if (sh < 0) sh = 0;
+          sh = sh * sh;
+          const lit = refl * 0.85 + sh * 0.15 * (1 - s * 0.6);
+          r += lit * 235;
+          g += lit * 208;
+          b += lit * 168;
+          const tw = Math.sin(spx * 90 + spy * 170 + t * 0.35);
+          if (tw > 0) { r += tw * 4; g += tw * 4; b += tw * 4.5; }
+        }
+
+        const spec = (gx * gx + gy * gy) * 52;
+        if (spec > 0) {
+          r += spec * 0.85;
+          g += spec * 0.95;
+          b += spec * 1.05;
+        }
+
+        const o = i * 4;
+        data[o] = clamp(r, 0, 255);
+        data[o + 1] = clamp(g, 0, 255);
+        data[o + 2] = clamp(b, 0, 255);
+        data[o + 3] = 255;
+      }
+    }
+    energy = n > 0 ? e2 / n : 0;
+    sctx.putImageData(img, 0, 0);
+    ctx.drawImage(sim, 0, 0, canvas.width, canvas.height);
+  }
+
+  function drawFlecks(dt) {
+    if (!cur) return;
+    for (let i = 0; i < flecks.length; i++) {
+      const f = flecks[i];
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+      const idx = clamp(Math.round(f.y * dh), 0, dh - 1) * dw +
+                  clamp(Math.round(f.x * dw), 0, dw - 1);
+      const hgt = cur[idx];
+      const gyv = (cur[idx + 1] || 0) - (cur[idx - 1] || 0);
+      f.vy += gyv * 0.0000012;
+      f.vx *= 0.999;
+      if (f.x < -0.02) f.x = 1.02;
+      if (f.x > 1.02) f.x = -0.02;
+      if (f.y < HORIZON + 0.01) { f.y = HORIZON + 0.01; f.vy = Math.abs(f.vy); }
+      if (f.y > 0.99) { f.y = 0.99; f.vy = -Math.abs(f.vy); }
+
+      let a = 0.10 + 0.30 * Math.abs(hgt) * 0.00004;
+      a += 0.10 * (0.5 + 0.5 * Math.sin(t * 0.7 + f.ph));
+      if (a > 0.75) a = 0.75;
+      if (a <= 0.02) continue;
+      const px = f.x * canvas.width;
+      const py = f.y * canvas.height;
+      ctx.fillStyle = "rgba(255,248,224," + a.toFixed(3) + ")";
+      ctx.fillRect(px - f.s * 0.5, py - f.s * 0.5, f.s, f.s);
+    }
+  }
+
+  function hudTick(dt) {
+    hudClock += dt;
+    if (hudClock < 0.15) return;
+    hudClock = 0;
+    const pct = clamp(energy * 260, 3, 100);
+    if (ebFill) ebFill.style.width = pct.toFixed(1) + "%";
+  }
+
+  function toSim(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scale = rect.width > 0 ? canvas.width / rect.width : 1;
+    const dx = (e.clientX - rect.left) * scale;
+    const dy = (e.clientY - rect.top) * scale;
+    return { x: dx / (canvas.width / dw), y: dy / (canvas.height / dh) };
+  }
+
+  canvas.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    const p = toSim(e);
+    drop(p.x, p.y, 4, 900);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const p = toSim(e);
+    drop(p.x, p.y, 3, 320);
+  });
+  canvas.addEventListener("pointerup", () => { dragging = false; });
+  canvas.addEventListener("pointercancel", () => { dragging = false; });
+  canvas.addEventListener("pointerleave", () => { dragging = false; });
+
+  window.addEventListener("resize", fit);
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    try {
+      let dt = (now - last) / 1000;
+      last = now;
+      if (dt > 0.08) dt = 0.08;
+      t += dt;
+      for (let i = 0; i < pending.length; i++) {
+        const p = pending[i];
+        if (t >= p.at) {
+          drop(p.fx * dw, p.fy * dh, p.r, p.amp);
+          pending.splice(i, 1);
+          i--;
+        }
+      }
+      advanceSim();
+      renderWater();
+      drawFlecks(dt);
+      hudTick(dt);
+    } catch (err) {
+      /* keep the loop alive */
+    }
+  }
+
+  fit();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

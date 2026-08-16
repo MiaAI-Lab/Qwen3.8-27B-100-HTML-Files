@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BAUHAUS / FORM 07 - GEOMETRIC BALANCE</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: #e7e2d6;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: clamp(10px, 2.5vw, 28px);
+  gap: clamp(10px, 2vh, 20px);
+  overflow: hidden;
+}
+.stage {
+  width: min(80vmin, 620px);
+  aspect-ratio: 1 / 1;
+  background: #f0ece2;
+  outline: 2px solid #191713;
+  outline-offset: 4px;
+  cursor: pointer;
+  position: relative;
+}
+.stage svg { display: block; width: 100%; height: 100%; }
+
+/* pieces: each shape is three sliced copies; hover explodes the slices */
+.piece { cursor: pointer; }
+.piece .sl {
+  transition: transform .5s cubic-bezier(.6, -0.25, .3, 1.3), clip-path .5s cubic-bezier(.6, -0.25, .3, 1.3);
+  will-change: transform;
+}
+.piece .a1 { clip-path: polygon(0 0, 34% 0, 34% 100%, 0 100%); }
+.piece .a2 { clip-path: polygon(34% 0, 66% 0, 66% 100%, 34% 100%); }
+.piece .a3 { clip-path: polygon(66% 0, 100% 0, 100% 100%, 66% 100%); }
+.piece:hover .a1 { transform: translate(-17px, -7px); clip-path: polygon(0 0, 42% 0, 42% 100%, 0 100%); }
+.piece:hover .a2 { transform: translate(3px, -20px);  clip-path: polygon(30% 0, 70% 0, 70% 100%, 30% 100%); }
+.piece:hover .a3 { transform: translate(17px, 7px);  clip-path: polygon(58% 0, 100% 0, 100% 100%, 58% 100%); }
+
+.foot {
+  width: min(80vmin, 620px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.seal {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  border: 2px solid #191713;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  color: #191713;
+  background: #f0ece2;
+}
+.cap {
+  flex: 1 1 auto;
+  font-size: clamp(9px, 1.4vmin, 12px);
+  font-weight: 800;
+  letter-spacing: .34em;
+  text-transform: uppercase;
+  color: #191713;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hint {
+  flex: 0 0 auto;
+  font-size: 9px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: rgba(25,23,19,.5);
+  font-weight: 600;
+}
+@media (max-width: 420px) {
+  .hint { display: none; }
+  .cap { letter-spacing: .22em; }
+}
+</style>
+</head>
+<body>
+<div class="stage" id="stage" aria-label="Bauhaus geometric poster, click to re-compose"></div>
+<div class="foot">
+  <div class="seal">1923</div>
+  <div class="cap">BAUHAUS / FORM 07 - GEOMETRIC BALANCE</div>
+  <div class="hint">click re-composes &middot; hover explodes</div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const stage = document.getElementById('stage');
+  const CELL = 50;
+  const N = 12;
+  const BLACK = '#191713';
+
+  let seed = 7;
+
+  function mulberry32(a) {
+    return function() {
+      a |= 0;
+      a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  // four preset balanced slot layouts: [cellX, cellY] on the 12x12 grid
+  const POOLS = [
+    [[1,1],[10,2],[2,10],[10,9],[5,5],[7,3]],
+    [[3,3],[9,1],[1,8],[10,10],[6,4],[4,7]],
+    [[2,8],[8,2],[4,4],[9,9],[1,3],[7,6]],
+    [[6,1],[1,9],[10,5],[3,3],[8,8],[5,6]]
+  ];
+
+  function geom(kind, r, color) {
+    switch (kind) {
+      case 0: // red circle
+        return '<circle cx="0" cy="0" r="' + r + '" fill="' + color + '"/>';
+      case 1: // black half-circle (upper half, flat edge down)
+        return '<path d="M ' + (-r) + ' 0 A ' + r + ' ' + r + ' 0 0 1 ' + r + ' 0 Z" fill="' + color + '"/>';
+      case 2: // orange triangle
+        return '<polygon points="0,' + (-r) + ' ' + (r * 0.866) + ',' + (r * 0.5) + ' ' + (-r * 0.866) + ',' + (r * 0.5) + '" fill="' + color + '"/>';
+      case 3: // blue rotated square
+        return '<rect x="' + (-r * 0.66) + '" y="' + (-r * 0.66) + '" width="' + (r * 1.32) + '" height="' + (r * 1.32) + '" fill="' + color + '" transform="rotate(45)"/>';
+      case 4: // gold arc band (half ring)
+        return '<path d="M ' + (-r) + ' 0 A ' + r + ' ' + r + ' 0 0 1 ' + r + ' 0 L ' + (r * 0.55) + ' 0 A ' + (r * 0.55) + ' ' + (r * 0.55) + ' 0 0 0 ' + (-r * 0.55) + ' 0 Z" fill="' + color + '"/>';
+      default: // thin black lines
+        const t = Math.max(1.5, r * 0.07);
+        let out = '';
+        const ys = [-0.45, 0, 0.45];
+        for (let i = 0; i < ys.length; i++) {
+          out += '<line x1="' + (-r) + '" y1="' + (r * ys[i]) + '" x2="' + r + '" y2="' + (r * ys[i]) + '" stroke="' + color + '" stroke-width="' + t + '"/>';
+        }
+        return out;
+    }
+  }
+
+  function piece(kind, cx, cy, rot, r, color, label) {
+    const g = geom(kind, r, color);
+    const x = (cx * CELL + CELL / 2).toFixed(1);
+    const y = (cy * CELL + CELL / 2).toFixed(1);
+    let out = '<g class="piece" transform="translate(' + x + ' ' + y + ') rotate(' + rot + ')"><title>' + label + '</title>';
+    const sl = ['a1', 'a2', 'a3'];
+    for (let i = 0; i < 3; i++) {
+      out += '<g class="sl ' + sl[i] + '">' + g + '</g>';
+    }
+    out += '</g>';
+    return out;
+  }
+
+  function gridPath() {
+    let d = '';
+    for (let i = 0; i <= N; i++) {
+      d += 'M' + (i * CELL) + ' 0V' + (N * CELL) + 'M0 ' + (i * CELL) + 'H' + (N * CELL);
+    }
+    return d;
+  }
+
+  function build() {
+    const rnd = mulberry32(seed);
+    const pool = POOLS[Math.floor(rnd() * POOLS.length)];
+    const kinds = [0, 1, 2, 3, 4, 5];
+    // seeded shuffle of shape assignment to slots
+    for (let i = kinds.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      const tmp = kinds[i];
+      kinds[i] = kinds[j];
+      kinds[j] = tmp;
+    }
+    const colors = ['#d63a3a', BLACK, '#e08a2e', '#2f5fd8', '#f2d16b', BLACK];
+    const labels = ['RED CIRCLE', 'BLACK HALF-CIRCLE', 'ORANGE TRIANGLE', 'BLUE SQUARE', 'GOLD ARC BAND', 'THIN LINES'];
+    let pieces = '';
+    for (let i = 0; i < 6; i++) {
+      const k = kinds[i];
+      const rotF = (k === 2 || k === 5) ? Math.floor(rnd() * 4) * 45 : 0;
+      const r = CELL * (0.78 + rnd() * 0.42);
+      pieces += piece(k, pool[i][0], pool[i][1], rotF, r, colors[k], labels[k]);
+    }
+    const svg =
+      '<svg viewBox="0 0 600 600" aria-hidden="true">' +
+      '<rect x="0" y="0" width="600" height="600" fill="#f0ece2"/>' +
+      '<path d="' + gridPath() + '" stroke="' + BLACK + '" stroke-width="1" opacity="0.07"/>' +
+      pieces +
+      '</svg>';
+    stage.innerHTML = svg;
+  }
+
+  stage.addEventListener('click', () => {
+    seed = (seed * 48271) % 2147483647;
+    if (seed < 0) seed += 2147483647;
+    try {
+      build();
+    } catch (e) {
+      /* keep last composition visible */
+    }
+  });
+
+  build();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+=== 082 ===
+082-color-field.html
+COLOR FIELD - Rothko-like breathing rectangles. Three stacked horizontal fields (classic Rothko ratios ~35%/35%/30%), each rendered per-frame on canvas from very-low-frequency noise (64x40, upscaled with smoothing) so the edges wobble subtly and the color shimmers. Every 12s the palette crossfades (2s) through 6 schemes: maroon/olive/gold, red/blue/cream, violet/yellow/brown, teal/rust/white, black/red/amber, green/blue/buff. Pointer distance from center sets the 'restlessness' (breathing speed). Caption tiny: 'FIELD STUDY 04 - AFTER R.' Nothing else on the page.
+
+=== 083 ===
+083-snow-village.html
+SNOW VILLAGE ISO - isometric 6x6 tile village (canvas, 2:1 projection): some tiles hold tiny houses (3-face prisms with warm windows), pine trees (stacked triangles, snow-capped). Continuous snowfall: 250 flakes, 3 depth layers, drift from the WIND slider. Accumulation: every 30s real time adds 1px snow cap to roofs + tiles (max 6px) - the village slowly buries. Click a tile: shove snow (cap drops 3px, puff particles). LANTERNS toggle: windows + 4 streetlamps glow warm vs cold night. Moon + stars above. Caption 'VILLAGE / SNOWFALL - DEPTH 3 PX'.
+
+=== 084 ===
+084-prism-cube.html
+GLASS CUBE - a floating CSS-3D glass cube (6 faces rgba(200,230,250,.12), 1px #cfe8f5 edges, backdrop blur 6px so it refracts the background) rotating continuously (rotateX/rotateY), drag to spin with inertia. It floats on a slow sine bob; a soft floor shadow ellipse squashes inversely. Behind it: a horizontal light bar (white gradient strip) crosses the cube zone - draw three faint offset copies of the strip clipped to the cube region so 'refraction' reads. SPECTRUM toggle: the strip becomes a rainbow and faces tint rose/cyan/violet by orientation. Caption 'GLASS / CUBE - 6 FACES, LIVE'.

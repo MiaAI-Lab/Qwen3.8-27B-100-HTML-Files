@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>061 LED Marquee - The Starlight Hotel</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #14100b 0%, rgba(20,16,11,0) 60%),
+      #0a0a0a;
+    color: #d8c9a8;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(14px, 2.4vh, 26px);
+    padding: clamp(12px, 3vw, 32px);
+    overflow: hidden;
+  }
+  .bezel {
+    position: relative;
+    width: min(94vw, 896px);
+    padding: clamp(14px, 2.2vw, 22px);
+    border-radius: clamp(18px, 2.6vw, 28px);
+    background:
+      linear-gradient(150deg, #55555c 0%, #232327 28%, #141417 55%, #33333a 82%, #1b1b1f 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.22),
+      inset 0 -2px 6px rgba(0,0,0,0.7),
+      0 18px 50px rgba(0,0,0,0.85),
+      0 2px 8px rgba(0,0,0,0.6);
+  }
+  .screw {
+    position: absolute;
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    background:
+      linear-gradient(52deg, transparent 42%, #0d0d0f 42%, #0d0d0f 58%, transparent 58%),
+      radial-gradient(circle at 34% 30%, #9a9aa2 0%, #5b5b63 42%, #232327 100%);
+    box-shadow: inset 0 -1px 2px rgba(0,0,0,0.8), 0 1px 1px rgba(255,255,255,0.14);
+  }
+  .s1 { top: 9px; left: 9px; }
+  .s2 { top: 9px; right: 9px; }
+  .s3 { bottom: 9px; left: 9px; }
+  .s4 { bottom: 9px; right: 9px; }
+  .panel {
+    background: #050505;
+    border-radius: clamp(10px, 1.4vw, 16px);
+    padding: clamp(8px, 1.2vw, 12px);
+    box-shadow: inset 0 3px 14px rgba(0,0,0,0.95), inset 0 0 0 1px #1c1c1f;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 26px;
+    justify-content: center;
+    align-items: center;
+    max-width: 94vw;
+  }
+  .chiprow { display: flex; align-items: center; gap: 9px; }
+  .lab {
+    font-size: 10px;
+    letter-spacing: 0.34em;
+    color: #6b5f4a;
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+  .chip {
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8f8168;
+    background: #141312;
+    border: 1px solid #2a2723;
+    border-radius: 999px;
+    padding: 8px 15px;
+    cursor: pointer;
+    transition: all 0.22s ease;
+  }
+  .chip:hover { color: #d8c9a8; border-color: #4a4238; }
+  .chip.on {
+    color: #ffb454;
+    border-color: #ffb454;
+    background: #241c11;
+    box-shadow: 0 0 14px rgba(255,180,84,0.28), inset 0 0 8px rgba(255,180,84,0.12);
+  }
+  .dot {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 2px solid #2a2723;
+    background: var(--c);
+    cursor: pointer;
+    opacity: 0.32;
+    filter: saturate(0.5);
+    transition: all 0.22s ease;
+  }
+  .dot:hover { opacity: 0.7; }
+  .dot.on {
+    opacity: 1;
+    filter: none;
+    border-color: rgba(255,255,255,0.55);
+    box-shadow: 0 0 16px var(--c), 0 0 4px var(--c);
+  }
+  .caption {
+    font-size: clamp(10px, 1.4vw, 12px);
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: #6b5f4a;
+    text-align: center;
+  }
+  .caption b { color: #d8c9a8; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="bezel">
+    <i class="screw s1"></i><i class="screw s2"></i><i class="screw s3"></i><i class="screw s4"></i>
+    <div class="panel"><canvas id="cv" width="856" height="216" aria-label="LED dot-matrix sign for the Starlight Hotel"></canvas></div>
+  </div>
+  <div class="chips">
+    <div class="chiprow"><span class="lab">Mode</span>
+      <button class="chip on" data-mode="scroll">Scroll</button>
+      <button class="chip" data-mode="chase">Chase</button>
+      <button class="chip" data-mode="rain">Rain</button>
+      <button class="chip" data-mode="test">Test</button>
+    </div>
+    <div class="chiprow"><span class="lab">Glow</span>
+      <button class="dot on" data-color="amber" style="--c:#ffb454" aria-label="amber"></button>
+      <button class="dot" data-color="red" style="--c:#ff3b30" aria-label="red"></button>
+      <button class="dot" data-color="blue" style="--c:#3a6fff" aria-label="blue"></button>
+    </div>
+  </div>
+  <div class="caption">Marquee <b>104x24</b> - Est 1978</div>
+<script>
+(function () {
+  "use strict";
+  var COLS = 104, ROWS = 24, SP = 8, PAD = 12;
+  var W = COLS * SP + PAD * 2, H = ROWS * SP + PAD * 2;
+  var cv = document.getElementById("cv");
+  var ctx = cv.getContext("2d");
+  var GHOST = "#241a12";
+  var COLORS = { amber: "#ffb454", red: "#ff3b30", blue: "#3a6fff" };
+
+  /* custom 5x7 pixel font - each glyph: 7 rows, 5 bits, MSB = left */
+  var FONT = {
+    "A": [0x0E,0x11,0x11,0x1F,0x11,0x11,0x11],
+    "B": [0x1F,0x11,0x11,0x1F,0x11,0x11,0x1F],
+    "C": [0x0E,0x11,0x10,0x10,0x10,0x11,0x0E],
+    "D": [0x1E,0x11,0x11,0x11,0x11,0x11,0x1E],
+    "E": [0x1F,0x10,0x10,0x1F,0x10,0x10,0x1F],
+    "F": [0x1F,0x10,0x10,0x1F,0x10,0x10,0x10],
+    "G": [0x0E,0x11,0x10,0x17,0x11,0x11,0x0F],
+    "H": [0x11,0x11,0x11,0x1F,0x11,0x11,0x11],
+    "I": [0x0E,0x04,0x04,0x04,0x04,0x04,0x0E],
+    "J": [0x07,0x02,0x02,0x02,0x02,0x12,0x0C],
+    "K": [0x11,0x12,0x14,0x18,0x14,0x12,0x11],
+    "L": [0x10,0x10,0x10,0x10,0x10,0x10,0x1F],
+    "M": [0x11,0x1B,0x15,0x15,0x11,0x11,0x11],
+    "N": [0x11,0x19,0x15,0x13,0x11,0x11,0x11],
+    "O": [0x0E,0x11,0x11,0x11,0x11,0x11,0x0E],
+    "P": [0x1F,0x11,0x11,0x1F,0x10,0x10,0x10],
+    "Q": [0x0E,0x11,0x11,0x11,0x15,0x12,0x0D],
+    "R": [0x1F,0x11,0x11,0x1F,0x14,0x12,0x11],
+    "S": [0x0F,0x10,0x10,0x0E,0x01,0x01,0x1E],
+    "T": [0x1F,0x04,0x04,0x04,0x04,0x04,0x04],
+    "U": [0x11,0x11,0x11,0x11,0x11,0x11,0x0E],
+    "V": [0x11,0x11,0x11,0x11,0x11,0x0A,0x04],
+    "W": [0x11,0x11,0x11,0x15,0x15,0x1B,0x11],
+    "X": [0x11,0x11,0x0A,0x04,0x0A,0x11,0x11],
+    "Y": [0x11,0x11,0x11,0x0E,0x04,0x04,0x04],
+    "Z": [0x1F,0x01,0x02,0x04,0x08,0x10,0x1F],
+    "0": [0x0E,0x11,0x13,0x15,0x19,0x11,0x0E],
+    "1": [0x04,0x0C,0x04,0x04,0x04,0x04,0x0E],
+    "2": [0x0E,0x11,0x01,0x02,0x04,0x08,0x1F],
+    "3": [0x1F,0x02,0x04,0x02,0x01,0x11,0x0E],
+    "4": [0x02,0x06,0x0A,0x12,0x1F,0x02,0x02],
+    "5": [0x1F,0x10,0x1F,0x01,0x01,0x11,0x0E],
+    "6": [0x06,0x08,0x10,0x1E,0x11,0x11,0x0E],
+    "7": [0x1F,0x01,0x02,0x04,0x08,0x08,0x08],
+    "8": [0x0E,0x11,0x11,0x0E,0x11,0x11,0x0E],
+    "9": [0x0E,0x11,0x11,0x0F,0x01,0x02,0x0C],
+    ".": [0x00,0x00,0x00,0x00,0x00,0x0C,0x0C],
+    "*": [0x00,0x0E,0x15,0x04,0x15,0x0E,0x00],
+    " ": [0x00,0x00,0x00,0x00,0x00,0x00,0x00]
+  };
+
+  var TEXT = "THE STARLIGHT HOTEL * EST 1978 * GRAND BALLROOM * LOUNGE BAR * ";
+  var CW = 6, TEXTW = TEXT.length * CW, TOP = 8;
+  var glyphs = [];
+  var gi = 0;
+  for (var ci = 0; ci < TEXT.length; ci++) {
+    glyphs.push(FONT[TEXT.charAt(ci)] || FONT[" "]);
+  }
+  void gi;
+
+  var state = {
+    mode: "scroll",
+    color: COLORS.amber,
+    off: 0,
+    phase: 0,
+    drops: [],
+    dead: null,
+    last: 0
+  };
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function randi(n) { return (Math.random() * n) | 0; }
+
+  for (var d = 0; d < 26; d++) {
+    state.drops.push({ x: randi(COLS), y: rand(-18, 24), len: randi(5) + 3, sp: rand(22, 62) });
+  }
+
+  function fit() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function perim(x, y) {
+    if (y === 0) return x;
+    if (x === COLS - 1) return (COLS - 1) + y;
+    if (y === ROWS - 1) return (COLS - 1) + (ROWS - 1) + (COLS - 1 - x);
+    return (COLS - 1) + (ROWS - 1) + (COLS - 1) + (ROWS - 1 - y);
+  }
+
+  function litAt(x, y) {
+    if (state.dead && state.dead.x === x && state.dead.y === y) return false;
+    if (state.mode === "scroll") {
+      var tcol = (x + Math.floor(state.off)) % TEXTW;
+      var ch = glyphs[(tcol / CW) | 0];
+      var rr = y - TOP;
+      if (rr < 0 || rr > 6) return false;
+      var bit = tcol % CW;
+      if (bit > 4) return false;
+      return (ch[rr] & (1 << (4 - bit))) !== 0;
+    }
+    if (state.mode === "chase") {
+      var v = perim(x, y);
+      var m = state.phase % 252;
+      var diff = v - m;
+      diff = ((diff % 12) + 12) % 12;
+      return diff < 5;
+    }
+    if (state.mode === "rain") {
+      var n = state.drops.length;
+      for (var i = 0; i < n; i++) {
+        var dr = state.drops[i];
+        if (dr.x !== x) continue;
+        if (y <= dr.y && y > dr.y - dr.len) return true;
+      }
+      return false;
+    }
+    return Math.random() > 0.06;
+  }
+
+  function step(now) {
+    var dt = Math.min((now - state.last) / 1000, 0.05);
+    state.last = now;
+    if (state.mode === "scroll") state.off = (state.off + dt * 26) % TEXTW;
+    if (state.mode === "chase") state.phase += dt * 46;
+    if (state.mode === "rain") {
+      var n = state.drops.length;
+      for (var i = 0; i < n; i++) {
+        var dr = state.drops[i];
+        dr.y += dr.sp * dt;
+        if (dr.y - dr.len >= ROWS) {
+          dr.y = -rand(2, 16);
+          dr.x = randi(COLS);
+          dr.sp = rand(22, 62);
+        }
+      }
+    }
+    if (!state.dead && Math.random() < 0.004) {
+      state.dead = { x: randi(COLS), y: randi(ROWS), until: now + 200 };
+    } else if (state.dead && now > state.dead.until) {
+      state.dead = null;
+    }
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = GHOST;
+    for (var gy = 0; gy < ROWS; gy++) {
+      var gyb = PAD + gy * SP + 4;
+      for (var gx = 0; gx < COLS; gx++) {
+        ctx.fillRect(PAD + gx * SP + 4 - 1.5, gyb - 1.5, 3, 3);
+      }
+    }
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = state.color;
+    ctx.globalAlpha = 0.20;
+    ctx.beginPath();
+    var hx, hy;
+    for (var ry = 0; ry < ROWS; ry++) {
+      hy = PAD + ry * SP + 4;
+      for (var rx = 0; rx < COLS; rx++) {
+        if (!litAt(rx, ry)) continue;
+        hx = PAD + rx * SP + 4;
+        ctx.moveTo(hx + 5, hy);
+        ctx.arc(hx, hy, 5, 0, 6.2832);
+      }
+    }
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    for (var cy2 = 0; cy2 < ROWS; cy2++) {
+      hy = PAD + cy2 * SP + 4;
+      for (var cx2 = 0; cx2 < COLS; cx2++) {
+        if (!litAt(cx2, cy2)) continue;
+        hx = PAD + cx2 * SP + 4;
+        ctx.moveTo(hx + 2.5, hy);
+        ctx.arc(hx, hy, 2.5, 0, 6.2832);
+      }
+    }
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  function frame(now) {
+    try { step(now); } catch (e) { /* guard: never kill the rAF loop */ }
+    window.requestAnimationFrame(frame);
+  }
+
+  var modeBtns = document.querySelectorAll(".chip");
+  var mi = 0;
+  while (mi < modeBtns.length) {
+    (function (btn) {
+      btn.addEventListener("click", function () {
+        state.mode = btn.getAttribute("data-mode");
+        for (var k = 0; k < modeBtns.length; k++) modeBtns[k].classList.remove("on");
+        btn.classList.add("on");
+      });
+    })(modeBtns[mi]);
+    mi++;
+  }
+  var dots = document.querySelectorAll(".dot");
+  var di = 0;
+  while (di < dots.length) {
+    (function (btn) {
+      btn.addEventListener("click", function () {
+        state.color = COLORS[btn.getAttribute("data-color")] || state.color;
+        for (var k = 0; k < dots.length; k++) dots[k].classList.remove("on");
+        btn.classList.add("on");
+      });
+    })(dots[di]);
+    di++;
+  }
+
+  var rsz = 0;
+  window.addEventListener("resize", function () {
+    if (rsz) window.clearTimeout(rsz);
+    rsz = window.setTimeout(fit, 120);
+  });
+
+  fit();
+  state.last = performance.now();
+  window.requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

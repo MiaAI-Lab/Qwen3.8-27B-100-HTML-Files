@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NIGHT, SWIRLING</title>
+<style>
+  :root{
+    --deep:#0e1526; --mid:#1d2a52; --blue:#3a5f9e; --teal:#6fd8c8; --gold:#f2d16b;
+    --mono:ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:var(--deep);
+    overflow:hidden;
+    min-height:100dvh;
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    color:#cdd9f2;
+  }
+  #sky{
+    position:fixed; inset:0; width:100%; height:100%; display:block;
+    cursor:crosshair;
+  }
+  .caption{
+    position:fixed; right:clamp(10px,2vw,26px); top:50%;
+    transform:translateY(-50%);
+    writing-mode:vertical-rl;
+    font-family:var(--mono);
+    font-size:clamp(10px,1.25vw,13px);
+    letter-spacing:.55em;
+    text-transform:uppercase;
+    color:rgba(205,217,242,.66);
+    user-select:none; pointer-events:none;
+    z-index:3;
+  }
+  .caption b{color:rgba(242,209,107,.9); font-weight:600}
+  .hud{
+    position:fixed; left:clamp(10px,2vw,26px); top:clamp(10px,2vh,22px); z-index:3;
+    display:flex; flex-direction:column; gap:5px; user-select:none; pointer-events:none;
+  }
+  .hud .t{
+    font-family:var(--mono); font-size:clamp(11px,1.3vw,14px);
+    letter-spacing:.4em; text-transform:uppercase; color:#e8f0ff;
+  }
+  .hud .s{
+    font-family:var(--mono); font-size:clamp(8px,.9vw,10px);
+    letter-spacing:.3em; text-transform:uppercase; color:rgba(111,216,200,.75);
+  }
+  .hint{
+    position:fixed; left:clamp(10px,2vw,26px); bottom:clamp(10px,2vh,20px); z-index:3;
+    font-family:var(--mono); font-size:clamp(8px,.9vw,10px);
+    letter-spacing:.26em; text-transform:uppercase; color:rgba(205,217,242,.4);
+    user-select:none; pointer-events:none;
+  }
+  @media (max-width:520px){
+    .caption{right:8px; font-size:9px; letter-spacing:.45em}
+  }
+</style>
+</head>
+<body>
+  <canvas id="sky"></canvas>
+  <div class="hud">
+    <div class="t">Night, Swirling</div>
+    <div class="s">post-impressionist study · 900 strokes</div>
+  </div>
+  <div class="caption">NIGHT, <b>SWIRLING</b></div>
+  <div class="hint">click the sky — a star bursts</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var cv=document.getElementById("sky");
+  var ctx=cv.getContext("2d");
+  var W=0,H=0,dpr=1;
+  var TAU=Math.PI*2;
+
+  /* palette */
+  var COL={
+    deep:"rgba(29,42,82,",   /* #1d2a52 */
+    blue:"rgba(58,95,158,",  /* #3a5f9e */
+    teal:"rgba(111,216,200,",/* #6fd8c8 */
+    gold:"rgba(242,209,107," /* #f2d16b */
+  };
+  var BG="#0e1526";
+
+  /* deterministic rng */
+  function mulberry(seed){
+    var a=seed>>>0;
+    return function(){
+      a|=0; a=a+0x6D2B79F5|0;
+      var t=Math.imul(a^a>>>15,1|a);
+      t=t+Math.imul(t^t>>>7,61|t)^t;
+      return ((t^t>>>14)>>>0)/4294967296;
+    };
+  }
+
+  var SLOTS=[];   /* the 900 strokes */
+  var bursts=[];  /* click star-bursts */
+  var t0=performance.now();
+  var moon={x:0,y:0,r:0};
+  var houses=[];  /* village lights */
+
+  function pickColor(rand,band){
+    var r=rand();
+    if(band===0){ /* far: calm darks */
+      if(r<0.62)return COL.deep;
+      if(r<0.92)return COL.blue;
+      return COL.teal;
+    }
+    if(band===1){ /* mid */
+      if(r<0.42)return COL.blue;
+      if(r<0.72)return COL.deep;
+      if(r<0.9)return COL.teal;
+      return COL.gold;
+    }
+    /* near: wilder, brighter */
+    if(r<0.3)return COL.teal;
+    if(r<0.5)return COL.blue;
+    if(r<0.78)return COL.gold;
+    return COL.deep;
+  }
+
+  function build(){
+    var rand=mulberry(18890627); /* Van Gogh's year, on the dot */
+    SLOTS.length=0;
+    for(var i=0;i<900;i++){
+      var band = i<340?0 : (i<640?1:2);
+      var x=rand()*W;
+      var y;
+      if(band===0){ y=rand()*H*0.78; }
+      else if(band===1){ y=rand()*H*0.9; }
+      else { y=H*0.12+rand()*H*0.8; }
+      /* keep the cypress zone sparse */
+      if(x<W*0.24 && y>H*0.45 && rand()<0.5){ x=rand()*W*0.5+W*0.5; }
+      SLOTS.push({
+        x:x, y:y, band:band,
+        len:band===0?7+rand()*11:band===1?10+rand()*16:14+rand()*22,
+        w:band===0?2+rand()*1:band===1?2+rand()*1.4:2.4+rand()*1.6,
+        col:pickColor(rand,band),
+        ph:rand()*TAU,
+        bow:rand()*0.5+0.35,
+        a:band===0?0.34+rand()*0.2:0.42+rand()*0.18
+      });
+    }
+    moon.x=W*0.78; moon.y=H*0.30;
+    moon.r=Math.min(W,H)*0.085;
+    houses.length=0;
+    var hx=W*0.55;
+    for(var k=0;k<6;k++){
+      houses.push({
+        x:hx+k*(W*0.075)+rand()*W*0.02,
+        y:H*0.90+rand()*H*0.055,
+        r:1.6+rand()*1.8,
+        ph:rand()*TAU
+      });
+    }
+  }
+
+  /* spiral flow field: angle at (x,y) at time t */
+  function fieldAngle(x,y,t,band){
+    var dx=x-moon.x, dy=y-moon.y;
+    var r=Math.hypot(dx,dy)+0.001;
+    var base=Math.atan2(dy,dx)+Math.PI/2;          /* orbits the moon */
+    var spiral=r*0.0042;                            /* tighter as it wraps */
+    var drift=t*0.05*(band===0?0.35:(band===1?0.8:1.3));
+    var curl=Math.sin(x*0.006+t*0.12)*Math.cos(y*0.007-t*0.09);
+    var turb=band===0?0.12:(band===1?0.34:0.75);
+    return base+spiral+drift+curl*turb;
+  }
+
+  function drawStroke(s,ang,t){
+    var L=s.len*(1+0.12*Math.sin(t*0.9+s.ph));
+    var hx=Math.cos(ang)*L*0.5, hy=Math.sin(ang)*L*0.5;
+    var px=-Math.sin(ang), py=Math.cos(ang);
+    var bow=L*0.28*s.bow*Math.sin(t*0.6+s.ph);
+    ctx.beginPath();
+    ctx.moveTo(s.x-hx, s.y-hy);
+    ctx.quadraticCurveTo(s.x+px*bow, s.y+py*bow, s.x+hx, s.y+hy);
+    ctx.strokeStyle=s.col+s.a+")";
+    ctx.lineWidth=s.w;
+    ctx.lineCap="round";
+    ctx.stroke();
+  }
+
+  function paintBase(){
+    ctx.fillStyle=BG;
+    ctx.fillRect(0,0,W,H);
+    var t=(performance.now()-t0)/1000;
+    for(var i=0;i<SLOTS.length;i++){
+      var s=SLOTS[i];
+      drawStroke(s,fieldAngle(s.x,s.y,t,s.band),t);
+    }
+  }
+
+  function drawMoon(t){
+    ctx.save();
+    /* glow disc */
+    var g=ctx.createRadialGradient(moon.x,moon.y,moon.r*0.2,moon.x,moon.y,moon.r*2.6);
+    g.addColorStop(0,"rgba(244,236,210,0.95)");
+    g.addColorStop(0.25,"rgba(242,209,107,0.5)");
+    g.addColorStop(0.6,"rgba(242,209,107,0.12)");
+    g.addColorStop(1,"rgba(242,209,107,0)");
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(moon.x,moon.y,moon.r*2.6,0,TAU); ctx.fill();
+    /* moon body */
+    ctx.fillStyle="rgba(248,240,214,0.98)";
+    ctx.beginPath(); ctx.arc(moon.x,moon.y,moon.r,0,TAU); ctx.fill();
+    /* spiral halo strokes around the moon */
+    for(var i=0;i<26;i++){
+      var f=i/26;
+      var rr=moon.r*(1.15+0.85*f)+Math.sin(t*0.5+i)*2;
+      var a0=f*TAU+t*0.14;
+      var a1=a0+0.30-f*0.14;
+      ctx.beginPath();
+      ctx.arc(moon.x,moon.y,rr,a0,a1);
+      ctx.strokeStyle=i%3===0?"rgba(242,209,107,0.4)":"rgba(111,216,200,0.30)";
+      ctx.lineWidth=2.2-f*0.8;
+      ctx.lineCap="round";
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawVillage(t){
+    ctx.save();
+    /* ground swell */
+    ctx.beginPath();
+    ctx.moveTo(0,H);
+    ctx.lineTo(0,H*0.875);
+    for(var x=0;x<=W;x+=W/18){
+      var yy=H*0.875+Math.sin(x*0.011+1.2)*H*0.012+Math.sin(x*0.027)*H*0.006;
+      ctx.lineTo(x,yy);
+    }
+    ctx.lineTo(W,H);
+    ctx.closePath();
+    ctx.fillStyle="#070b16";
+    ctx.fill();
+    /* roofs */
+    for(var k=0;k<houses.length;k++){
+      var hu=houses[k];
+      var rw=hu.r*9, rh=hu.r*6.5;
+      ctx.fillStyle="#05070f";
+      ctx.beginPath();
+      ctx.moveTo(hu.x-rw,hu.y+2);
+      ctx.lineTo(hu.x-rw*0.6,hu.y-rh*0.5);
+      ctx.lineTo(hu.x,hu.y-rh);
+      ctx.lineTo(hu.x+rw*0.6,hu.y-rh*0.5);
+      ctx.lineTo(hu.x+rw,hu.y+2);
+      ctx.closePath();
+      ctx.fill();
+      /* warm light + halo */
+      var flick=0.75+0.25*Math.sin(t*2.1+hu.ph);
+      var g=ctx.createRadialGradient(hu.x,hu.y-rh*0.55,0,hu.x,hu.y-rh*0.55,hu.r*7);
+      g.addColorStop(0,"rgba(242,209,107,"+(0.85*flick)+")");
+      g.addColorStop(0.3,"rgba(242,180,90,"+(0.35*flick)+")");
+      g.addColorStop(1,"rgba(242,180,90,0)");
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(hu.x,hu.y-rh*0.55,hu.r*7,0,TAU); ctx.fill();
+      ctx.fillStyle="rgba(255,238,190,"+(0.9*flick)+")";
+      ctx.beginPath(); ctx.arc(hu.x,hu.y-rh*0.55,hu.r*0.8,0,TAU); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawCypress(t){
+    /* tall dark flame of a cypress, bottom-left */
+    var bx=W*0.13, by=H*0.94, top=H*0.46;
+    var sway=Math.sin(t*0.35)*W*0.006;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(bx-W*0.028,by);
+    ctx.bezierCurveTo(
+      bx-W*0.034+sway, H*0.78,
+      bx-W*0.012+sway*1.4, H*0.62,
+      bx+sway*1.8, top
+    );
+    ctx.bezierCurveTo(
+      bx+W*0.02+sway*1.2, H*0.60,
+      bx+W*0.030+sway, H*0.77,
+      bx+W*0.026, by
+    );
+    ctx.closePath();
+    var g=ctx.createLinearGradient(bx,by,bx,top);
+    g.addColorStop(0,"#04060d");
+    g.addColorStop(1,"#0b1424");
+    ctx.fillStyle=g;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawBursts(t){
+    for(var i=bursts.length-1;i>=0;i--){
+      var b=bursts[i];
+      var age=t-b.t;
+      var life=1.7;
+      if(age>life){bursts.splice(i,1);continue;}
+      var fade=1-age/life;
+      var rad=(12+age*60);
+      ctx.save();
+      for(var k=0;k<12;k++){
+        var a=k/12*TAU+age*0.6;
+        var x0=b.x+Math.cos(a)*6, y0=b.y+Math.sin(a)*6;
+        var x1=b.x+Math.cos(a)*rad, y1=b.y+Math.sin(a)*rad;
+        ctx.beginPath();
+        ctx.moveTo(x0,y0);
+        ctx.quadraticCurveTo(
+          b.x+Math.cos(a+0.3)*rad*0.6,
+          b.y+Math.sin(a+0.3)*rad*0.6,
+          x1,y1
+        );
+        ctx.strokeStyle=k%2?"rgba(242,209,107,"+(0.75*fade)+")":"rgba(111,216,200,"+(0.6*fade)+")";
+        ctx.lineWidth=2.6*fade+0.6;
+        ctx.lineCap="round";
+        ctx.stroke();
+      }
+      var g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,rad*0.7);
+      g.addColorStop(0,"rgba(255,244,214,"+(0.55*fade)+")");
+      g.addColorStop(1,"rgba(255,244,214,0)");
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(b.x,b.y,rad*0.7,0,TAU); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  var slotIdx=0;
+  function frame(){
+    if(!ctx){requestAnimationFrame(frame);return;}
+    var t=(performance.now()-t0)/1000;
+    try{
+      /* slow dissolve so strokes keep breathing */
+      ctx.fillStyle="rgba(14,21,38,0.055)";
+      ctx.fillRect(0,0,W,H);
+      /* cyclic repaint of ~12 strokes */
+      for(var n=0;n<12;n++){
+        var s=SLOTS[slotIdx%SLOTS.length];
+        slotIdx++;
+        if(s){drawStroke(s,fieldAngle(s.x,s.y,t,s.band),t);}
+      }
+      drawMoon(t);
+      drawVillage(t);
+      drawCypress(t);
+      drawBursts(t);
+    }catch(e){}
+    requestAnimationFrame(frame);
+  }
+
+  cv.addEventListener("pointerdown",function(e){
+    var r=cv.getBoundingClientRect();
+    bursts.push({x:e.clientX-r.left,y:e.clientY-r.top,t:(performance.now()-t0)/1000});
+    if(bursts.length>8)bursts.shift();
+  });
+
+  function fit(){
+    dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+    W=cv.clientWidth; H=cv.clientHeight;
+    cv.width=Math.round(W*dpr);
+    cv.height=Math.round(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    build();
+    slotIdx=0;
+    paintBase();
+  }
+
+  window.addEventListener("resize",fit);
+  fit();
+  frame();
+})();
+</script>
+</body>
+</html>

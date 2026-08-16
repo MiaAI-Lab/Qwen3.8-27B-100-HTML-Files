@@ -1,0 +1,9 @@
+TITLE: Grain Magazine — Issue 41
+
+PROMPT: GRAIN MAGAZINE - editorial spread 'GRAIN - ISSUE 41'. Warm paper #efe8db, ink #1c1a17, accent burnt orange #d4551f. Asymmetric 12-column CSS grid; masthead 'GRAIN' serif ~8vw tight tracking with folio number. Two-column justified serif body with a 4rem drop cap in orange; pull quote with oversized quotation mark; one 'plate' = generative halftone canvas block (dot noise) captioned 'Fig. 01 - mill dust'. Sticky left rail: section labels 01/02/03 with scroll-spy highlight. Hairline rules everywhere. Type + dot art only, no photos.
+
+DESCRIPTION: A single-page editorial spread laid out as a magazine issue: a tall serif masthead 'GRAIN' with a mono folio block at top right, a sticky left rail carrying the section index (01 Mill Dust / 02 The Sieve / 03 Colophon) with scroll-spy highlighting, and three full-viewport sections on a 12-column asymmetric grid. Section 01 opens with a lede carrying a 4rem burnt-orange drop cap, a generative halftone plate rendered as a canvas of drifting ink dots (the occasional hot fleck in accent orange) captioned 'Fig. 01 — mill dust', two-column justified serif body text, and an oversized-mark pull quote. Hairline rules divide every region; type and dot art only, no photography.
+
+TECHNIQUES: 12-column asymmetric CSS grid, sticky scroll-spy rail with IntersectionObserver, large tight-tracked serif display type, justified multi-column body text with drop cap, oversized quote glyph, generative bilinear-noise halftone dot plate on canvas, subtle dot drift animation, hairline rule system, clamp() fluid type, responsive collapse to a single column with a condensed top rail.
+
+INTERACTION: Scrolling drives the sticky rail's scroll-spy highlight (01/02/03 sections); the rail labels are anchor links that smooth-scroll to their section; the halftone plate animates slowly on its own with no controls; hover micro-feedback on rail items and rows; fully keyboard-scrollable.

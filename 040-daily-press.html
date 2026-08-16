@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE DAILY PRESS — No. 227</title>
+<style>
+  :root{
+    --paper:#f4efe2; --ink:#191713; --red:#8c1d18; --faint:rgba(25,23,19,.55);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(120% 90% at 50% 0%, #efe9d9 0%, #e7dfcc 70%, #ded4bf 100%);
+    font-family:Georgia,'Times New Roman',serif;
+    color:var(--ink);
+    display:flex; align-items:flex-start; justify-content:center;
+    min-height:100dvh; padding:clamp(8px,2vw,28px);
+  }
+  .sheet{
+    width:min(1120px,100%);
+    background:var(--paper);
+    box-shadow:0 24px 60px rgba(30,24,12,.35), 0 2px 6px rgba(30,24,12,.25);
+    border:1px solid #cfc4a9;
+    position:relative;
+    overflow:hidden;
+  }
+  .sheet::before{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg, rgba(25,23,19,.014) 0 2px, transparent 2px 4px),
+      radial-gradient(80% 40% at 50% 8%, rgba(255,255,255,.5), transparent 70%);
+  }
+  .kicker-row{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding:10px 18px 8px; border-bottom:3px double var(--ink);
+    font-size:clamp(9px,1.1vw,12px); letter-spacing:.14em; text-transform:uppercase;
+  }
+  .kicker-row .price{color:var(--red); font-weight:bold; letter-spacing:.2em}
+  .kicker-row .left{display:flex; gap:14px; flex-wrap:wrap}
+  .masthead{
+    text-align:center; padding:clamp(10px,2vw,22px) 12px 10px;
+    border-bottom:1px solid var(--ink); position:relative;
+  }
+  .masthead h1{
+    font-size:clamp(38px,8.4vw,104px);
+    letter-spacing:.045em; font-weight:900; line-height:.95;
+    text-transform:uppercase;
+  }
+  .masthead h1 .amp{font-weight:400; font-style:italic; color:var(--red)}
+  .dateline{
+    display:flex; justify-content:center; gap:18px; flex-wrap:wrap;
+    font-size:clamp(9px,1.05vw,12.5px); letter-spacing:.18em; text-transform:uppercase;
+    padding:7px 0; border-bottom:3px solid var(--ink); position:relative;
+  }
+  .dateline .dot{width:5px;height:5px;background:var(--red);border-radius:50%;align-self:center}
+  .dateline .vol{color:var(--faint)}
+  .cols{
+    display:grid; grid-template-columns:repeat(6,1fr);
+    gap:0 clamp(10px,1.6vw,20px);
+    padding:clamp(14px,2.2vw,26px) clamp(14px,2.4vw,30px) 10px;
+  }
+  .rule-l{border-left:1px solid var(--ink); padding-left:clamp(10px,1.6vw,20px)}
+  .rule-r{border-right:1px solid var(--ink); padding-right:clamp(10px,1.6vw,20px)}
+  .col3{grid-column:span 3} .col2{grid-column:span 2}
+  .rowgap{padding-top:clamp(14px,2.2vw,26px); border-top:1px solid var(--ink); margin-top:6px}
+  .headline{
+    font-size:clamp(22px,3.6vw,44px); line-height:1.04; font-weight:900;
+    letter-spacing:.01em; text-transform:uppercase; margin:4px 0 10px;
+  }
+  .deck{
+    font-size:clamp(13px,1.6vw,17px); line-height:1.45; font-style:italic;
+    color:#2c2921; margin-bottom:8px;
+  }
+  .byline{
+    font-size:clamp(9px,1vw,11px); letter-spacing:.16em; text-transform:uppercase;
+    color:var(--faint); border-top:1px solid var(--ink); padding-top:5px; margin-bottom:9px;
+    display:flex; justify-content:space-between;
+  }
+  .bodycopy{font-size:clamp(12px,1.35vw,14.5px); line-height:1.52; column-gap:1.6em}
+  .bodycopy p{margin-bottom:.65em}
+  .dropcap{
+    float:left; font-size:3.1em; line-height:.82; font-weight:900;
+    padding:2px 6px 0 0; color:var(--ink);
+  }
+  .subhead{
+    font-size:clamp(12px,1.4vw,15px); font-weight:900; text-transform:uppercase;
+    letter-spacing:.05em; margin:10px 0 6px; border-bottom:1px solid var(--ink);
+    padding-bottom:3px;
+  }
+  .photo{margin-top:2px}
+  .photo canvas{display:block; width:100%; height:auto; border:1px solid var(--ink); background:#fbf8ef}
+  .photo figcaption{
+    font-size:clamp(10px,1.15vw,12px); letter-spacing:.08em; text-transform:uppercase;
+    color:var(--faint); padding:6px 2px 0; font-style:italic; text-align:center;
+  }
+  .boxhead{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-weight:900; text-transform:uppercase; letter-spacing:.12em;
+    font-size:clamp(11px,1.25vw,14px);
+    border-bottom:2px solid var(--ink); padding-bottom:4px; margin-bottom:8px;
+  }
+  table{width:100%; border-collapse:collapse; font-size:clamp(10px,1.2vw,13px)}
+  th{font-size:clamp(8px,.95vw,10px); letter-spacing:.14em; text-transform:uppercase;
+     text-align:left; color:var(--faint); border-bottom:1px solid var(--ink); padding:2px 4px}
+  td{padding:4px; border-bottom:1px dotted rgba(25,23,19,.35); font-family:ui-monospace,Menlo,monospace}
+  td:first-child{font-family:Georgia,serif; letter-spacing:.05em}
+  td.up{color:#1e5c3a} td.dn{color:var(--red)}
+  .tbl-note{font-size:clamp(9px,1vw,11px); font-style:italic; color:var(--faint); margin-top:7px}
+  .comic{display:flex; flex-direction:column; gap:8px}
+  .comic canvas{display:block; width:100%; height:auto; border:1px solid var(--ink); background:#f7f2e4}
+  .strip{
+    display:flex; justify-content:space-between; font-size:clamp(8px,.95vw,10.5px);
+    letter-spacing:.16em; text-transform:uppercase; color:var(--faint);
+  }
+  .obit{
+    border:1px solid var(--ink); padding:10px 14px; display:flex; gap:18px;
+    align-items:stretch; background:rgba(25,23,19,.03);
+  }
+  .obit .label{
+    writing-mode:vertical-rl; transform:rotate(180deg);
+    font-weight:900; letter-spacing:.3em; text-transform:uppercase;
+    font-size:clamp(10px,1.2vw,13px); color:var(--red);
+    border-right:1px solid var(--ink); padding-right:10px;
+  }
+  .obit p{font-size:clamp(11px,1.25vw,13.5px); line-height:1.5; max-width:64ch}
+  .obit .name{font-weight:900; letter-spacing:.04em}
+  .ticker{
+    border-top:3px solid var(--ink); margin-top:clamp(14px,2vw,24px);
+    overflow:hidden; position:relative; background:#141210; color:var(--paper);
+  }
+  .ticker .tag{
+    position:absolute; left:0; top:0; bottom:0; z-index:2;
+    background:var(--red); color:#fff; display:flex; align-items:center;
+    padding:0 14px; font-weight:900; letter-spacing:.22em; font-size:11px;
+    text-transform:uppercase; box-shadow:6px 0 10px rgba(0,0,0,.5);
+  }
+  .ticker-track{
+    display:flex; width:max-content; padding:9px 0 9px 140px;
+    animation:tick 46s linear infinite;
+    font-size:clamp(11px,1.3vw,14px); letter-spacing:.06em;
+  }
+  .ticker:hover .ticker-track{animation-play-state:paused}
+  .ticker-track span{padding:0 26px; white-space:nowrap}
+  .ticker-track b{color:#e8b84b; font-weight:900}
+  @keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .colophon{
+    text-align:center; font-size:clamp(8px,.9vw,10px); letter-spacing:.24em;
+    text-transform:uppercase; color:var(--faint); padding:8px 0 14px;
+  }
+  @media (max-width:760px){
+    .cols{grid-template-columns:repeat(2,1fr)}
+    .col3,.col2{grid-column:span 2}
+    .rule-l{border-left:none; padding-left:0}
+    .rule-r{border-right:none; padding-right:0}
+    .rowgap{border-top:1px solid var(--ink)}
+    .obit{flex-direction:column}
+    .obit .label{writing-mode:horizontal-tb; transform:none; border-right:none; border-bottom:1px solid var(--ink); padding:0 0 6px; height:auto}
+  }
+</style>
+</head>
+<body>
+  <main class="sheet" aria-label="Front page of The Daily Press">
+    <div class="kicker-row">
+      <div class="left">
+        <span id="ed-tag">EST. 1899 — ESTABLISHED TRUTH, DELIVERED EARLY</span>
+      </div>
+      <span class="price">PRICE 25c</span>
+    </div>
+
+    <header class="masthead">
+      <h1>THE DAILY <span class="amp">PRESS</span></h1>
+    </header>
+
+    <div class="dateline" aria-live="polite">
+      <span id="dateline">—</span>
+      <span class="dot"></span>
+      <span>FAIR WEATHER, GUSTY UNTIL NOON</span>
+      <span class="dot"></span>
+      <span class="vol">VOL. CXXVII — MORNING EDITION, PAGE ONE</span>
+    </div>
+
+    <div class="cols">
+      <!-- MAIN STORY: 3 columns -->
+      <section class="col3 rule-r" aria-label="Lead story">
+        <h2 class="headline">CITY UNVEILS GIGANTIC CLOCK TOWER</h2>
+        <p class="deck">Seven stories of carved granite rise over the plaza; the great face, forty feet across, was turned to true time at half past two.</p>
+        <div class="byline"><span>By H. MERRICK STERLING</span><span>City Correspondent</span></div>
+        <div class="bodycopy">
+          <p><span class="dropcap">P</span>RESIDENT HALL drew back the crimson drape at 2:30 this afternoon before a crowd estimated at four thousand, and the plaza fell silent for a moment as the first sun struck the new tower's east face. The structure — begun eleven months ago and finished two weeks ahead of schedule — climbs 142 feet to its copper bell crown.</p>
+          <p>The face was cut in a single sheet of alabaster by the Orengo workshop, and the four gilded hands were forged from the old town anchor, a gift the harbor ward declared long since surplus. Commissioners called the ceremony "the day the city found its shadow."</p>
+        </div>
+        <h3 class="subhead">Engineers Praise the Gear Train</h3>
+        <div class="bodycopy">
+          <p><span class="dropcap">M</span>ASTER CLOCKMAKER IDA VOSS, who tuned the escapement overnight, reported the mechanism "a hair ahead of the observatory clock, and proud of it." The pendulum is a solid bronze drop of 900 pounds, swinging free in a shaft the mayor walked to the top to view.</p>
+        </div>
+      </section>
+
+      <!-- PHOTO: 3 columns -->
+      <figure class="photo col3" aria-label="Halftone engraving of the clock tower">
+        <canvas id="halftone" width="1040" height="620"></canvas>
+        <figcaption>The tower from the east, as the first light came up — from our engraver's eye</figcaption>
+      </figure>
+
+      <!-- SECOND STORY -->
+      <section class="col2 rule-l rule-r" aria-label="Second story">
+        <h3 class="headline" style="font-size:clamp(17px,2.3vw,28px)">HARBOR LIGHTS RESTORED AFTER LONG REPAIR</h3>
+        <div class="bodycopy">
+          <p><span class="dropcap">T</span>WO YEARS after the great glass cracked, the lighthouse keepers relit the west beacon last night. Fishermen were asked to bear with the dark months; the board of lights called the renewed beam "strong as a river."</p>
+          <p>The new lens, set in its brass cradle on the fourteenth, turns a full circle in thirty seconds. Keeper M. DOLAN will remain at the post through the autumn season.</p>
+        </div>
+      </section>
+
+      <!-- MARKETS -->
+      <section class="col2" aria-label="Markets">
+        <div class="boxhead"><span>Markets</span><span style="color:var(--faint);font-weight:400;letter-spacing:.1em">AT THE CLOSE</span></div>
+        <table>
+          <thead><tr><th>Stock</th><th>Last</th><th>Chg.</th></tr></thead>
+          <tbody>
+            <tr><td>Railco</td><td>88.40</td><td class="up">+1.20</td></tr>
+            <tr><td>Steelworks</td><td>12.60</td><td class="dn">−0.40</td></tr>
+            <tr><td>Lumen Gas</td><td>44.10</td><td class="up">+0.80</td></tr>
+            <tr><td>Granite &amp; Co.</td><td>19.75</td><td>0.00</td></tr>
+            <tr><td>Harbor Line</td><td>6.20</td><td class="up">+0.15</td></tr>
+          </tbody>
+        </table>
+        <p class="tbl-note">Bonds steady. The tower's granite, worth $310,000, now quoted for the first time.</p>
+      </section>
+
+      <!-- COMIC -->
+      <section class="col2 rule-l comic" aria-label="Daily comic strip">
+        <div class="boxhead"><span>Sunny Side Up</span><span style="color:var(--red)">PANE 1</span></div>
+        <canvas id="comic" width="620" height="420"></canvas>
+        <div class="strip"><span>DRAWN BY T. BELL</span><span>DAILY, AT DAWN</span></div>
+      </section>
+
+      <!-- OBITUARY -->
+      <section class="col2 rule-l" aria-label="Obituary">
+        <div class="obit">
+          <div class="label">In Memoriam</div>
+          <p><span class="name">EDWIN CALLOWAY</span>, 84, printer, compositor and keeper of the great type case on Ninth Street, died peacefully on the 3rd. His last job set by hand, according to his widow, was the masthead of this very paper — "and he never once broke the P." Services at noon Saturday.</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="ticker" aria-label="News ticker">
+      <div class="tag">LATEST</div>
+      <div class="ticker-track">
+        <span><b>WIRE</b> — Bell rung 108 times at unveiling; record crowd on plaza</span>
+        <span><b>RIVER</b> — Ferry schedule resumes normal service from Monday</span>
+        <span><b>MARKETS</b> — Granite &amp; Co. opens a new typeface, the Press Serif</span>
+        <span><b>SPORT</b> — Ninth Street Nine take the pennant after tie-break</span>
+        <span><b>WEATHER</b> — Clear and mild through the weekend; fog at dawn</span>
+        <span><b>WIRE</b> — Bell rung 108 times at unveiling; record crowd on plaza</span>
+        <span><b>RIVER</b> — Ferry schedule resumes normal service from Monday</span>
+        <span><b>MARKETS</b> — Granite &amp; Co. opens a new typeface, the Press Serif</span>
+        <span><b>SPORT</b> — Ninth Street Nine take the pennant after tie-break</span>
+        <span><b>WEATHER</b> — Clear and mild through the weekend; fog at dawn</span>
+      </div>
+    </div>
+
+    <div class="colophon">COMPOSED AND PRINTED IN THE CITY — ALL RIGHTS RESERVED — PAGE 1 OF 1</div>
+  </main>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- live dateline ---------- */
+  var DAYS=["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+  var MONTHS=["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
+  function two(n){return n<10?"0"+n:""+n;}
+  function stamp(){
+    try{
+      var d=new Date();
+      var s=DAYS[d.getDay()]+", "+MONTHS[d.getMonth()]+" "+d.getDate()+", "+d.getFullYear();
+      var el=document.getElementById("dateline");
+      if(el){el.textContent=s;}
+      var ed=document.getElementById("ed-tag");
+      if(ed){ed.textContent="EST. 1899 — FILED "+two(d.getHours())+":"+two(d.getMinutes())+" THIS MORNING";}
+    }catch(e){}
+  }
+  stamp();
+
+  /* ---------- halftone "photo" ---------- */
+  var ht=document.getElementById("halftone");
+  function fitHT(){
+    if(!ht)return;
+    var dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+    var w=ht.clientWidth||ht.width/2;
+    var h=w*620/1040;
+    ht.width=Math.round(w*dpr);
+    ht.height=Math.round(h*dpr);
+    ht.style.height=h+"px";
+    paintHT(dpr,w,h);
+  }
+  function shade(x,y,W,H){
+    /* darkness 0..1 of the fake scene: tower, sky, ground, clock face */
+    var t=0;
+    var cx=W*0.52, top=H*0.10, bw=W*0.16;
+    var inT = x>cx-bw && x<cx+bw && y>top;
+    if(inT) t=0.82;
+    var face=H*0.235, fr=H*0.075;
+    var dx=x-cx, dy=y-face;
+    if(dx*dx+dy*dy < fr*fr) t=0.28;
+    if(y>H*0.86) t=Math.max(t,0.55);
+    if(y< H*0.16 && !inT) t=0.12;
+    else if(!inT && y>H*0.3) t=Math.max(t*0.4,0.18);
+    t+= (Math.sin(x*0.05)+Math.cos(y*0.04))*0.04;
+    if(inT) t += 0.06*Math.sin((x-cx)*0.09)*Math.cos(y*0.07);
+    return Math.max(0,Math.min(1,t));
+  }
+  function paintHT(dpr,W,H){
+    var ctx=ht.getContext("2d");
+    if(!ctx)return;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.fillStyle="#f4efe2";
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#191713";
+    var step=Math.max(4,Math.round(W/230));
+    for(var gx=step/2;gx<W;gx+=step){
+      for(var gy=step/2;gy<H;gy+=step){
+        var s=shade(gx,gy,W,H);
+        var r=0.25+s*s*(step*0.52);
+        ctx.beginPath();
+        ctx.arc(gx+(Math.random()-0.5)*0.8, gy+(Math.random()-0.5)*0.8, r,0,Math.PI*2);
+        ctx.fill();
+      }
+    }
+    ctx.strokeStyle="rgba(25,23,19,.65)";
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(0,H*0.865);ctx.lineTo(W,H*0.865);
+    ctx.stroke();
+  }
+
+  /* ---------- comic ---------- */
+  var cm=document.getElementById("comic");
+  function paintComic(){
+    if(!cm)return;
+    var dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+    var w=cm.clientWidth||cm.width/2;
+    var h=w*420/620;
+    cm.width=Math.round(w*dpr);
+    cm.height=Math.round(h*dpr);
+    cm.style.height=h+"px";
+    var c=cm.getContext("2d");
+    if(!c)return;
+    c.setTransform(dpr,0,0,dpr,0,0);
+    c.lineJoin="round"; c.lineCap="round";
+    c.fillStyle="#f7f2e4"; c.fillRect(0,0,w,h);
+    var pw=w/2, ph=h*0.74;
+    function panel(px,py,pwidth){
+      c.strokeStyle="#191713"; c.lineWidth=Math.max(1.5,w*0.006);
+      c.strokeRect(px,py,pwidth,ph);
+      c.save(); c.translate(px,py);
+      var s=pwidth/310, g=ph/210, k=s*g; /* stroke width in px */
+      c.lineWidth=k; c.strokeStyle="#191713";
+      /* ground line */
+      c.beginPath(); c.moveTo(8,ph*0.9); c.lineTo(pwidth-8,ph*0.9); c.stroke();
+      c.restore();
+    }
+    panel(6,6,pw-18);
+    panel(pw+6,6,pw-18);
+    function stick(ox,oy,s,pose){
+      c.save(); c.translate(ox,oy); c.scale(s,s);
+      c.strokeStyle="#191713"; c.lineWidth=3;
+      c.beginPath(); c.arc(0,-34,11,0,Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(0,-23); c.lineTo(0,8); c.stroke();
+      if(pose==="wave"){
+        c.beginPath(); c.moveTo(0,-16); c.lineTo(-16,-30); c.stroke();
+        c.beginPath(); c.moveTo(0,-14); c.lineTo(15,-4); c.stroke();
+      }else{
+        c.beginPath(); c.moveTo(0,-16); c.lineTo(-14,-6); c.stroke();
+        c.beginPath(); c.moveTo(0,-16); c.lineTo(14,-6); c.stroke();
+      }
+      c.beginPath(); c.moveTo(0,8); c.lineTo(-11,34); c.stroke();
+      c.beginPath(); c.moveTo(0,8); c.lineTo(11,34); c.stroke();
+      c.restore();
+    }
+    function bubble(bx,by,bw,bh,txt,tx){
+      c.save(); c.strokeStyle="#191713"; c.lineWidth=2.4; c.fillStyle="#f7f2e4";
+      c.beginPath();
+      if(c.roundRect){c.roundRect(bx,by,bw,bh,10);}else{c.rect(bx,by,bw,bh);}
+      c.fill(); c.stroke();
+      c.beginPath();
+      c.moveTo(bx+bw*0.28,by+bh); c.lineTo(bx+bw*0.14,by+bh+12); c.lineTo(bx+bw*0.5,by+bh);
+      c.closePath(); c.fill(); c.stroke();
+      c.fillStyle="#191713";
+      c.font="bold "+Math.round(bh*0.34)+"px Georgia, serif";
+      c.textAlign="center"; c.textBaseline="middle";
+      c.fillText(txt,bx+bw/2,by+bh/2+1,tx);
+      c.restore();
+    }
+    var s1=(pw-18)/310;
+    stick(pw*0.55, h*0.62, s1, "wave");
+    bubble(pw*0.16, h*0.16, pw*0.52, h*0.26, "WHAT A", s1*310);
+    /* newsboy holds paper in panel 2 */
+    var p2x=pw+6;
+    c.save(); c.strokeStyle="#191713"; c.lineWidth=3*s1;
+    c.beginPath();
+    c.moveTo(p2x+pw*0.40, h*0.50); c.lineTo(p2x+pw*0.55, h*0.44);
+    c.stroke(); c.restore();
+    stick(p2x+pw*0.55, h*0.62, s1, "hold");
+    c.save(); c.translate(p2x+pw*0.42, h*0.46); c.rotate(-0.28);
+    c.strokeStyle="#191713"; c.lineWidth=2*s1;
+    c.strokeRect(0,0,pw*0.19,h*0.13);
+    c.beginPath(); c.moveTo(0,h*0.045); c.lineTo(pw*0.19,h*0.045); c.stroke();
+    c.restore();
+    bubble(p2x+pw*0.18, h*0.14, pw*0.5, h*0.24, "DAY!", s1*310);
+  }
+
+  /* ---------- boot / resize ---------- */
+  function fit(){ fitHT(); paintComic(); }
+  var rzT=null;
+  window.addEventListener("resize",function(){
+    if(rzT)clearTimeout(rzT);
+    rzT=setTimeout(fit,120);
+  });
+  fit();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EVENT HORIZON</title>
+<style>
+  :root{
+    --ink:#030408; --hot:#ffd9a0; --cool:#7a3dff; --amber:#ff8a3d; --violet:#3d1a6e;
+    --hud:rgba(210,190,235,.85);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:var(--ink);overflow:hidden}
+  body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--hud)}
+  #stage{position:fixed;inset:0;display:block;cursor:crosshair}
+  .hud{position:fixed;pointer-events:none;letter-spacing:.28em;font-size:11px;
+       font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase}
+  #hud-tl{top:22px;left:24px}
+  #hud-tr{top:22px;right:24px;text-align:right}
+  #hud-bl{bottom:22px;left:24px}
+  #hud-br{bottom:22px;right:24px;text-align:right}
+  .hud .k{color:rgba(160,140,200,.6)}
+  .hud .v{color:var(--hud)}
+  .hud .hot{color:var(--amber)}
+  .title{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+    font-size:clamp(13px,1.6vw,17px);letter-spacing:.6em;color:rgba(235,220,245,.92);
+    text-transform:uppercase;white-space:nowrap}
+  .title small{display:block;text-align:center;margin-top:6px;font-size:9px;
+    letter-spacing:.4em;color:rgba(160,140,200,.55)}
+  .bar{height:1px;width:64px;background:linear-gradient(90deg,transparent,var(--amber),transparent);
+    margin:0 auto 8px}
+  #veil{position:fixed;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,.55) 100%)}
+  #hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0;
+    font-size:10px;letter-spacing:.35em;text-transform:uppercase;color:rgba(255,217,160,.7);
+    transition:opacity 1.2s ease}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div id="veil"></div>
+<div class="hud" id="hud-tl">
+  <div><span class="k">M</span> <span class="v">= 10<sup>8</sup> M&#8491;</span></div>
+  <div><span class="k">R&#8348;</span> <span class="v hot" id="t-rs">4.244&#8201;km</span></div>
+  <div><span class="k">T-HAWK</span> <span class="v" id="t-th">2.54&#8201;&#8491;K</span></div>
+</div>
+<div class="hud" id="hud-tr">
+  <div><span class="k">CAM-DIST</span> <span class="v" id="t-z">1.00&#8201;R</span></div>
+  <div><span class="k">FLUX</span> <span class="v hot" id="t-flux">3.2e41</span></div>
+  <div><span class="k">SHOCKS</span> <span class="v" id="t-sh">0</span></div>
+</div>
+<div class="hud" id="hud-bl">
+  <div><span class="k">PARTICLES</span> <span class="v">2200</span></div>
+  <div><span class="k">ORBIT</span> <span class="v">KEPLERIAN &#126; R<sup>-0.5</sup></span></div>
+</div>
+<div class="hud" id="hud-br">
+  <div><span class="k">SCROLL</span> <span class="v">ZOOM 0.6&#8211;2.5</span></div>
+  <div><span class="k">CLICK</span> <span class="v">SHOCKWAVE</span></div>
+</div>
+<div class="title"><div class="bar"></div>EVENT HORIZON<small>ACCRETION DISK OBSERVATORY &#183; PAGE 034</small></div>
+<div id="hint">drift closer &#183; send a shockwave</div>
+<script>
+(function(){
+  "use strict";
+  var cv = document.getElementById("stage");
+  var ctx = cv.getContext("2d");
+  if(!ctx) return;
+
+  var W = 0, H = 0, CX = 0, CY = 0, BASE = 0, DPR = 1;
+  var COUNT = 2200;
+  var SQUASH = 0.35;
+
+  // particles: angle, radius (in base units), jitter, speed phase
+  var P = [];
+  for (let i = 0; i < COUNT; i++) {
+    P.push({
+      a: Math.random() * Math.PI * 2,
+      r: 1.05 + Math.pow(Math.random(), 0.62) * 2.4,   // 1.05 .. ~3.45 base units
+      w: Math.random() * Math.PI * 2,
+      th: 0.16 + Math.random() * 0.30,                 // thickness phase
+      kick: 0,
+      kb: 0
+    });
+  }
+
+  var zoom = 1, zoomTarget = 1;
+  var shocks = [];
+  var shockCount = 0;
+  var t = 0, last = performance.now();
+  var running = true;
+
+  function fit(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.max(1, Math.floor(W * DPR));
+    cv.height = Math.max(1, Math.floor(H * DPR));
+    cv.style.width = W + "px";
+    cv.style.height = H + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    CX = W / 2; CY = H * 0.5;
+    BASE = Math.min(W, H) * 0.16;
+  }
+  fit();
+  window.addEventListener("resize", fit);
+
+  function mixc(c1, c2, f){
+    return "rgb(" + Math.round(c1[0]+(c2[0]-c1[0])*f) + "," +
+                   Math.round(c1[1]+(c2[1]-c1[1])*f) + "," +
+                   Math.round(c1[2]+(c2[2]-c1[2])*f) + ")";
+  }
+  var HOT = [255, 217, 160], COOL = [122, 61, 255], DARKRED = [96, 22, 30];
+
+  function draw(){
+    if(!ctx) return;
+    var now = performance.now();
+    var dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    t += dt;
+
+    zoom += (zoomTarget - zoom) * Math.min(1, dt * 4);
+    var U = BASE * zoom;
+    var Rs = U * 0.9;                       // black disc radius (just inside innermost orbit)
+    var holeR = Rs * 0.98;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#030408";
+    ctx.fillRect(0, 0, W, H);
+
+    // deep space faint dust
+    for (let d = 0; d < 26; d++) {
+      var dx = ((d * 971 % W) + d * 13) % W;
+      var dy = ((d * 613 % H) + d * 7) % H;
+      var tw = 0.12 + 0.1 * Math.sin(t * 0.8 + d * 1.7);
+      ctx.fillStyle = "rgba(180,160,220," + tw.toFixed(3) + ")";
+      ctx.fillRect(dx, dy, 1.4, 1.4);
+    }
+
+    // Einstein ring (faint arc behind the hole)
+    var erR = holeR * 2.05;
+    ctx.save();
+    ctx.globalAlpha = 0.30 + 0.06 * Math.sin(t * 0.5);
+    var erg = ctx.createRadialGradient(CX, CY, erR * 0.86, CX, CY, erR * 1.14);
+    erg.addColorStop(0, "rgba(150,120,255,0)");
+    erg.addColorStop(0.5, "rgba(190,160,255,0.5)");
+    erg.addColorStop(1, "rgba(150,120,255,0)");
+    ctx.strokeStyle = erg;
+    ctx.lineWidth = holeR * 0.28;
+    ctx.beginPath();
+    ctx.arc(CX, CY, erR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // rim glow
+    var rg = ctx.createRadialGradient(CX, CY, holeR * 0.75, CX, CY, holeR * 1.5);
+    rg.addColorStop(0, "rgba(255,138,61,0.55)");
+    rg.addColorStop(0.55, "rgba(120,60,160,0.25)");
+    rg.addColorStop(1, "rgba(61,26,110,0)");
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.arc(CX, CY, holeR * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // black disc
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(CX, CY, holeR, 0, Math.PI * 2);
+    ctx.fill();
+    // thin photon-edge
+    ctx.strokeStyle = "rgba(255,190,120,0.85)";
+    ctx.lineWidth = Math.max(1, holeR * 0.018);
+    ctx.beginPath();
+    ctx.arc(CX, CY, holeR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // accretion particles — split back/front by sin(angle)
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < COUNT; i++) {
+      var p = P[i];
+      var speed = 0.5 / Math.sqrt(p.r);            // Keplerian: omega ~ r^-1.5, angle ~ r^-0.5
+      var omega = speed * 0.9;
+      p.a += omega * dt;
+      if (p.kick > 0) p.kick -= dt * 1.6;
+      var rNow = p.r + (p.kick > 0 ? Math.sin(p.kb + p.kick * 5) * 0.22 * p.kick : 0);
+      if (p.kb < 0.02) p.kb = 0;
+
+      var cosA = Math.cos(p.a), sinA = Math.sin(p.a);
+      var x = CX + cosA * rNow * U * 0.92;
+      var y = CY + sinA * rNow * U * 0.92 * SQUASH;
+      var back = sinA < 0;                          // top half of ring = far side
+
+      var f = Math.min(1, (p.r - 1.0) / 2.4);        // 0 hot -> 1 cool
+      var col = mixc(HOT, COOL, f);
+      var alpha = 0.55 - f * 0.30;
+      if (back) {
+        alpha *= 0.30;
+        col = mixc([235,140,90], DARKRED, f);
+      }
+      var tw = 0.75 + 0.25 * Math.sin(t * 3 + p.w);
+      var size = (back ? 0.9 : 1.6) * (1.15 - f * 0.45) * tw * Math.max(0.6, zoom * 0.9);
+      ctx.fillStyle = "rgba(" + col.slice(4, -1) + "," + (alpha * tw).toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+
+    // shockwaves
+    for (let s = shocks.length - 1; s >= 0; s--) {
+      var sh = shocks[s];
+      sh.r += dt * U * 2.6;
+      sh.life -= dt * 0.9;
+      if (sh.life <= 0) { shocks.splice(s, 1); continue; }
+      ctx.strokeStyle = "rgba(255,200,150," + (sh.life * 0.5).toFixed(3) + ")";
+      ctx.lineWidth = 1.5 + sh.life * 3;
+      ctx.beginPath();
+      ctx.ellipse(CX, CY, sh.r, sh.r * SQUASH, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      // kick particles whose ring passes nearby
+      for (let i = 0; i < COUNT; i++) {
+        var pp = P[i];
+        var d = Math.abs(pp.r * U * 0.92 - sh.r) / U;
+        if (d < 0.18 && pp.kick < 0.35) {
+          pp.kick = 0.6;
+          pp.kb = Math.random() * Math.PI * 2;
+        }
+      }
+    }
+
+    // HUD ticking
+    hudTick();
+  }
+
+  var hudEls = {};
+  function initHud(){
+    hudEls.rs = document.getElementById("t-rs");
+    hudEls.th = document.getElementById("t-th");
+    hudEls.z  = document.getElementById("t-z");
+    hudEls.fl = document.getElementById("t-flux");
+    hudEls.sh = document.getElementById("t-sh");
+  }
+  var hudAcc = 0;
+  function hudTick(){
+    hudAcc++;
+    if (hudAcc < 8) return;
+    hudAcc = 0;
+    var rs = (4.244 + Math.sin(t * 0.3) * 0.004).toFixed(3) + "\u2009km";
+    hudEls.rs.textContent = rs;
+    var th = (2.54 + Math.sin(t * 0.7) * 0.02).toFixed(2) + "\u2009\u2103K";
+    hudEls.th.textContent = th;
+    hudEls.z.textContent = zoom.toFixed(2) + "\u2009R";
+    var fl = (3.2 + Math.sin(t * 0.5) * 0.4).toFixed(1) + "e41";
+    hudEls.fl.textContent = fl;
+    hudEls.sh.textContent = String(shockCount);
+  }
+  initHud();
+
+  cv.addEventListener("pointerdown", function(e){
+    shocks.push({ r: BASE * zoom * 0.9, life: 1 });
+    shockCount++;
+    hudEls.sh.textContent = String(shockCount);
+    var hint = document.getElementById("hint");
+    if (hint) hint.style.opacity = "0";
+  });
+
+  window.addEventListener("wheel", function(e){
+    e.preventDefault();
+    zoomTarget = Math.min(2.5, Math.max(0.6, zoomTarget + e.deltaY * -0.0012));
+  }, { passive: false });
+
+  var hinted = false;
+  function maybeHint(){
+    if (!hinted && t > 1.2) {
+      hinted = true;
+      var h = document.getElementById("hint");
+      if (h) h.style.opacity = "1";
+    }
+  }
+
+  function frame(){
+    if (!running) return;
+    try {
+      draw();
+      maybeHint();
+      requestAnimationFrame(frame);
+    } catch (err) {
+      running = false;
+    }
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

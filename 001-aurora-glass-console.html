@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<title>Aurora Glass Console</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{min-height:100%}
+body{
+  min-height:100dvh;
+  background:linear-gradient(180deg,#050a14 0%,#070f22 52%,#0b1530 100%);
+  color:#dbe4f6;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  overflow-x:hidden;
+}
+/* aurora ribbons */
+.ribbon{position:fixed;top:-24vh;width:64vw;height:130vh;border-radius:50%;filter:blur(72px);mix-blend-mode:screen;pointer-events:none;z-index:0}
+.r1{left:-14vw;background:radial-gradient(closest-side,#58ffb0,transparent 72%);opacity:.5;animation:drift-a 36s ease-in-out infinite alternate}
+.r2{left:26vw;background:radial-gradient(closest-side,#27d3f2,transparent 72%);opacity:.42;animation:drift-b 48s ease-in-out infinite alternate}
+.r3{right:-16vw;background:radial-gradient(closest-side,#8a7dff,transparent 72%);opacity:.48;animation:drift-c 42s ease-in-out infinite alternate}
+@keyframes drift-a{from{transform:translate3d(0,0,0) rotate(-10deg)}to{transform:translate3d(10vw,7vh,0) rotate(5deg)}}
+@keyframes drift-b{from{transform:translate3d(0,0,0) rotate(8deg)}to{transform:translate3d(-8vw,5vh,0) rotate(-6deg)}}
+@keyframes drift-c{from{transform:translate3d(0,0,0) rotate(-4deg)}to{transform:translate3d(-11vw,-6vh,0) rotate(9deg)}}
+/* faint starfield */
+.stars{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.55;background-image:
+  radial-gradient(1px 1px at 11% 18%,rgba(255,255,255,.6),transparent),
+  radial-gradient(1px 1px at 29% 7%,rgba(255,255,255,.4),transparent),
+  radial-gradient(1.5px 1.5px at 47% 23%,rgba(210,235,255,.5),transparent),
+  radial-gradient(1px 1px at 63% 12%,rgba(255,255,255,.45),transparent),
+  radial-gradient(1px 1px at 78% 28%,rgba(255,255,255,.35),transparent),
+  radial-gradient(1.5px 1.5px at 91% 9%,rgba(210,235,255,.5),transparent),
+  radial-gradient(1px 1px at 8% 42%,rgba(255,255,255,.3),transparent),
+  radial-gradient(1px 1px at 95% 46%,rgba(255,255,255,.3),transparent)}
+header{position:relative;z-index:2;display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:clamp(20px,3.5vh,36px) clamp(20px,4vw,52px) 8px}
+.wordmark{font-size:clamp(13px,1.5vw,17px);font-weight:600;letter-spacing:.5em;color:#f2f7ff;text-transform:uppercase;white-space:nowrap}
+.wordmark i{font-style:normal;color:#58ffb0}
+.hud-meta{font-size:10px;letter-spacing:.34em;color:rgba(214,228,255,.5);text-transform:uppercase;white-space:nowrap}
+main{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(14px,1.8vw,24px);padding:clamp(14px,3vh,30px) clamp(20px,4vw,52px) 8px}
+@media(max-width:920px){main{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){main{grid-template-columns:1fr}.hud-meta{display:none}}
+.card{position:relative;overflow:hidden;border-radius:20px;padding:clamp(18px,2vw,28px);background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 30px 70px -34px rgba(0,0,0,.75);will-change:transform}
+.card::before{content:"";position:absolute;left:0;right:0;top:0;height:44%;background:linear-gradient(180deg,rgba(255,255,255,.09),transparent);pointer-events:none;border-radius:inherit}
+.card-label{position:relative;font-size:10px;letter-spacing:.4em;text-transform:uppercase;color:rgba(214,228,255,.55);margin-bottom:14px}
+.now-grid{position:relative;display:grid;grid-template-columns:minmax(0,auto) auto;gap:4px;align-items:end;margin-bottom:6px}
+.clock{font-size:clamp(42px,5.4vw,64px);font-weight:200;letter-spacing:.04em;color:#f4f9ff;font-variant-numeric:tabular-nums;line-height:1}
+.utc{font-size:11px;letter-spacing:.24em;color:rgba(214,228,255,.5);padding-bottom:6px;text-transform:uppercase}
+.date{position:relative;font-size:13px;letter-spacing:.12em;color:rgba(214,228,255,.75);margin-bottom:18px}
+.now-foot{position:relative;border-top:1px solid rgba(255,255,255,.09);padding-top:14px;font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:rgba(214,228,255,.45);display:flex;justify-content:space-between;gap:10px}
+.stat .big{position:relative;font-size:clamp(30px,3.2vw,42px);font-weight:300;color:#f4f9ff;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.stat .unit{position:relative;font-size:11px;letter-spacing:.26em;color:rgba(214,228,255,.5);text-transform:uppercase;margin:4px 0 14px}
+.spark{position:relative;display:block;width:100%;height:54px}
+.delta{position:relative;margin-top:10px;font-size:10px;letter-spacing:.24em;text-transform:uppercase}
+.delta.good{color:#58ffb0}
+.delta.cool{color:#27d3f2}
+.card.systems{grid-column:1/-1}
+.sys-list{position:relative;display:flex;flex-direction:column}
+.sys-row{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid rgba(255,255,255,.07);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:rgba(232,240,255,.85)}
+.sys-row:last-child{border-bottom:none;padding-bottom:2px}
+.sys-row .state{margin-left:auto;font-size:10px;letter-spacing:.22em;color:rgba(214,228,255,.5)}
+.dot{flex:0 0 auto;width:8px;height:8px;border-radius:50%;background:var(--c);animation:pulse 2.8s ease-out infinite}
+.dot.t{animation-delay:.7s}
+.dot.v{animation-delay:1.4s}
+.dot.s{animation-delay:2.1s}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--g)}70%{box-shadow:0 0 0 10px transparent}100%{box-shadow:0 0 0 0 transparent}}
+footer{position:relative;z-index:2;display:flex;justify-content:space-between;gap:12px;padding:14px clamp(20px,4vw,52px) clamp(20px,3.5vh,36px);font-size:10px;letter-spacing:.38em;text-transform:uppercase;color:rgba(214,228,255,.4)}
+</style>
+</head>
+<body>
+<div class="ribbon r1"></div>
+<div class="ribbon r2"></div>
+<div class="ribbon r3"></div>
+<div class="stars"></div>
+
+<header>
+  <div class="wordmark">AURORA&nbsp;<i>/</i>&nbsp;CONSOLE</div>
+  <div class="hud-meta" id="hudMeta">POLAR NIGHT</div>
+</header>
+
+<main>
+  <section class="card now" data-depth="0.6">
+    <div class="card-label">Now</div>
+    <div class="now-grid">
+      <div class="clock" id="clock">00:00:00</div>
+      <div class="utc" id="utc">UTC</div>
+    </div>
+    <div class="date" id="date">&mdash;</div>
+    <div class="now-foot"><span>Aurora activity</span><span id="kpIndex">KP 2 &middot; calm</span></div>
+  </section>
+
+  <section class="card stat" data-depth="0.85">
+    <div class="card-label">Throughput</div>
+    <div class="big" id="statA">0.00</div>
+    <div class="unit">TB &middot; rolling 24 h</div>
+    <canvas class="spark" id="sparkA"></canvas>
+    <div class="delta good" id="deltaA">&#9650; steady flow</div>
+  </section>
+
+  <section class="card stat" data-depth="1">
+    <div class="card-label">Lattice load</div>
+    <div class="big" id="statB">0</div>
+    <div class="unit">% &middot; 128 nodes</div>
+    <canvas class="spark" id="sparkB"></canvas>
+    <div class="delta cool" id="deltaB">&#9672; balanced</div>
+  </section>
+
+  <section class="card systems" data-depth="0.7">
+    <div class="card-label">Systems</div>
+    <div class="sys-list">
+      <div class="sys-row"><span class="dot" style="--c:#58ffb0;--g:rgba(88,255,176,.5)"></span>Core array<span class="state">nominal</span></div>
+      <div class="sys-row"><span class="dot t" style="--c:#27d3f2;--g:rgba(39,211,242,.5)"></span>Optics bench<span class="state">nominal</span></div>
+      <div class="sys-row"><span class="dot v" style="--c:#8a7dff;--g:rgba(138,125,255,.5)"></span>Cold chain<span class="state">locked</span></div>
+      <div class="sys-row"><span class="dot s" style="--c:#58ffb0;--g:rgba(88,255,176,.5)"></span>Polar uplink<span class="state">synced</span></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>001 &middot; Aurora Glass Console</span>
+  <span>71.28&deg; N &middot; polar array</span>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var clockEl=document.getElementById("clock");
+  var dateEl=document.getElementById("date");
+  var utcEl=document.getElementById("utc");
+  var hudEl=document.getElementById("hudMeta");
+  var kpEl=document.getElementById("kpIndex");
+  var statAEl=document.getElementById("statA");
+  var statBEl=document.getElementById("statB");
+  var sparkA=document.getElementById("sparkA");
+  var sparkB=document.getElementById("sparkB");
+  var dpr=1;
+
+  function pad(n){return (n<10?"0":"")+n;}
+
+  function tickClock(){
+    var d=new Date();
+    clockEl.textContent=pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds());
+    dateEl.textContent=d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+    var off=-d.getTimezoneOffset()/60;
+    utcEl.textContent="UTC"+(off>=0?"+":"")+off;
+    hudEl.textContent="POLAR NIGHT \u00B7 "+d.toLocaleDateString("en-GB",{month:"short",day:"2-digit"}).toUpperCase()+" "+d.getFullYear();
+  }
+  tickClock();
+  setInterval(tickClock,1000);
+  kpEl.textContent=["KP 1 \u00B7 very calm","KP 2 \u00B7 calm","KP 2 \u00B7 calm","KP 3 \u00B7 unsettled"][Math.floor(Math.random()*4)];
+
+  /* ---- sparklines ---- */
+  var N=44,STEP=520;
+  function makeSeries(seed){
+    var v=[],x=0;
+    for(let i=0;i<N;i++){
+      x=x*0.94+Math.sin(i*0.42+seed)*0.55+(Math.random()-0.5)*0.9;
+      v.push(x);
+    }
+    return v;
+  }
+  var seriesA=makeSeries(0.8),seriesB=makeSeries(2.4);
+
+  function fit(cv){
+    dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+    var w=cv.clientWidth,h=cv.clientHeight;
+    if(w<4||h<4)return;
+    cv.width=Math.round(w*dpr);
+    cv.height=Math.round(h*dpr);
+  }
+  function prep(){fit(sparkA);fit(sparkB);}
+  prep();
+  window.addEventListener("resize",prep);
+
+  function draw(cv,series,stroke){
+    var c=cv.getContext("2d");
+    if(!c)return;
+    var w=cv.width/dpr,h=cv.height/dpr;
+    c.setTransform(dpr,0,0,dpr,0,0);
+    c.clearRect(0,0,w,h);
+    var n=series.length;
+    if(n<2)return;
+    var mn=Infinity,mx=-Infinity;
+    for(let i=0;i<n;i++){
+      if(series[i]<mn)mn=series[i];
+      if(series[i]>mx)mx=series[i];
+    }
+    var span=(mx-mn)||1;
+    function X(i){return (i/(n-1))*w;}
+    function Y(v){return h-((v-mn)/span)*(h-8)-4;}
+    var grad=c.createLinearGradient(0,0,0,h);
+    grad.addColorStop(0,stroke+"4d");
+    grad.addColorStop(1,stroke+"00");
+    c.beginPath();
+    c.moveTo(0,h);
+    for(let i=0;i<n;i++)c.lineTo(X(i),Y(series[i]));
+    c.lineTo(w,h);
+    c.closePath();
+    c.fillStyle=grad;
+    c.fill();
+    c.beginPath();
+    for(let i=0;i<n;i++){
+      if(i===0)c.moveTo(X(0),Y(series[0]));
+      else c.lineTo(X(i),Y(series[i]));
+    }
+    c.strokeStyle=stroke;
+    c.lineWidth=1.5;
+    c.lineJoin="round";
+    c.lineCap="round";
+    c.shadowColor=stroke;
+    c.shadowBlur=6;
+    c.stroke();
+    c.shadowBlur=0;
+    c.beginPath();
+    c.arc(X(n-1),Y(series[n-1]),2.4,0,Math.PI*2);
+    c.fillStyle="#ffffff";
+    c.fill();
+  }
+
+  function stepSeries(s,seed){
+    var last=s[s.length-1];
+    var next=last*0.9+Math.sin(performance.now()*0.0004+seed)*0.3+(Math.random()-0.5)*1.1;
+    if(next>4.2)next=4.2;
+    if(next<-4.2)next=-4.2;
+    s.push(next);
+    s.shift();
+  }
+
+  function refreshStats(){
+    draw(sparkA,seriesA,"#58ffb0");
+    draw(sparkB,seriesB,"#27d3f2");
+    statAEl.textContent=(2.31+seriesA[N-1]*0.14).toFixed(2);
+    statBEl.textContent=String(Math.max(8,Math.min(98,Math.round(72+seriesB[N-1]*3))));
+  }
+  refreshStats();
+
+  /* ---- pointer parallax: cards drift up to +/-8px against the pointer ---- */
+  var cards=Array.prototype.slice.call(document.querySelectorAll(".card"));
+  var tX=0,tY=0,pX=0,pY=0,accA=0,accB=0,lastTs=0;
+  window.addEventListener("pointermove",function(e){
+    tX=e.clientX/window.innerWidth-0.5;
+    tY=e.clientY/window.innerHeight-0.5;
+  });
+  document.documentElement.addEventListener("mouseleave",function(){tX=0;tY=0;});
+
+  function frame(ts){
+    try{
+      var dt=ts-lastTs;
+      lastTs=ts;
+      if(!(dt>0)||dt>500)dt=500;
+      accA+=dt;accB+=dt;
+      if(accA>=STEP){accA=0;stepSeries(seriesA,0.8);}
+      if(accB>=STEP){accB=0;stepSeries(seriesB,2.4);}
+      if(accA===0||accB===0)refreshStats();
+      pX+=(tX-pX)*0.06;
+      pY+=(tY-pY)*0.06;
+      for(let i=0;i<cards.length;i++){
+        var d=parseFloat(cards[i].getAttribute("data-depth"))||0.5;
+        cards[i].style.transform="translate3d("+(-pX*16*d).toFixed(2)+"px,"+(-pY*16*d).toFixed(2)+"px,0)";
+      }
+    }catch(e){}
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

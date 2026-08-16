@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hundred</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bone:#ece7db;--ink:#0d0d0d}
+  html,body{height:100%}
+  body{
+    background:var(--ink);color:var(--bone);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    overflow:hidden;height:100dvh;
+    cursor:crosshair;
+  }
+  #poster{
+    position:fixed;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    gap:clamp(14px,3.4vw,44px);
+    padding:0 clamp(10px,3vw,40px);
+  }
+  .one{
+    flex:0 0 auto;
+    width:6vw;min-width:26px;
+    height:calc(100dvh - 88px);
+    background:var(--bone);
+    position:relative;
+  }
+  .one .hair{
+    position:absolute;top:0;bottom:0;width:1px;
+    background:rgba(13,13,13,0.4);
+  }
+  .one .hair:nth-child(1){left:22%}
+  .one .hair:nth-child(2){left:50%}
+  .one .hair:nth-child(3){left:78%}
+  .one .notch{
+    position:absolute;top:0;left:-12px;width:26px;height:14px;
+    background:var(--bone);
+    transform:skewX(-18deg);
+  }
+  .zero{
+    flex:0 0 auto;
+    width:60vmin;height:60vmin;
+    position:relative;
+    border-radius:50%;
+  }
+  .zero .disc{
+    position:absolute;inset:0;border-radius:50%;
+    border:clamp(14px,4.6vmin,58px) solid var(--bone);
+  }
+  .zero .ring{
+    position:absolute;border-radius:50%;
+    border:2px dashed rgba(236,231,219,0.85);
+  }
+  .zero .r1{inset:clamp(8px,2.4vmin,30px);animation:spin 46s linear infinite}
+  .zero .r2{inset:clamp(18px,5vmin,64px);border-width:1px;animation:spinR 34s linear infinite}
+  .zero .r3{inset:clamp(30px,8.4vmin,104px);border-width:1px;animation:spin 62s linear infinite}
+  .zero .r4{inset:-clamp(10px,2.8vmin,34px);border-width:1px;animation:spinR 80s linear infinite}
+  .zero .clock{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    font-size:clamp(11px,2.1vmin,17px);letter-spacing:.14em;
+    color:var(--ink);background:var(--bone);
+    padding:5px 12px 4px;border-radius:2px;white-space:nowrap;
+  }
+  .zero .clock .sec{opacity:.55}
+  .zero.hot .r1{animation-duration:9s}
+  .zero.hot .r2{animation-duration:6.5s}
+  .zero.hot .r3{animation-duration:13s}
+  .zero.hot .r4{animation-duration:16s}
+  body.done .ring{animation-play-state:paused}
+  body.done .zero .clock .mark{display:inline}
+  @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+  @keyframes spinR{from{transform:rotate(360deg)}to{transform:rotate(0deg)}}
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:6}
+  #page{
+    position:absolute;top:calc(16px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+    font-size:clamp(9px,1.3vmin,11px);letter-spacing:.46em;text-transform:uppercase;
+    color:rgba(236,231,219,0.5);white-space:nowrap;
+  }
+  #strip{
+    position:absolute;left:0;right:0;bottom:0;
+    height:52px;
+    display:flex;align-items:center;justify-content:center;gap:clamp(14px,3vw,30px);
+    border-top:1px solid rgba(236,231,219,0.25);
+    font-size:clamp(12px,1.9vmin,16px);letter-spacing:.18em;
+  }
+  #strip .ticks{position:absolute;left:0;right:0;bottom:0;height:5px;overflow:hidden;opacity:.5}
+  #strip .ticks i{
+    position:absolute;bottom:0;width:1px;height:5px;background:var(--bone);
+  }
+  #count{font-weight:400}
+  #count .n{color:var(--bone)}
+  #count .of{color:rgba(236,231,219,0.45)}
+  #hint{font-size:clamp(9px,1.3vmin,11px);letter-spacing:.3em;text-transform:uppercase;color:rgba(236,231,219,0.4)}
+  body.done #hint{color:var(--bone);letter-spacing:.4em}
+  body.done #count{color:var(--bone)}
+  #flash{
+    position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.92);
+    font-size:clamp(13px,2.2vmin,18px);letter-spacing:.5em;text-transform:uppercase;
+    color:var(--bone);opacity:0;pointer-events:none;white-space:nowrap;
+  }
+  #flash.pop{animation:flash .5s ease-out}
+  @keyframes flash{
+    0%{opacity:.9;transform:translate(-50%,-50%) scale(.92)}
+    100%{opacity:0;transform:translate(-50%,-50%) scale(1.06)}
+  }
+  @media (max-width:560px){
+    #poster{gap:10px;transform:scale(.94)}
+    .zero .clock{font-size:10px;padding:4px 8px}
+  }
+</style>
+</head>
+<body>
+<main id="poster" aria-label="The numeral one hundred">
+  <div class="one" aria-hidden="true">
+    <span class="notch"></span>
+    <span class="hair"></span>
+    <span class="hair"></span>
+    <span class="hair"></span>
+  </div>
+  <div class="zero" id="zeroA" aria-hidden="true">
+    <div class="disc"></div>
+    <div class="ring r1"></div>
+    <div class="ring r2"></div>
+    <div class="ring r3"></div>
+    <div class="ring r4"></div>
+    <div class="clock"><span id="clockA">00:00:00</span><span class="mark"></span></div>
+  </div>
+  <div class="zero" id="zeroB" aria-hidden="true">
+    <div class="disc"></div>
+    <div class="ring r1"></div>
+    <div class="ring r2"></div>
+    <div class="ring r3"></div>
+    <div class="ring r4"></div>
+    <div class="clock"><span id="clockB">00:00:00</span><span class="mark"></span></div>
+  </div>
+</main>
+<div id="hud">
+  <div id="page">Hundred - 033</div>
+  <div id="flash"></div>
+  <div id="strip">
+    <div class="ticks" id="ticks"></div>
+    <div id="hint">click anywhere</div>
+    <div id="count"><span class="n" id="num">0</span> <span class="of">/ 100</span></div>
+  </div>
+</div>
+<script>
+(function(){
+"use strict";
+var numEl=document.getElementById("num");
+var countEl=document.getElementById("count");
+var hintEl=document.getElementById("hint");
+var flashEl=document.getElementById("flash");
+var body=document.body;
+var clockA=document.getElementById("clockA");
+var clockB=document.getElementById("clockB");
+var zeroA=document.getElementById("zeroA");
+var zeroB=document.getElementById("zeroB");
+var n=0;
+var done=false;
+
+var ticksEl=document.getElementById("ticks");
+var tickHTML="";
+for(var t=1;t<100;t++){
+  var major=(t%10===0);
+  tickHTML+='<i style="left:'+t+'%'+(major?';height:8px;background:rgba(236,231,219,.9)':'')+'"></i>';
+}
+ticksEl.innerHTML=tickHTML;
+
+function pad(x){return (x<10?"0":"")+x;}
+function clockStr(offset){
+  var d=new Date();
+  var h=(d.getHours()+offset)%24;
+  return pad(h)+":"+pad(d.getMinutes())+":"+pad(d.getSeconds());
+}
+function tickClocks(){
+  clockA.textContent=clockStr(0);
+  clockB.textContent=clockStr(3);
+}
+tickClocks();
+setInterval(tickClocks,1000);
+
+function pop(s){
+  flashEl.textContent=s;
+  flashEl.classList.remove("pop");
+  void flashEl.offsetWidth;
+  flashEl.classList.add("pop");
+}
+
+document.addEventListener("click",function(){
+  if(done){return;}
+  n++;
+  if(n>=100){
+    n=100;
+    done=true;
+    body.classList.add("done");
+    countEl.innerHTML='<span class="n">100</span> <span class="of">/ 100</span> - COMPLETE';
+    hintEl.textContent="the hundred is made";
+    pop("one hundred");
+  }else{
+    numEl.textContent=String(n);
+    if(n%10===0){pop(String(n));}
+  }
+});
+
+function bindHover(z){
+  z.addEventListener("mouseenter",function(){z.classList.add("hot");});
+  z.addEventListener("mouseleave",function(){z.classList.remove("hot");});
+}
+bindHover(zeroA);
+bindHover(zeroB);
+})();
+</script>
+</body>
+</html>

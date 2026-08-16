@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GALAXY / NGC 0142 - 6,000 STARS</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #05060f;
+    overflow: hidden;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  #c {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+  }
+  .hud {
+    position: fixed;
+    pointer-events: none;
+    color: #cfd6ee;
+    z-index: 5;
+  }
+  #cap {
+    left: clamp(14px, 3vw, 34px);
+    bottom: clamp(14px, 3vw, 34px);
+    font-size: clamp(10px, 1.4vw, 13px);
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+  }
+  #cap b {
+    display: block;
+    font-weight: 400;
+    color: #7fa8ff;
+    margin-bottom: 0.55em;
+    font-size: 0.92em;
+  }
+  #zoom {
+    right: clamp(14px, 3vw, 34px);
+    bottom: clamp(14px, 3vw, 34px);
+    font-size: clamp(9px, 1.2vw, 12px);
+    letter-spacing: 0.3em;
+    color: #8b93b8;
+    text-align: right;
+  }
+  #zoom span { color: #ffd9a0; }
+  .vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 4;
+    background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 52%, rgba(2,3,10,0.55) 100%);
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="vignette"></div>
+<div class="hud" id="cap"><b>NGC 0142</b>Galaxy / 6,000 Stars</div>
+<div class="hud" id="zoom">Zoom <span id="zv">1.00</span>x</div>
+<script>
+(() => {
+"use strict";
+const canvas = document.getElementById("c");
+const g = canvas.getContext("2d");
+const zv = document.getElementById("zv");
+
+const MAXR = 520, CORE = 42, BUCKETS = 21;
+const C1 = [255, 217, 160], C2 = [127, 168, 255];
+let W = 0, H = 0, DPR = 1;
+let noise = document.createElement("canvas");
+let dust = document.createElement("canvas");
+const DUST_HALF = MAXR + 90;
+let stars = [];          // all stars, for re-seed bookkeeping
+let buckets = [];        // stars grouped by color bucket
+let twinkles = [];       // bright stars with alpha wobble
+let pinks = [];          // hot young stars
+let flashes = [];        // click cluster bursts
+let rot = 0;             // slow global rotation
+let zoom = 1, zoomT = 1;
+let galTime = 0;         // time since last re-seed
+let seedTimer = 0;
+let last = 0;
+
+function gauss() {
+  return (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+}
+function lerp(a, b, t) { return a + (b - a) * t; }
+function bucketColor(b) {
+  const t = b / (BUCKETS - 1);
+  const r = Math.round(lerp(C1[0], C2[0], t));
+  const gr = Math.round(lerp(C1[1], C2[1], t));
+  const bl = Math.round(lerp(C1[2], C2[2], t));
+  return "rgb(" + r + "," + gr + "," + bl + ")";
+}
+function armAngle(arm, r) {
+  return arm * Math.PI + 0.34 * Math.log(r / CORE);
+}
+function newScatter() {
+  return { da: gauss() * 0.24, dr: gauss() * 34 };
+}
+
+function buildGalaxy() {
+  stars = [];
+  twinkles = [];
+  pinks = [];
+  for (let b = 0; b < BUCKETS; b++) buckets[b] = [];
+  for (let i = 0; i < 6000; i++) {
+    const arm = i % 2;
+    const r = CORE + (MAXR - CORE) * Math.pow(Math.random(), 1.55);
+    const t = (r - CORE) / (MAXR - CORE);
+    const b = Math.max(0, Math.min(BUCKETS - 1, Math.round(t * (BUCKETS - 1))));
+    const sc = newScatter();
+    const s = {
+      r: r,
+      a0: armAngle(arm, r) + sc.da,
+      da: 0, dr: 0,
+      w: 5 / Math.sqrt(r),      // differential rotation, omega ~ r^-0.5
+      sz: 0.5 + Math.pow(Math.random(), 2.2) * 1.5,
+      tw: Math.random() * 6.283,
+      b: b
+    };
+    s.da = sc.da; s.dr = sc.dr;
+    stars.push(s);
+    buckets[b].push(s);
+    if (i % 30 === 0) twinkles.push(s);
+  }
+  for (let i = 0; i < 80; i++) {
+    const arm = i % 2;
+    const r = CORE + 40 + Math.pow(Math.random(), 1.2) * (MAXR - CORE - 60);
+    const sc = newScatter();
+    pinks.push({
+      r: r, a0: armAngle(arm, r) + sc.da, da: sc.da, dr: sc.dr,
+      w: 5 / Math.sqrt(r),
+      sz: 1.1 + Math.random() * 1.1,
+      tw: Math.random() * 6.283
+    });
+  }
+}
+
+function buildDust() {
+  dust.width = DUST_HALF * 2;
+  dust.height = DUST_HALF * 2;
+  const d = dust.getContext("2d");
+  d.clearRect(0, 0, dust.width, dust.height);
+  d.save();
+  d.translate(DUST_HALF, DUST_HALF);
+  for (let i = 0; i < 40; i++) {
+    const arm = i % 2;
+    const r = 70 + Math.random() * (MAXR - 80);
+    const a = armAngle(arm, r) + gauss() * 0.16;
+    const rad = 16 + Math.random() * 30;
+    const x = Math.cos(a) * r + gauss() * 26;
+    const y = Math.sin(a) * r + gauss() * 26;
+    const grad = d.createRadialGradient(x, y, 0, x, y, rad);
+    grad.addColorStop(0, "rgba(4,4,12,0.55)");
+    grad.addColorStop(0.6, "rgba(4,4,12,0.28)");
+    grad.addColorStop(1, "rgba(4,4,12,0)");
+    d.fillStyle = grad;
+    d.beginPath();
+    d.arc(x, y, rad, 0, 6.284);
+    d.fill();
+  }
+  d.restore();
+}
+
+function buildNoise() {
+  noise.width = Math.max(1, Math.round(W / 2));
+  noise.height = Math.max(1, Math.round(H / 2));
+  const n = noise.getContext("2d");
+  n.clearRect(0, 0, noise.width, noise.height);
+  // faint milky-way band
+  n.save();
+  n.translate(noise.width / 2, noise.height / 2);
+  n.rotate(-0.5);
+  const band = n.createLinearGradient(0, -noise.height * 0.4, 0, noise.height * 0.4);
+  band.addColorStop(0, "rgba(120,130,190,0)");
+  band.addColorStop(0.5, "rgba(140,150,210,0.05)");
+  band.addColorStop(1, "rgba(120,130,190,0)");
+  n.fillStyle = band;
+  n.fillRect(-noise.width, -noise.height, noise.width * 3, noise.height * 3);
+  n.restore();
+  // sparse star-noise
+  for (let i = 0; i < 320; i++) {
+    n.fillStyle = "rgba(" + (180 + Math.round(Math.random() * 75)) + ",190,255," +
+      (0.015 + Math.random() * 0.05).toFixed(3) + ")";
+    n.fillRect(Math.random() * noise.width, Math.random() * noise.height, 1, 1);
+  }
+}
+
+function fit() {
+  DPR = Math.min(2.5, window.devicePixelRatio || 1);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+  buildNoise();
+}
+
+function spawnFlash(x, y) {
+  const starsArr = [];
+  for (let i = 0; i < 30; i++) {
+    const a = Math.random() * 6.283;
+    const sp = 26 + Math.random() * 70;
+    starsArr.push({
+      x: x + gauss() * 6, y: y + gauss() * 6,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      sz: 0.8 + Math.random() * 1.4,
+      life: 0
+    });
+  }
+  flashes.push({ stars: starsArr, born: 0 });
+}
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  try {
+    if (!last) last = now;
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    zoom += (zoomT - zoom) * Math.min(1, dt * 4.5);
+    rot += dt * 0.012;
+    galTime += dt;
+    seedTimer += dt;
+    if (seedTimer > 20) {
+      seedTimer = 0;
+      for (let i = 0; i < stars.length; i++) {
+        const s = stars[i];
+        s.a0 += s.da + s.w * galTime;
+        s.dr = 0;
+        const sc = newScatter();
+        s.da = sc.da;
+        s.dr = sc.dr;
+      }
+      for (let i = 0; i < pinks.length; i++) {
+        const s = pinks[i];
+        s.a0 += s.da + s.w * galTime;
+        const sc = newScatter();
+        s.da = sc.da;
+        s.dr = sc.dr;
+      }
+      galTime = 0;
+    }
+
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    g.globalCompositeOperation = "source-over";
+    g.fillStyle = "#05060f";
+    g.fillRect(0, 0, W, H);
+    g.drawImage(noise, 0, 0, W, H);
+
+    // core glow
+    g.save();
+    g.translate(W / 2, H / 2);
+    g.scale(zoom, zoom);
+    const coreGlow = g.createRadialGradient(0, 0, 0, 0, 0, 90);
+    coreGlow.addColorStop(0, "rgba(255,224,170,0.5)");
+    coreGlow.addColorStop(0.35, "rgba(255,200,140,0.16)");
+    coreGlow.addColorStop(1, "rgba(255,190,130,0)");
+    g.fillStyle = coreGlow;
+    g.beginPath();
+    g.arc(0, 0, 90, 0, 6.284);
+    g.fill();
+
+    // stars, batched by color bucket
+    for (let b = 0; b < BUCKETS; b++) {
+      const arr = buckets[b];
+      g.fillStyle = bucketColor(b);
+      g.globalAlpha = 0.92;
+      for (let i = 0; i < arr.length; i++) {
+        const s = arr[i];
+        const a = s.a0 + s.da + s.w * galTime;
+        const rr = s.r + s.dr;
+        const x = Math.cos(a) * rr;
+        const y = Math.sin(a) * rr;
+        const sz = s.sz;
+        g.fillRect(x - sz / 2, y - sz / 2, sz, sz);
+      }
+    }
+    // twinkling brights
+    g.globalAlpha = 1;
+    const tt = now / 1000;
+    for (let i = 0; i < twinkles.length; i++) {
+      const s = twinkles[i];
+      const a = s.a0 + s.da + s.w * galTime;
+      const rr = s.r + s.dr;
+      g.globalAlpha = 0.45 + 0.55 * Math.abs(Math.sin(s.tw + tt * 1.8));
+      g.fillStyle = bucketColor(s.b);
+      g.fillRect(Math.cos(a) * rr - s.sz / 2, Math.sin(a) * rr - s.sz / 2, s.sz, s.sz);
+    }
+    // hot pink young stars
+    g.fillStyle = "#ff8ad4";
+    for (let i = 0; i < pinks.length; i++) {
+      const s = pinks[i];
+      const a = s.a0 + s.da + s.w * galTime;
+      const rr = s.r + s.dr;
+      const x = Math.cos(a) * rr;
+      const y = Math.sin(a) * rr;
+      g.globalAlpha = 0.7 + 0.3 * Math.sin(s.tw + tt * 2.6);
+      g.fillRect(x - s.sz / 2, y - s.sz / 2, s.sz, s.sz);
+    }
+
+    // click flashes
+    for (let fi = flashes.length - 1; fi >= 0; fi--) {
+      const f = flashes[fi];
+      f.born += dt;
+      const fade = 1 - f.born / 0.9;
+      if (fade <= 0) { flashes.splice(fi, 1); continue; }
+      g.fillStyle = "#ffb7e6";
+      g.globalAlpha = fade;
+      for (let i = 0; i < f.stars.length; i++) {
+        const p = f.stars[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.965;
+        p.vy *= 0.965;
+        g.fillRect(p.x - p.sz / 2, p.y - p.sz / 2, p.sz, p.sz);
+      }
+      if (f.born < 0.18) {
+        g.globalAlpha = fade * 0.5;
+        g.beginPath();
+        g.arc(f.stars[0].x - 6, f.stars[0].y - 6, f.born * 260, 0, 6.284);
+        g.fill();
+      }
+    }
+
+    // dust puffs erase through the field
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = "destination-out";
+    g.rotate(rot);
+    g.drawImage(dust, -DUST_HALF, -DUST_HALF);
+    g.restore();
+
+    g.globalCompositeOperation = "source-over";
+    // outer slow spin of everything is approximated by redrawing? - keep stars static in frame;
+    zv.textContent = zoom.toFixed(2);
+  } catch (err) {
+    /* keep loop alive on any frame anomaly */
+  }
+}
+
+window.addEventListener("resize", fit);
+window.addEventListener("wheel", function (e) {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.92 : 1.09;
+  zoomT = Math.max(0.5, Math.min(3, zoomT * factor));
+}, { passive: false });
+window.addEventListener("click", function (e) {
+  spawnFlash(e.clientX - W / 2, e.clientY - H / 2);
+});
+
+fit();
+buildGalaxy();
+buildDust();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

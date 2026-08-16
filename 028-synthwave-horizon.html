@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neon Drive — Synthwave Horizon</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body {
+    overflow:hidden; background:#070312;
+    font-family:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  /* CRT scanlines + soft vignette above the canvas */
+  body::before {
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:3;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,0.14) 0 1px, transparent 1px 3px);
+    mix-blend-mode:multiply;
+  }
+  body::after {
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:2;
+    background:radial-gradient(120% 90% at 50% 42%, transparent 55%, rgba(4,1,10,0.55) 100%);
+  }
+  #scene { position:fixed; inset:0; display:block; width:100vw; height:100dvh; z-index:1; }
+  .title {
+    position:fixed; top:clamp(16px,4.5vh,46px); left:50%; transform:translateX(-50%);
+    z-index:5; font-style:italic; font-weight:800;
+    font-size:clamp(2rem,7vw,4.6rem); letter-spacing:.45em; text-indent:.45em;
+    white-space:nowrap; color:transparent; user-select:none; pointer-events:none;
+    background:linear-gradient(180deg,#ffd76f 0%,#ff9a5f 38%,#ff2e88 72%,#8b2bff 100%);
+    -webkit-background-clip:text; background-clip:text;
+    filter:drop-shadow(0 0 22px rgba(255,46,136,0.45));
+  }
+  .hud {
+    position:fixed; left:0; right:0; bottom:0; z-index:6;
+    display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;
+    padding:14px clamp(14px,3vw,28px) 16px;
+    background:linear-gradient(180deg, rgba(7,3,18,0) 0%, rgba(7,3,18,0.82) 45%);
+    font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .cap { font-size:10px; letter-spacing:.32em; color:rgba(255,215,111,0.85); }
+  .cap-name { display:block; margin-top:5px; font-size:11px; letter-spacing:.42em; color:#ff5fa8; }
+  .hud-right { display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .ctrl { display:flex; align-items:center; gap:10px; }
+  .ctrl input { width:clamp(90px,18vw,180px); accent-color:#ff2e88; cursor:pointer; }
+  .btn {
+    font-family:inherit; font-size:10px; letter-spacing:.28em; padding:9px 14px;
+    cursor:pointer; color:#ffd76f; background:rgba(255,215,111,0.06);
+    border:1px solid rgba(255,215,111,0.5);
+    transition:background .25s, color .25s, box-shadow .25s;
+  }
+  .btn:hover { background:rgba(255,215,111,0.18); box-shadow:0 0 18px rgba(255,215,111,0.25); }
+  .btn.on { color:#0a0514; background:#ffd76f; border-color:#ffd76f; }
+  @media (max-width:560px) {
+    .title { letter-spacing:.3em; text-indent:.3em; }
+    .hud { justify-content:center; }
+  }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<h1 class="title">NEON / DRIVE</h1>
+<div class="hud">
+  <div class="hud-left">
+    <span class="cap">GALLERY 100 · 028</span>
+    <span class="cap-name">SYNTHWAVE HORIZON</span>
+  </div>
+  <div class="hud-right">
+    <label class="ctrl"><span class="cap">SPEED</span><input id="speed" type="range" min="0" max="100" value="42"></label>
+    <button id="engine" class="btn" type="button">HUM: OFF</button>
+  </div>
+</div>
+<script>
+(function () {
+  "use strict";
+  var cvs = document.getElementById("scene");
+  var ctx = cvs.getContext("2d");
+  var W = 0, H = 0, DPR = 1, horizon = 0;
+  var stars = [], mounts = [];
+  var mx = 0, my = 0, smx = 0, smy = 0;
+  var off = 0, last = 0, t0 = performance.now();
+  var AC = null, eng = null, engOn = false;
+  var sld = document.getElementById("speed");
+  var btn = document.getElementById("engine");
+
+  function fit() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cvs.width = Math.max(1, Math.round(W * DPR));
+    cvs.height = Math.max(1, Math.round(H * DPR));
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    horizon = H * 0.56;
+    buildScene();
+  }
+
+  function buildScene() {
+    stars = [];
+    var n = Math.round(W / 13);
+    for (var i = 0; i < n; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * horizon * 0.9,
+        r: Math.random() * 1.5 + 0.4,
+        ph: Math.random() * 6.283,
+        sp: 0.4 + Math.random() * 1.2
+      });
+    }
+    mounts = [];
+    var span = W + 520, x0 = -260, peaks = Math.round(span / 88);
+    for (var p = 0; p < 2; p++) {
+      var arr = [], base = horizon + 4, far = p === 0 ? 1 : 0;
+      for (var k = 0; k <= peaks; k++) {
+        var px = x0 + span * k / peaks;
+        var h = far ? 58 + Math.random() * 84 : 20 + Math.random() * 40;
+        var py = base - h * (k % 2 === 0 ? 1 : 0.45);
+        arr.push([px, py]);
+      }
+      mounts.push({ pts: arr, depth: far ? 30 : 13, fill: far ? "#1a0b2e" : "#2a1450" });
+    }
+  }
+
+  function drawSky() {
+    var g = ctx.createLinearGradient(0, 0, 0, horizon);
+    g.addColorStop(0, "#04020c");
+    g.addColorStop(0.55, "#170a33");
+    g.addColorStop(1, "#3c1466");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, horizon + 2);
+    var t = (performance.now() - t0) / 1000;
+    for (var i = 0; i < stars.length; i++) {
+      var s = stars[i];
+      var a = 0.2 + 0.5 * (0.5 + 0.5 * Math.sin(t * s.sp + s.ph));
+      ctx.fillStyle = "rgba(255,236,200," + a.toFixed(3) + ")";
+      ctx.fillRect(s.x + smx * 7 * s.r, s.y, s.r, s.r);
+    }
+  }
+
+  function drawSun(cx, cy, r) {
+    var g = ctx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 1.9);
+    g.addColorStop(0, "rgba(255,120,170,0.34)");
+    g.addColorStop(1, "rgba(255,46,136,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx, cy, r * 1.9, 0, 6.2832); ctx.fill();
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); ctx.clip();
+    var lg = ctx.createLinearGradient(0, cy - r, 0, cy + r);
+    lg.addColorStop(0, "#ffd76f");
+    lg.addColorStop(0.55, "#ff9a5f");
+    lg.addColorStop(1, "#ff2e88");
+    ctx.fillStyle = lg;
+    ctx.fillRect(cx - r - 2, cy - r - 2, r * 2 + 4, r * 2 + 4);
+    ctx.globalCompositeOperation = "destination-out";
+    var y = cy + 2, gap = 3, step = 14;
+    while (y < cy + r + 10) {
+      ctx.fillRect(cx - r - 2, y, r * 2 + 4, gap);
+      y += step; gap += 2.4;
+      if (step < 6) step = 6; else step -= 1.5;
+    }
+    ctx.restore();
+  }
+
+  function drawMountains() {
+    for (var i = 0; i < mounts.length; i++) {
+      var m = mounts[i];
+      ctx.save();
+      ctx.translate(-smx * m.depth, 0);
+      ctx.fillStyle = m.fill;
+      ctx.beginPath();
+      var pts = m.pts;
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (var j = 1; j < pts.length; j++) ctx.lineTo(pts[j][0], pts[j][1]);
+      ctx.lineTo(W + 320, horizon + 6);
+      ctx.lineTo(-320, horizon + 6);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawFog() {
+    var g = ctx.createLinearGradient(0, horizon - 72, 0, horizon + 56);
+    g.addColorStop(0, "rgba(150,90,220,0)");
+    g.addColorStop(0.55, "rgba(214,150,255,0.30)");
+    g.addColorStop(1, "rgba(150,90,220,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, horizon - 72, W, 128);
+  }
+
+  function drawGrid(dt) {
+    var fg = ctx.createLinearGradient(0, horizon, 0, H);
+    fg.addColorStop(0, "#140929");
+    fg.addColorStop(1, "#07030f");
+    ctx.fillStyle = fg;
+    ctx.fillRect(0, horizon, W, H - horizon);
+    var vpX = W / 2 + smx * 18, N = 26;
+    for (var i = -N; i <= N; i++) {
+      var bx = W / 2 + (i / (N / 2)) * (W * 1.15) + smx * 44;
+      var al = Math.max(0.08, 0.5 - Math.abs(i) * 0.012);
+      ctx.lineWidth = 3.4;
+      ctx.strokeStyle = "rgba(255,46,136," + (al * 0.35).toFixed(3) + ")";
+      ctx.beginPath(); ctx.moveTo(vpX, horizon); ctx.lineTo(bx, H); ctx.stroke();
+      ctx.lineWidth = 1.3;
+      ctx.strokeStyle = "rgba(255,90,150," + al.toFixed(3) + ")";
+      ctx.beginPath(); ctx.moveTo(vpX, horizon); ctx.lineTo(bx, H); ctx.stroke();
+    }
+    var rows = 22;
+    var rate = 0.6 + (Number(sld.value) / 100) * 4.2;
+    off = (off + rate * dt) % rows;
+    for (var k = 0; k < rows; k++) {
+      var p = ((k + off) % rows) / rows;
+      var yy = horizon + (H - horizon) * Math.pow(p, 2.4);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(255,46,136," + (0.05 + 0.3 * p).toFixed(3) + ")";
+      ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke();
+      ctx.lineWidth = 1 + 2.4 * p;
+      ctx.strokeStyle = "rgba(255,110,170," + (0.1 + 0.85 * p).toFixed(3) + ")";
+      ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke();
+    }
+  }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var dt = Math.min(0.05, (now - last) / 1000);
+    if (!(dt > 0)) dt = 0.016;
+    last = now;
+    try {
+      smx += (mx - smx) * 0.05;
+      smy += (my - smy) * 0.05;
+      drawSky();
+      var r = Math.min(W, H) * 0.34 * (1 + smy * 0.05);
+      drawSun(W / 2 + smx * 26, horizon - r * 0.22, r);
+      drawMountains();
+      drawFog();
+      drawGrid(dt);
+    } catch (e) { /* keep the loop alive */ }
+  }
+
+  window.addEventListener("resize", fit);
+  window.addEventListener("mousemove", function (e) {
+    mx = (e.clientX / W) * 2 - 1;
+    my = (e.clientY / H) * 2 - 1;
+  });
+  window.addEventListener("touchmove", function (e) {
+    if (!e.touches.length) return;
+    mx = (e.touches[0].clientX / W) * 2 - 1;
+    my = (e.touches[0].clientY / H) * 2 - 1;
+  }, { passive: true });
+
+  btn.addEventListener("click", function () {
+    if (!AC) {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      try {
+        AC = new Ctx();
+        var o1 = AC.createOscillator(); o1.type = "sawtooth"; o1.frequency.value = 46;
+        var o2 = AC.createOscillator(); o2.type = "sawtooth"; o2.frequency.value = 92.5;
+        var lp = AC.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 260; lp.Q.value = 5;
+        var g = AC.createGain(); g.gain.value = 0.0001;
+        o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(AC.destination);
+        o1.start(); o2.start();
+        eng = { lp: lp, g: g };
+      } catch (e) { return; }
+    }
+    engOn = !engOn;
+    if (engOn) {
+      if (AC.state === "suspended") AC.resume();
+      eng.g.gain.setTargetAtTime(0.05, AC.currentTime, 0.4);
+    } else {
+      eng.g.gain.setTargetAtTime(0.0001, AC.currentTime, 0.25);
+    }
+    btn.textContent = engOn ? "HUM: ON" : "HUM: OFF";
+    btn.classList.toggle("on", engOn);
+  });
+
+  sld.addEventListener("input", function () {
+    if (eng) eng.lp.frequency.value = 180 + Number(sld.value) * 6;
+  });
+
+  fit();
+  last = performance.now();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

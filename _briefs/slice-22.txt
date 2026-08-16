@@ -1,0 +1,11 @@
+=== 064 ===
+064-sumi-brush.html
+SUMI BRUSH - ink calligraphy toy. Washi paper #f2ede2 with subtle fiber texture (tiny noise dots). Brush = pointer: strokes drawn as many overlapping circles whose radius varies with speed (slow = wide, fast = thin) and ink density with hold duration; low 'pressure' ends in a dry-brush sparse dot spray. Colors: sumi black #1a1917; SEAL tool stamps a square red seal #c23a2e with a glyph. WET toggle: strokes slowly bloom outward (radial alpha) like bleed. FOLD button: a paper corner folds up in CSS 3D revealing the back. CLEAR wipes. Caption 'SUMI - PRACTICE 03'. Zen, analog feel.
+
+=== 065 ===
+065-node-pulse.html
+NODE PULSE - signal editor toy. Dark #0e1116 with faint grid. Six glass node cards (120x80: title + left in-port #27d3f2 dot + right out-port #ff2e88 dot), draggable by pointer. CONNECT mode: click an out-port then an in-port to link; wires = bezier curves auto-routed between ports, redrawn live. Every 1.2s the source nodes emit bright dots that travel parametrically along wires and split across branches, lighting the target port on arrival. RUN / PAUSE, SHUFFLE (new random topology, same nodes), CLEAR WIRES. Caption 'SIGNAL / NET - 6 NODES, LIVE' + pulse counter.
+
+=== 066 ===
+066-caustic-garden.html
+CAUSTICS - glass sculpture garden. Dark #101418; 'table' of 7 glass bodies (CSS 3D-ish flat discs + 2 prisms, semi-transparent #cfe8f5 with edge highlights) over a floor plane. A warm light spot (radial gradient, pointer-draggable 'sun') passes 'through' each body: each casts a caustic pattern on the floor below - bright wavy line clusters simulated by sine-warped copies of the light spot, offset per body, composited 'lighter'. Bodies rotate slowly; light drag slides the caustics. WATER toggle: floor becomes shallow water and caustics ripple with time. Caption 'CAUSTICS - 7 GLASS BODIES'.

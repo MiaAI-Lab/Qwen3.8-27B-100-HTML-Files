@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>055 · Paper Planes in Wind</title>
+<style>
+  *{margin:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:#eef3f6}
+  #stage{position:relative;width:100vw;height:100dvh;background:
+    linear-gradient(180deg,#f6fafc 0%,#eef3f6 45%,#e6edf2 100%)}
+  .cloud{position:absolute;border-radius:50%;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%,rgba(255,255,255,.95) 0%,rgba(255,255,255,0) 70%);
+    filter:blur(14px);opacity:.5}
+  .c1{width:44vmin;height:20vmin;left:6%;top:12%;animation:drift1 26s ease-in-out infinite alternate}
+  .c2{width:58vmin;height:24vmin;left:52%;top:6%;opacity:.4;animation:drift2 34s ease-in-out infinite alternate}
+  .c3{width:40vmin;height:18vmin;left:30%;top:58%;opacity:.35;animation:drift1 30s ease-in-out infinite alternate-reverse}
+  .c4{width:52vmin;height:22vmin;left:66%;top:70%;opacity:.3;animation:drift2 24s ease-in-out infinite alternate-reverse}
+  @keyframes drift1{from{transform:translateX(-2.5vmin)}to{transform:translateX(4vmin)}}
+  @keyframes drift2{from{transform:translateX(3vmin)}to{transform:translateX(-3.5vmin)}}
+  canvas{position:absolute;inset:0;display:block}
+  #sky{cursor:grab}
+  #sky:active{cursor:grabbing}
+  #chips{position:absolute;top:18px;right:18px;display:flex;gap:8px;z-index:5}
+  #chips button{font:600 11px/1 system-ui,sans-serif;letter-spacing:.16em;text-transform:uppercase;
+    color:#5b7482;background:rgba(255,255,255,.75);border:1px solid #c9d4da;border-radius:999px;
+    padding:8px 14px;cursor:pointer;transition:all .25s ease}
+  #chips button:hover{color:#243b47;border-color:#9fb4bf}
+  #chips button.on{background:#243b47;color:#fff;border-color:#243b47}
+  #cap{position:absolute;left:20px;bottom:18px;z-index:5;
+    font:600 11px/1.6 system-ui,sans-serif;letter-spacing:.22em;color:#5b7482;text-transform:uppercase}
+  #cap b{font-weight:700;color:#243b47;letter-spacing:.14em}
+  #gust{display:inline-block;margin-left:10px;color:#7fd4ff;opacity:0;transition:opacity .2s}
+  #gust.show{opacity:1}
+  #hint{position:absolute;left:20px;top:18px;font:400 10px/1.7 system-ui,sans-serif;
+    letter-spacing:.14em;color:#9fb4bf;text-transform:uppercase;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <div class="cloud c3"></div>
+  <div class="cloud c4"></div>
+  <canvas id="trail"></canvas>
+  <canvas id="sky"></canvas>
+  <div id="hint">drag to throw · hold for a gust</div>
+  <div id="chips">
+    <button data-m="calm">Calm</button>
+    <button data-m="breeze" class="on">Breeze</button>
+    <button data-m="gust">Gust</button>
+  </div>
+  <div id="cap">WIND / 25 PLANE FLEET · AVG <b id="hd">—</b><span id="gust">· GUST</span></div>
+</div>
+<script>
+(function(){
+  "use strict";
+  var T=document.getElementById("trail"),S=document.getElementById("sky");
+  var tctx=T.getContext("2d"),sctx=S.getContext("2d");
+  var hdEl=document.getElementById("hd"),gustEl=document.getElementById("gust");
+  var W=0,H=0,dpr=1,mode="breeze",now=0,lastTs=0,gustUntil=0;
+  var planes=[];
+  var press={down:false,sx:0,sy:0,t:0,moved:false,gustDone:false,curX:0,curY:0};
+  var MODES={calm:9,breeze:20,gust:34};
+  var TAU=Math.PI*2;
+
+  function fit(){
+    dpr=Math.min(2,window.devicePixelRatio||1);
+    W=window.innerWidth;H=window.innerHeight;
+    for(var i=0;i<2;i++){
+      var c=i===0?T:S;
+      c.width=Math.max(1,Math.round(W*dpr));c.height=Math.max(1,Math.round(H*dpr));
+      c.style.width=W+"px";c.style.height=H+"px";
+    }
+    tctx.setTransform(dpr,0,0,dpr,0,0);
+    sctx.setTransform(dpr,0,0,dpr,0,0);
+    tctx.clearRect(0,0,W,H);
+  }
+
+  function hash(x,y){var s=Math.sin(x*127.1+y*311.7)*43758.5453;return s-Math.floor(s);}
+  function vnoise(x,y){
+    var ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy;
+    var sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy);
+    var a=hash(ix,iy),b=hash(ix+1,iy),c=hash(ix,iy+1),d=hash(ix+1,iy+1);
+    return a+(b-a)*sx+(c-a)*sy+(a-b-c+d)*sx*sy;
+  }
+  function fbm(x,y){return 0.65*vnoise(x,y)+0.35*vnoise(x*2.13+31.7,y*2.13+7.3);}
+
+  function windAt(x,y){
+    var t=now*0.00021;
+    var n=fbm(x*0.0023+t*0.7,y*0.0023-t*0.45+9);
+    var ang=n*TAU*2+t*0.6;
+    var f=MODES[mode];
+    if(now<gustUntil)f*=3;
+    var dir=t*0.25;
+    return {x:Math.cos(ang)*f+Math.cos(dir)*f*0.55,y:Math.sin(ang)*f*0.75+Math.sin(dir)*f*0.25};
+  }
+
+  function wrapA(a){while(a>Math.PI)a-=TAU;while(a<-Math.PI)a+=TAU;return a;}
+  function clamp(v,a,b){return v<a?a:(v>b?b:v);}
+
+  function spawnPlane(){
+    var p={},side=Math.floor(Math.random()*4),m=40;
+    if(side===0){p.x=-m;p.y=Math.random()*H;p.vx=40;p.vy=0;}
+    else if(side===1){p.x=W+m;p.y=Math.random()*H;p.vx=-40;p.vy=0;}
+    else if(side===2){p.x=Math.random()*W;p.y=-m;p.vx=0;p.vy=40;}
+    else{p.x=Math.random()*W;p.y=H+m;p.vx=0;p.vy=-40;}
+    p.px=p.x;p.py=p.y;
+    p.heading=Math.atan2(p.vy,p.vx);
+    p.bank=0;p.s=0.9+Math.random()*0.5;
+    return p;
+  }
+
+  for(var i=0;i<25;i++){
+    var q=spawnPlane();
+    q.x=Math.random()*W;q.y=Math.random()*H;
+    q.vx=(Math.random()-0.5)*30;q.vy=(Math.random()-0.5)*30;
+    q.px=q.x;q.py=q.y;q.heading=Math.atan2(q.vy,q.vx);
+    planes.push(q);
+  }
+
+  function step(dt){
+    for(var i=0;i<planes.length;i++){
+      var p=planes[i];
+      var w=windAt(p.x,p.y);
+      var k=Math.min(1,dt*2.2);
+      p.vx+=(w.x-p.vx)*k;p.vy+=(w.y-p.vy)*k;
+      if(now<gustUntil){p.vx+=w.x*dt*0.6;p.vy+=w.y*dt*0.6;}
+      var sp=Math.hypot(p.vx,p.vy);
+      if(sp<5){p.vx+=Math.sin(p.heading)*8*dt;p.vy+=Math.cos(p.heading)*8*dt;}
+      if(sp>160){var sc=160/sp;p.vx*=sc;p.vy*=sc;}
+      p.px=p.x;p.py=p.y;
+      p.x+=p.vx*dt;p.y+=p.vy*dt;
+      var nh=Math.atan2(p.vy,p.vx);
+      var dh=wrapA(nh-p.heading);
+      p.heading=nh;
+      p.bank+=(clamp(dh*3.4,-1.15,1.15)-p.bank)*Math.min(1,dt*3.2);
+      var m=90;
+      if(p.x<-m||p.x>W+m||p.y<-m||p.y>H+m){
+        var np=spawnPlane();
+        np.heading=p.heading;np.bank=p.bank;np.s=p.s;
+        planes[i]=np;
+      }
+    }
+  }
+
+  function drawTrails(){
+    tctx.fillStyle="rgba(238,243,246,0.055)";
+    tctx.fillRect(0,0,W,H);
+    tctx.strokeStyle="rgba(201,212,218,0.6)";
+    tctx.lineWidth=1;
+    tctx.lineCap="round";
+    tctx.beginPath();
+    for(var i=0;i<planes.length;i++){
+      var p=planes[i];
+      tctx.moveTo(p.px,p.py);
+      tctx.lineTo(p.x,p.y);
+    }
+    tctx.stroke();
+  }
+
+  function drawPlanes(){
+    sctx.clearRect(0,0,W,H);
+    for(var i=0;i<planes.length;i++){
+      var p=planes[i];
+      var s=13*p.s;
+      sctx.save();
+      sctx.translate(p.x,p.y);
+      sctx.rotate(p.heading+p.bank*0.18);
+      sctx.transform(1,0,0,0.55+0.45*Math.abs(Math.cos(p.bank)),0,0);
+      var nose={x:s,y:0},tl={x:-0.68*s,y:-0.55*s},mid={x:-0.3*s,y:0},tr={x:-0.68*s,y:0.55*s};
+      sctx.beginPath();
+      sctx.moveTo(nose.x,nose.y);sctx.lineTo(tl.x,tl.y);sctx.lineTo(mid.x,mid.y);sctx.closePath();
+      sctx.fillStyle="#fafafa";sctx.fill();
+      sctx.beginPath();
+      sctx.moveTo(nose.x,nose.y);sctx.lineTo(tr.x,tr.y);sctx.lineTo(mid.x,mid.y);sctx.closePath();
+      sctx.fillStyle="#dfe8ed";sctx.fill();
+      sctx.strokeStyle="#c9d4da";sctx.lineWidth=1;
+      sctx.beginPath();
+      sctx.moveTo(nose.x,nose.y);sctx.lineTo(mid.x-0.35*s,0);sctx.stroke();
+      sctx.beginPath();
+      sctx.moveTo(nose.x,nose.y);sctx.lineTo(tl.x,tl.y);sctx.moveTo(nose.x,nose.y);sctx.lineTo(tr.x,tr.y);
+      sctx.stroke();
+      if(p.bank>0.3){
+        sctx.beginPath();
+        sctx.moveTo(nose.x,nose.y);sctx.lineTo(tl.x,tl.y);sctx.lineTo(mid.x,mid.y);sctx.closePath();
+        sctx.fillStyle="rgba(148,168,180,0.35)";sctx.fill();
+      }else if(p.bank<-0.3){
+        sctx.beginPath();
+        sctx.moveTo(nose.x,nose.y);sctx.lineTo(tr.x,tr.y);sctx.lineTo(mid.x,mid.y);sctx.closePath();
+        sctx.fillStyle="rgba(148,168,180,0.35)";sctx.fill();
+      }
+      sctx.restore();
+    }
+  }
+
+  function avgHeading(){
+    var cx=0,cy=0;
+    for(var i=0;i<planes.length;i++){
+      cx+=Math.cos(planes[i].heading);cy+=Math.sin(planes[i].heading);
+    }
+    var deg=Math.round((Math.atan2(cy,cx)*180/Math.PI+360)%360);
+    return deg;
+  }
+  var hdTimer=0;
+
+  var stage=document.getElementById("stage");
+  function pt(e){return {x:e.clientX,y:e.clientY};}
+  stage.addEventListener("pointerdown",function(e){
+    var p=pt(e);
+    press.down=true;press.sx=p.x;press.sy=p.y;press.curX=p.x;press.curY=p.y;
+    press.t=performance.now();press.moved=false;press.gustDone=false;
+    stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener("pointermove",function(e){
+    if(!press.down)return;
+    var p=pt(e);
+    press.curX=p.x;press.curY=p.y;
+    if(Math.hypot(p.x-press.sx,p.y-press.sy)>18)press.moved=true;
+  });
+  function release(){
+    if(!press.down)return;
+    press.down=false;
+    if(press.moved&&planes.length<40){
+      var dx=press.curX-press.sx,dy=press.curY-press.sy;
+      var sp=Math.hypot(dx,dy)*3.2;
+      sp=Math.min(sp,420);
+      var ux=dx/(Math.hypot(dx,dy)||1),uy=dy/(Math.hypot(dx,dy)||1);
+      var np=spawnPlane();
+      np.x=press.sx;np.y=press.sy;np.px=np.x;np.py=np.y;
+      np.vx=ux*sp+10;np.vy=uy*sp;
+      np.heading=Math.atan2(np.vy,np.vx);
+      np.bank=0;np.s=1.05;
+      planes.push(np);
+    }
+  }
+  stage.addEventListener("pointerup",release);
+  stage.addEventListener("pointercancel",function(){press.down=false;});
+
+  var chips=document.querySelectorAll("#chips button");
+  for(var c=0;c<chips.length;c++){
+    chips[c].addEventListener("click",function(ev){
+      mode=ev.currentTarget.getAttribute("data-m");
+      for(var j=0;j<chips.length;j++)chips[j].classList.remove("on");
+      ev.currentTarget.classList.add("on");
+    });
+  }
+
+  window.addEventListener("resize",fit);
+  fit();
+
+  function frame(ts){
+    requestAnimationFrame(frame);
+    try{
+      now=ts;
+      var dt=Math.min(0.05,(ts-lastTs)/1000||0.016);
+      lastTs=ts;
+      if(press.down&&!press.gustDone&&!press.moved&&(now-press.t)>420){
+        gustUntil=now+1000;press.gustDone=true;
+      }
+      step(dt);
+      drawTrails();
+      drawPlanes();
+      hdTimer+=dt;
+      if(hdTimer>0.15){
+        hdTimer=0;
+        hdEl.textContent=avgHeading()+"\u00B0";
+        gustEl.classList.toggle("show",now<gustUntil);
+      }
+    }catch(err){}
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

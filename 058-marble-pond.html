@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>058 - Marble Pond</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    height: 100dvh;
+    background: #080b11;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-user-select: none; user-select: none;
+  }
+  #stage { position: relative; width: 100%; height: 100dvh; }
+  #c { position: absolute; inset: 0; display: block; touch-action: none; cursor: grab; }
+  #c.grabbing { cursor: grabbing; }
+
+  .hud { position: absolute; z-index: 3; pointer-events: none; }
+  .caption {
+    top: clamp(14px, 3vh, 28px); left: 0; right: 0;
+    text-align: center;
+    color: #aebdd6;
+    font-size: clamp(10px, 1.6vw, 13px);
+    letter-spacing: .42em;
+    text-transform: uppercase;
+  }
+  .caption b { color: #e8eef8; font-weight: 700; }
+  .caption .sub {
+    display: block; margin-top: 6px;
+    color: #5a6a85; font-size: clamp(9px, 1.3vw, 11px);
+    letter-spacing: .3em;
+  }
+
+  .panel {
+    left: 50%; bottom: clamp(12px, 2.6vh, 24px);
+    transform: translateX(-50%);
+    pointer-events: auto;
+    display: flex; align-items: center; gap: clamp(10px, 2.4vw, 22px);
+    padding: 12px clamp(14px, 2.4vw, 22px);
+    background: rgba(16, 20, 28, 0.82);
+    border: 1px solid rgba(122, 152, 196, 0.18);
+    border-radius: 14px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    max-width: min(94vw, 560px);
+    flex-wrap: wrap; justify-content: center;
+  }
+  .ctl { display: flex; align-items: center; gap: 10px; }
+  .lbl {
+    color: #7488a8; font-size: 10px;
+    letter-spacing: .28em; text-transform: uppercase;
+  }
+  .val {
+    color: #cfe0f5; font-family: ui-monospace, monospace;
+    font-size: 11px; min-width: 44px; text-align: right;
+  }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: clamp(90px, 20vw, 150px); height: 4px;
+    background: linear-gradient(90deg, #3a4a68, #7d97c4);
+    border-radius: 2px; outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: #e8eef8; border: 2px solid #5a76a8;
+    box-shadow: 0 2px 8px rgba(0,0,0,.5);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 15px; height: 15px; border-radius: 50%;
+    background: #e8eef8; border: 2px solid #5a76a8;
+  }
+  .chips { display: flex; gap: 6px; }
+  .chip {
+    font: 700 10px system-ui, sans-serif;
+    letter-spacing: .24em; text-transform: uppercase;
+    color: #8fa3c6; background: transparent;
+    border: 1px solid rgba(122, 152, 196, 0.3);
+    border-radius: 999px; padding: 7px 14px 6px 16px;
+    cursor: pointer; transition: all .25s ease;
+  }
+  .chip:hover { color: #dfe9f8; border-color: rgba(160, 190, 235, 0.6); }
+  .chip.on {
+    color: #0d1119; background: #dbe7f8;
+    border-color: #dbe7f8;
+    box-shadow: 0 0 14px rgba(150, 180, 230, 0.35);
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div class="hud caption">
+    <b>26 MARBLES</b> &ndash; KEPLER-ISH CHAOS
+    <span class="sub">drag a marble, flick it, tilt the basin</span>
+  </div>
+  <div class="hud panel">
+    <div class="ctl">
+      <span class="lbl">Tilt</span>
+      <input id="tilt" type="range" min="-140" max="140" value="0" step="1">
+      <span class="val" id="tiltVal">0&deg;</span>
+    </div>
+    <div class="chips">
+      <button class="chip on" id="chipGlass" type="button">Glass</button>
+      <button class="chip" id="chipStone" type="button">Stone</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var TAU = Math.PI * 2;
+  var canvas = document.getElementById('c');
+  var ctx = canvas.getContext('2d');
+  var stage = document.getElementById('stage');
+  var tiltInput = document.getElementById('tilt');
+  var tiltVal = document.getElementById('tiltVal');
+  var chipGlass = document.getElementById('chipGlass');
+  var chipStone = document.getElementById('chipStone');
+
+  var W = 0, H = 0, DPR = 1;
+  var basin = { x: 0, y: 0, r: 0 };
+  var tilt = 0;
+  var material = 'glass';
+  var marbles = [];
+  var ripples = [];
+  var pointer = { x: 0, y: 0, down: false, grab: null };
+  var last = 0;
+
+  var PALETTE = [
+    { core: '#ffe9dc', mid: '#f2b49b', edge: '#b96a4e' },
+    { core: '#e2f3ff', mid: '#9fd0f4', edge: '#4d84b8' },
+    { core: '#e8f9df', mid: '#a8dc92', edge: '#5d9e4a' },
+    { core: '#f6e4ff', mid: '#cf9ff0', edge: '#8a52b4' },
+    { core: '#fff6d6', mid: '#f2d488', edge: '#b8923d' },
+    { core: '#dcf7f2', mid: '#93dcd2', edge: '#46968c' }
+  ];
+
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+
+  function fit() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    var rect = stage.getBoundingClientRect();
+    W = Math.max(1, rect.width);
+    H = Math.max(1, rect.height);
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    basin.x = W / 2;
+    basin.y = H / 2;
+    basin.r = Math.min(W, H) * 0.455;
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  function spawnMarbles() {
+    marbles = [];
+    for (let i = 0; i < 26; i++) {
+      let placed = false;
+      for (let tries = 0; tries < 200 && !placed; tries++) {
+        let r = rnd(13, 21);
+        let ang = rnd(0, TAU);
+        let dist = Math.sqrt(Math.random()) * (basin.r - r - 4);
+        let x = basin.x + Math.cos(ang) * dist;
+        let y = basin.y + Math.sin(ang) * dist;
+        let ok = true;
+        for (let j = 0; j < marbles.length; j++) {
+          let m = marbles[j];
+          let dx = m.x - x, dy = m.y - y;
+          if (Math.sqrt(dx * dx + dy * dy) < m.r + r + 2) { ok = false; break; }
+        }
+        if (ok) {
+          marbles.push({
+            x: x, y: y, vx: 0, vy: 0, r: r,
+            w: r * r,
+            col: PALETTE[i % PALETTE.length],
+            spin: rnd(-0.6, 0.6)
+          });
+          placed = true;
+        }
+      }
+    }
+  }
+  spawnMarbles();
+
+  function spawnRipple(x, y, impact) {
+    if (ripples.length > 14) ripples.shift();
+    ripples.push({
+      x: x, y: y, t: 0,
+      life: 0.5 + Math.min(0.3, impact / 2600),
+      max: 22 + Math.min(46, impact * 0.028)
+    });
+  }
+
+  function wallCollide(m) {
+    var dx = m.x - basin.x, dy = m.y - basin.y;
+    var d = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+    var max = basin.r - m.r - 2;
+    if (d > max) {
+      var nx = dx / d, ny = dy / d;
+      m.x = basin.x + nx * max;
+      m.y = basin.y + ny * max;
+      var vn = m.vx * nx + m.vy * ny;
+      if (vn > 0) {
+        m.vx -= 1.92 * vn * nx;
+        m.vy -= 1.92 * vn * ny;
+        if (vn > 300) spawnRipple(m.x - nx * m.r, m.y - ny * m.r, vn);
+      }
+    }
+  }
+
+  function resolvePair(a, b) {
+    var dx = b.x - a.x, dy = b.y - a.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist === 0) { dist = 0.0001; dx = 0.0001; dy = 0; }
+    var min = a.r + b.r;
+    if (dist >= min) return;
+    var nx = dx / dist, ny = dy / dist;
+    var overlap = min - dist;
+    var tm = a.w + b.w;
+    a.x -= nx * overlap * (a.w / tm);
+    a.y -= ny * overlap * (a.w / tm);
+    b.x += nx * overlap * (b.w / tm);
+    b.y += ny * overlap * (b.w / tm);
+    var rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+    if (rel < 0) {
+      var imp = -(1 + 0.92) * rel / (1 / a.w + 1 / b.w);
+      a.vx -= imp * nx / a.w; a.vy -= imp * ny / a.w;
+      b.vx += imp * nx / b.w; b.vy += imp * ny / b.w;
+      var speed = -rel;
+      if (speed > 320) {
+        spawnRipple(a.x + nx * a.r, a.y + ny * a.r, speed);
+      }
+    }
+  }
+
+  function physics(dt) {
+    var gx = Math.sin(tilt) * 980;
+    var gy = Math.cos(tilt) * 980;
+    var SUB = 4;
+    var s = dt / SUB;
+    for (let k = 0; k < SUB; k++) {
+      for (let i = 0; i < marbles.length; i++) {
+        var m = marbles[i];
+        if (m === pointer.grab) continue;
+        m.vx += gx * s;
+        m.vy += gy * s;
+        m.vx *= 0.9995;
+        m.vy *= 0.9995;
+        m.x += m.vx * s;
+        m.y += m.vy * s;
+      }
+      for (let i = 0; i < marbles.length; i++) {
+        for (let j = i + 1; j < marbles.length; j++) {
+          resolvePair(marbles[i], marbles[j]);
+        }
+        wallCollide(marbles[i]);
+      }
+      var g = pointer.grab;
+      if (g) {
+        var ox = pointer.x - g.x, oy = pointer.y - g.y;
+        g.vx += ox * 34 * s;
+        g.vy += oy * 34 * s;
+        g.vx *= 0.85;
+        g.vy *= 0.85;
+        g.x += g.vx * s;
+        g.y += g.vy * s;
+        var sp = Math.sqrt(g.vx * g.vx + g.vy * g.vy);
+        if (sp > 2400) { g.vx *= 2400 / sp; g.vy *= 2400 / sp; }
+        wallCollide(g);
+      }
+    }
+  }
+
+  function drawFloor() {
+    var f = ctx.createRadialGradient(basin.x, basin.y - basin.r * 0.2, basin.r * 0.1, basin.x, basin.y, basin.r);
+    f.addColorStop(0, '#171e2c');
+    f.addColorStop(0.7, '#10141c');
+    f.addColorStop(1, '#0a0d14');
+    ctx.beginPath();
+    ctx.arc(basin.x, basin.y, basin.r - 1, 0, TAU);
+    ctx.fillStyle = f;
+    ctx.fill();
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(basin.x, basin.y, basin.r - 1, 0, TAU);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(125, 150, 195, 0.07)';
+    for (let i = 1; i <= 4; i++) {
+      ctx.beginPath();
+      ctx.arc(basin.x, basin.y, basin.r * i * 0.21, 0, TAU);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    for (let i = 0; i < ripples.length; i++) {
+      var rp = ripples[i];
+      var p = rp.t / rp.life;
+      if (p < 1) {
+        ctx.beginPath();
+        ctx.arc(rp.x, rp.y, rp.max * (0.15 + 0.85 * p), 0, TAU);
+        ctx.strokeStyle = 'rgba(170, 200, 245, ' + (0.4 * (1 - p)).toFixed(3) + ')';
+        ctx.lineWidth = 2 * (1 - p) + 0.5;
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawMarble(m) {
+    var col = m.col;
+    var grad = ctx.createRadialGradient(m.x - m.r * 0.34, m.y - m.r * 0.4, m.r * 0.12, m.x, m.y, m.r);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.16, col.core);
+    grad.addColorStop(0.58, col.mid);
+    grad.addColorStop(1, col.edge);
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.r, 0, TAU);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    if (material === 'glass') {
+      ctx.beginPath();
+      ctx.arc(m.x - m.r * 0.34, m.y - m.r * 0.4, m.r * 0.2, 0, TAU);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(m.x + m.r * 0.2, m.y + m.r * 0.28, m.r * 0.08, 0, TAU);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, m.r - 1.4, Math.PI * 0.18, Math.PI * 0.82);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+      ctx.lineWidth = m.r * 0.13;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, m.r - 1, Math.PI * 0.15, Math.PI * 0.9);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+      ctx.lineWidth = m.r * 0.16;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawFloor();
+    for (let i = 0; i < marbles.length; i++) {
+      var m = marbles[i];
+      ctx.beginPath();
+      ctx.ellipse(m.x + 2, m.y + m.r * 0.86, m.r * 0.92, m.r * 0.34, 0, 0, TAU);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
+      ctx.fill();
+    }
+    for (let i = 0; i < marbles.length; i++) drawMarble(marbles[i]);
+    ctx.beginPath();
+    ctx.arc(basin.x, basin.y, basin.r, 0, TAU);
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = 'rgba(2, 4, 8, 0.7)';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(basin.x, basin.y, basin.r - 3.5, 0, TAU);
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = 'rgba(130, 160, 205, 0.3)';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(basin.x, basin.y, basin.r + 4, 0, TAU);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(90, 115, 160, 0.14)';
+    ctx.stroke();
+  }
+
+  function frame(now) {
+    try {
+      if (!last) last = now;
+      var dt = Math.min(0.033, (now - last) / 1000);
+      last = now;
+      physics(dt);
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        ripples[i].t += dt;
+        if (ripples[i].t >= ripples[i].life) ripples.splice(i, 1);
+      }
+      draw();
+    } catch (err) {
+      /* guard: never let a frame kill the loop */
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  function localPoint(e) {
+    var rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+  canvas.addEventListener('pointerdown', function (e) {
+    var p = localPoint(e);
+    pointer.x = p.x; pointer.y = p.y; pointer.down = true;
+    var best = null, bd = 1e9;
+    for (let i = 0; i < marbles.length; i++) {
+      var m = marbles[i];
+      var dx = m.x - p.x, dy = m.y - p.y;
+      var d = Math.sqrt(dx * dx + dy * dy);
+      if (d < m.r + 7 && d < bd) { bd = d; best = m; }
+    }
+    pointer.grab = best;
+    if (best) {
+      canvas.classList.add('grabbing');
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    e.preventDefault();
+  });
+  canvas.addEventListener('pointermove', function (e) {
+    var p = localPoint(e);
+    pointer.x = p.x; pointer.y = p.y;
+  });
+  function release(e) {
+    pointer.down = false;
+    pointer.grab = null;
+    canvas.classList.remove('grabbing');
+  }
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+
+  function setTilt(v) {
+    tilt = v / 140 * 1.35;
+    tiltVal.innerHTML = Math.round(tilt * 180 / Math.PI) + '&deg;';
+  }
+  tiltInput.addEventListener('input', function () { setTilt(Number(tiltInput.value)); });
+  setTilt(0);
+
+  function setMaterial(mat) {
+    material = mat;
+    chipGlass.classList.toggle('on', mat === 'glass');
+    chipStone.classList.toggle('on', mat === 'stone');
+  }
+  chipGlass.addEventListener('click', function () { setMaterial('glass'); });
+  chipStone.addEventListener('click', function () { setMaterial('stone'); });
+})();
+</script>
+</body>
+</html>

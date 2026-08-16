@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<title>404 - NOT FOUND</title>
+<style>
+  :root{
+    --paper:#f2f0ec; --ink:#0d0d0d; --accent:#d63a3a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    display:flex; flex-direction:column;
+    min-height:100dvh;
+    overflow-x:hidden;
+  }
+  .shake{animation:shake .3s linear;}
+  @keyframes shake{
+    0%{transform:translate(0,0) rotate(0);}
+    12%{transform:translate(-9px,4px) rotate(-.4deg);}
+    24%{transform:translate(8px,-6px) rotate(.4deg);}
+    36%{transform:translate(-7px,-5px) rotate(-.3deg);}
+    48%{transform:translate(9px,5px) rotate(.35deg);}
+    60%{transform:translate(-6px,6px) rotate(-.3deg);}
+    72%{transform:translate(6px,-4px) rotate(.25deg);}
+    84%{transform:translate(-4px,3px) rotate(-.2deg);}
+    100%{transform:translate(0,0) rotate(0);}
+  }
+
+  /* ---- top marquee strip ---- */
+  .marquee{
+    background:var(--ink);
+    color:var(--paper);
+    border-bottom:3px solid var(--ink);
+    overflow:hidden;
+    white-space:nowrap;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-weight:700;
+    font-size:clamp(11px,1.6vw,15px);
+    letter-spacing:.28em;
+    text-transform:uppercase;
+    padding:9px 0;
+    position:sticky; top:0; z-index:5;
+  }
+  .marquee span{
+    display:inline-block;
+    padding-right:0;
+    animation:scroll 16s linear infinite;
+  }
+  @keyframes scroll{
+    from{transform:translateX(0);}
+    to{transform:translateX(-50%);}
+  }
+  .marquee b{color:var(--accent);}
+
+  /* ---- main stage ---- */
+  main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:4vh clamp(14px,4vw,60px) 3vh;
+    gap:clamp(14px,2.6vh,30px);
+  }
+  .big{
+    font-weight:900;
+    font-size:clamp(110px,30vw,430px);
+    line-height:.82;
+    letter-spacing:-.06em;
+    text-shadow:12px 12px 0 var(--accent);
+    user-select:none;
+    transform:rotate(-1.5deg);
+  }
+  .errline{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    text-transform:uppercase;
+    font-size:clamp(10px,1.7vw,17px);
+    font-weight:700;
+    letter-spacing:.22em;
+    text-align:center;
+    max-width:70ch;
+    line-height:1.9;
+    border-top:3px solid var(--ink);
+    border-bottom:3px solid var(--ink);
+    padding:10px 18px;
+  }
+  .errline em{font-style:normal; color:var(--accent);}
+
+  /* ---- maze ---- */
+  .maze-wrap{
+    width:min(92vw,760px);
+    border:3px solid var(--ink);
+    background:#ffffff;
+    box-shadow:8px 8px 0 var(--ink);
+  }
+  .maze-wrap svg{display:block; width:100%; height:auto;}
+  .maze-label{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:clamp(9px,1.3vw,12px);
+    letter-spacing:.3em;
+    text-transform:uppercase;
+    text-align:right;
+    padding:0 4px 8px;
+    color:var(--ink);
+  }
+  .maze-label i{font-style:normal; color:var(--accent); font-weight:700;}
+
+  /* solution path draw/erase loop */
+  .solution{
+    stroke:var(--accent);
+    stroke-width:6;
+    fill:none;
+    stroke-linecap:square;
+    stroke-dasharray:1;
+    animation:solve 6s ease-in-out infinite;
+  }
+  @keyframes solve{
+    0%{stroke-dashoffset:1;}
+    42%{stroke-dashoffset:0;}
+    58%{stroke-dashoffset:0; opacity:1;}
+    100%{stroke-dashoffset:-1;}
+  }
+
+  /* ---- buttons ---- */
+  .actions{
+    display:flex;
+    gap:clamp(10px,2vw,22px);
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
+  }
+  .btn{
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-weight:900;
+    font-size:clamp(13px,1.8vw,18px);
+    text-transform:uppercase;
+    letter-spacing:.14em;
+    background:var(--paper);
+    color:var(--ink);
+    border:2px solid var(--ink);
+    padding:12px 26px;
+    cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease, background .15s ease, color .15s ease;
+  }
+  .btn:hover{
+    background:var(--ink);
+    color:var(--paper);
+    transform:translate(-4px,-4px);
+    box-shadow:4px 4px 0 var(--accent);
+  }
+  .btn:active{
+    transform:translate(0,0);
+    box-shadow:0 0 0 var(--accent);
+  }
+  .btn.sos{
+    background:var(--accent);
+    color:var(--paper);
+    border-color:var(--ink);
+  }
+  .btn.sos:hover{
+    background:var(--ink);
+    color:var(--accent);
+  }
+  .still{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-weight:700;
+    color:var(--accent);
+    text-transform:uppercase;
+    letter-spacing:.3em;
+    font-size:clamp(12px,2vw,20px);
+    visibility:hidden;
+    height:1.4em;
+  }
+  .still.on{visibility:visible; animation:blink .5s steps(2) 4;}
+  @keyframes blink{from{opacity:0}to{opacity:1}}
+
+  /* ---- footer ---- */
+  footer{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:clamp(9px,1.3vw,12px);
+    letter-spacing:.3em;
+    text-transform:uppercase;
+    text-align:center;
+    padding:10px 14px;
+  }
+  footer b{color:var(--accent);}
+</style>
+</head>
+<body>
+
+  <div class="marquee" aria-hidden=true>
+    <span id="mq">&nbsp;</span>
+  </div>
+
+  <main id="stage">
+    <div class="big" aria-label="404">404</div>
+
+    <div class="errline">
+      ERROR: THE PAGE YOU SEEK HAS <em>LEFT</em> THE BUILDING
+    </div>
+
+    <div class="maze-wrap">
+      <div class="maze-label" id="mazeLabel"></div>
+      <div id="maze"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="backBtn" type=button>Go Back</button>
+      <button class="btn" id="homeBtn" type=button>Home</button>
+      <button class="btn sos" id="sosBtn" type=button>SOS</button>
+    </div>
+    <div class="still" id="still">STILL LOST?</div>
+  </main>
+
+  <footer>BUILT BY <b>NO ONE</b>. HOSTED BY <b>SOMEWHERE</b>.</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- marquee text ---------- */
+  (function(){
+    var unit = "404 &mdash; NOT FOUND &mdash; ";
+    var chunk = unit.repeat(6);
+    document.getElementById("mq").innerHTML = chunk + "<b>" + chunk + "</b>";
+  })();
+
+  /* ---------- deterministic RNG (mulberry32) ---------- */
+  function mulberry32(seed){
+    var a = seed >>> 0;
+    return function(){
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ---------- maze: 20 x 12, perfect, backtracker ---------- */
+  var COLS = 20, ROWS = 12, CELL = 40;
+  var rand = mulberry32(0x404);
+  // walls[i] bitmask: 1 = right wall, 2 = bottom wall
+  var walls = new Array(COLS * ROWS);
+  var visited = new Array(COLS * ROWS);
+  var i;
+  for (i = 0; i < walls.length; i++){ walls[i] = 3; visited[i] = false; }
+
+  var stack = [0];
+  visited[0] = true;
+  // move = [target, bitToRemoveOnCur, bitToRemoveOnTarget]
+  // walls store: bit1 = right wall, bit2 = bottom wall.
+  // left move: shared wall = target's right (bit1). up move: target's bottom (bit2).
+  // right: cur right(1)+target left->target right(1) removed on both. down: cur bottom(2).
+  function nbs(idx){
+    var x = idx % COLS, y = (idx / COLS) | 0, out = [];
+    if (x > 0)         out.push([idx - 1, 0, 1]);
+    if (x < COLS - 1)  out.push([idx + 1, 1, 0]);
+    if (y > 0)         out.push([idx - COLS, 0, 2]);
+    if (y < ROWS - 1)  out.push([idx + COLS, 2, 0]);
+    return out;
+  }
+  while (stack.length > 0){
+    var cur = stack[stack.length - 1];
+    var open = [];
+    var opts = nbs(cur);
+    var k;
+    for (k = 0; k < opts.length; k++){
+      if (!visited[opts[k][0]]) open.push(opts[k]);
+    }
+    if (open.length === 0){ stack.pop(); continue; }
+    var pick = open[(rand() * open.length) | 0];
+    if (pick[1]) walls[cur] &= ~pick[1];
+    if (pick[2]) walls[pick[0]] &= ~pick[2];
+    visited[pick[0]] = true;
+    stack.push(pick[0]);
+  }
+  var startIdx = 0;
+  var endIdx = COLS * ROWS - 1;
+
+  /* ---------- BFS solution start -> end ---------- */
+  var prev = new Array(COLS * ROWS);
+  var seen = new Array(COLS * ROWS);
+  var q = [startIdx];
+  var qi = 0;
+  seen[startIdx] = true;
+  prev[startIdx] = -1;
+  var guard = 0;
+  while (qi < q.length && guard < COLS * ROWS * 4){
+    guard++;
+    var c = q[qi]; qi++;
+    if (c === endIdx) break;
+    var co = nbs(c);
+    for (var j = 0; j < co.length; j++){
+      var nb = co[j][0];
+      // open if the shared wall is removed on whichever side stores it:
+      // left/up moves store the bit on the target; right/down on cur.
+      var side = co[j][1] ? c : nb;
+      var bit = co[j][1] ? co[j][1] : co[j][2];
+      if ((walls[side] & bit) === 0 && !seen[nb]){
+        seen[nb] = true;
+        prev[nb] = c;
+        q.push(nb);
+      }
+    }
+  }
+  var pathPts = [];
+  var cur2 = endIdx;
+  while (cur2 !== -1){
+    pathPts.push(cur2);
+    cur2 = prev[cur2];
+  }
+  pathPts.reverse();
+
+  /* ---------- build SVG strings ---------- */
+  function cellCX(idx){ return (idx % COLS) * CELL + CELL / 2; }
+  function cellCY(idx){ return ((idx / COLS) | 0) * CELL + CELL / 2; }
+
+  var dWalls = "";
+  var x, y;
+  // vertical walls
+  for (y = 0; y < ROWS; y++){
+    for (x = 0; x < COLS; x++){
+      var idx = y * COLS + x;
+      if (walls[idx] & 1){
+        dWalls += "M" + ((x + 1) * CELL) + "," + (y * CELL) + "L" + ((x + 1) * CELL) + "," + ((y + 1) * CELL) + " ";
+      }
+      // left boundary
+      if (x === 0){
+        dWalls += "M0," + (y * CELL) + "L0," + ((y + 1) * CELL) + " ";
+      }
+      if (walls[idx] & 2){
+        dWalls += "M" + (x * CELL) + "," + ((y + 1) * CELL) + "L" + ((x + 1) * CELL) + "," + ((y + 1) * CELL) + " ";
+      }
+      if (y === 0){
+        dWalls += "M" + (x * CELL) + ",0L" + ((x + 1) * CELL) + ",0 ";
+      }
+      // bottom boundary
+      if (y === ROWS - 1){
+        dWalls += "M" + (x * CELL) + "," + (ROWS * CELL) + "L" + ((x + 1) * CELL) + "," + (ROWS * CELL) + " ";
+      }
+      // right boundary
+      if (x === COLS - 1){
+        dWalls += "M" + (COLS * CELL) + "," + (y * CELL) + "L" + (COLS * CELL) + "," + ((y + 1) * CELL) + " ";
+      }
+    }
+  }
+  // entrance gap: erase top edge of start cell ; exit gap: erase right edge of end cell
+  dWalls = dWalls.replace("M0,0L40,0 ", "").replace("M800,440L800,480 ", "");
+
+  var dSol = "";
+  for (var p = 0; p < pathPts.length; p++){
+    var px = cellCX(pathPts[p]), py = cellCY(pathPts[p]);
+    dSol += (p === 0 ? "M" : "L") + px + "," + py + " ";
+  }
+
+  var svg = '<svg viewBox="0 0 ' + (COLS * CELL) + ' ' + (ROWS * CELL) + '" role="img" aria-label="maze">'
+    + '<path d="' + dWalls + '" stroke="#0d0d0d" stroke-width="4" fill="none" stroke-linecap="square"/>'
+    + '<path class="solution" pathLength="1" d="' + dSol + '"/>'
+    + '<circle cx="20" cy="20" r="7" fill="#d63a3a"/>'
+    + '<rect x="' + (COLS * CELL - 32) + '" y="' + (ROWS * CELL - 32) + '" width="20" height="20" fill="#0d0d0d" stroke="#d63a3a" stroke-width="3"/>'
+    + '</svg>';
+
+  document.getElementById("maze").innerHTML = svg;
+  document.getElementById("mazeLabel").innerHTML =
+    "MAZE 20&times;12 &mdash; SOLUTION: <i>AUTO-LOOP</i> " + pathPts.length + " STEPS";
+
+  /* ---------- buttons ---------- */
+  var stage = document.getElementById("stage");
+  var still = document.getElementById("still");
+
+  document.getElementById("backBtn").addEventListener("click", function(){
+    window.history.back();
+  });
+
+  document.getElementById("homeBtn").addEventListener("click", function(){
+    window.scrollTo({top:0, behavior:"smooth"});
+  });
+
+  document.getElementById("sosBtn").addEventListener("click", function(){
+    stage.classList.remove("shake");
+    // force reflow so repeated clicks restart the animation
+    void stage.offsetWidth;
+    stage.classList.add("shake");
+    still.classList.add("on");
+    setTimeout(function(){ still.classList.remove("on"); }, 2400);
+  });
+
+  stage.addEventListener("animationend", function(e){
+    if (e.animationName === "shake") stage.classList.remove("shake");
+  });
+})();
+</script>
+</body>
+</html>

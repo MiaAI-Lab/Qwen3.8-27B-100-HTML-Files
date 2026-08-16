@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pixel Garden - 16x10 Big-Tile Farm</title>
+<style>
+  :root{
+    --ink:#e9e5d6; --dim:#98947f; --line:rgba(233,229,214,.16);
+    --bg:#161a11; --chip:#1d2316;
+    --seed:#7cc46a; --water:#6fb7ff; --harvest:#ffb84d;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    height:100dvh; overflow:hidden;
+    display:flex; flex-direction:column;
+    -webkit-user-select:none; user-select:none;
+  }
+  header{
+    flex:none;
+    display:flex; justify-content:space-between; align-items:center;
+    padding:14px clamp(12px,3vw,24px);
+    border-bottom:1px solid var(--line);
+    letter-spacing:.22em;
+    font-size:clamp(9px,1.9vmin,13px);
+  }
+  .left{display:flex; align-items:center; gap:10px;}
+  .dot{width:9px; height:9px; border-radius:50%; background:var(--seed);
+       box-shadow:0 0 12px rgba(124,196,106,.75); transition:background 1.5s;}
+  .right{color:var(--dim);}
+  .right b{color:var(--harvest); font-weight:600; margin-left:8px; letter-spacing:.14em;}
+  .stage{position:relative; flex:1; min-height:0;}
+  canvas{position:absolute; inset:0; width:100%; height:100%; display:block;
+         touch-action:none; cursor:pointer;}
+  footer{
+    flex:none;
+    display:flex; justify-content:center; align-items:center;
+    gap:clamp(6px,1.5vw,14px);
+    padding:12px; border-top:1px solid var(--line);
+  }
+  .chip{
+    font-family:inherit;
+    font-size:clamp(9px,1.7vmin,12px);
+    letter-spacing:.2em; text-transform:uppercase;
+    color:var(--dim); background:var(--chip);
+    border:1px solid var(--line); border-radius:8px;
+    padding:9px clamp(12px,2.6vw,22px); cursor:pointer;
+    transition:color .2s, border-color .2s, background .2s, transform .12s;
+  }
+  .chip:hover{color:var(--ink); transform:translateY(-1px);}
+  .chip:active{transform:translateY(0);}
+  .chip[data-tool="seed"].active{color:#cdeec2; border-color:var(--seed);
+    background:rgba(124,196,106,.16); box-shadow:0 0 14px rgba(124,196,106,.25);}
+  .chip[data-tool="water"].active{color:#cfe6ff; border-color:var(--water);
+    background:rgba(111,183,255,.16); box-shadow:0 0 14px rgba(111,183,255,.25);}
+  .chip[data-tool="harvest"].active{color:#ffe0b0; border-color:var(--harvest);
+    background:rgba(255,184,77,.16); box-shadow:0 0 14px rgba(255,184,77,.25);}
+  .chip:focus-visible{outline:2px solid var(--water); outline-offset:2px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="left">
+    <span class="dot" id="dot"></span>
+    <span id="seasonLabel">GARDEN 16x10 - SPRING</span>
+  </div>
+  <div class="right">HARVEST<b id="score">0000</b></div>
+</header>
+<div class="stage" id="stage"><canvas id="garden"></canvas></div>
+<footer>
+  <button class="chip active" data-tool="seed">Seed</button>
+  <button class="chip" data-tool="water">Water</button>
+  <button class="chip" data-tool="harvest">Harvest</button>
+</footer>
+<script>
+(function(){
+'use strict';
+var COLS=16, ROWS=10, N=COLS*ROWS;
+var SEASONS=[
+  {name:'SPRING', r:124, g:196, b:106},
+  {name:'SUMMER', r:231, g:208, b:90},
+  {name:'AUTUMN', r:208, g:128, b:63},
+  {name:'WINTER', r:223, g:232, b:240}
+];
+var SEASON_LEN=40, LERP=1.6, GROW=20, STAGE_LEN=GROW/4;
+var PETALS=[[255,143,163],[255,209,102],[199,125,255],[255,123,95],[142,202,230],[244,162,97]];
+var STEMC=[63,138,74], SOIL=[74,54,34], FROST=[148,160,176];
+
+var stageEl=document.getElementById('stage');
+var canvas=document.getElementById('garden');
+var ctx=canvas.getContext('2d');
+var label=document.getElementById('seasonLabel');
+var scoreEl=document.getElementById('score');
+var dot=document.getElementById('dot');
+var chips=document.querySelectorAll('.chip');
+
+var W=20, H=20, dpr=1, tile=10, ox=0, oy=0, dtLast=0.016, now=0;
+var score=0, tool='seed', season=0, seasonT=0;
+var cells=new Array(N), base=new Array(N), petalIdx=new Array(N);
+var parts=[], snow=[], hover=-1;
+var i;
+for(i=0;i<N;i++){
+  base[i]=(Math.random()*2-1)*15;
+  petalIdx[i]=(i*7)%PETALS.length;
+  cells[i]=null;
+}
+
+function css(c){ return 'rgb('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+')'; }
+function mix(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; }
+function clamp(v,lo,hi){ return v<lo?lo:(v>hi?hi:v); }
+function ease(t){ return t*t*(3-2*t); }
+
+function seasonBlend(){
+  var a=SEASONS[season], b=SEASONS[(season+1)%4];
+  var t=clamp((seasonT-(SEASON_LEN-LERP))/LERP, 0, 1);
+  t=ease(t);
+  return {c:[a.r+(b.r-a.r)*t, a.g+(b.g-a.g)*t, a.b+(b.b-a.b)*t], t:t};
+}
+
+function fit(){
+  dpr=clamp(window.devicePixelRatio||1, 1, 2);
+  W=stageEl.clientWidth; H=stageEl.clientHeight;
+  if(W<20) W=20;
+  if(H<20) H=20;
+  canvas.width=Math.round(W*dpr);
+  canvas.height=Math.round(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  var vmin=Math.min(W,H)/100;
+  tile=clamp(Math.min(6*vmin, (W-32)/COLS, (H-32)/ROWS), 8, 96);
+  ox=(W-tile*COLS)/2 + tile/2;
+  oy=(H-tile*ROWS)/2 + tile/2;
+}
+window.addEventListener('resize', fit);
+
+function cellCenter(idx){
+  var c=idx%COLS, r=(idx/COLS)|0;
+  return {x:ox+c*tile, y:oy+r*tile};
+}
+function cellAt(mx,my){
+  var c=clamp(Math.round((mx-ox)/tile), 0, COLS-1);
+  var r=clamp(Math.round((my-oy)/tile), 0, ROWS-1);
+  return r*COLS+c;
+}
+
+function rr(x,y,w,h,rad){
+  ctx.beginPath();
+  ctx.moveTo(x+rad,y);
+  ctx.arcTo(x+w,y,x+w,y+h,rad);
+  ctx.arcTo(x+w,y+h,x,y+h,rad);
+  ctx.arcTo(x,y+h,x,y,rad);
+  ctx.arcTo(x,y,x+w,y,rad);
+  ctx.closePath();
+}
+function leafShape(x,y,ang,len){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate(ang);
+  ctx.beginPath();
+  ctx.ellipse(len*0.6,0,len*0.6,len*0.28,0,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+function burst(x,y,n,cols,spd){
+  var j,a,v;
+  for(j=0;j<n;j++){
+    a=Math.random()*Math.PI*2;
+    v=spd*(0.5+Math.random());
+    parts.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-spd*0.6,
+                life:0.5+Math.random()*0.6,t:0,r:1+Math.random()*2.4,
+                c:cols[j%cols.length]});
+  }
+  if(parts.length>500) parts.splice(0,parts.length-500);
+}
+function setScore(){
+  var s=String(score);
+  while(s.length<4) s='0'+s;
+  scoreEl.textContent=s;
+}
+
+function pickTool(name){
+  tool=name;
+  var k;
+  for(k=0;k<chips.length;k++){
+    if(chips[k].getAttribute('data-tool')===name) chips[k].classList.add('active');
+    else chips[k].classList.remove('active');
+  }
+}
+var ci;
+for(ci=0;ci<chips.length;ci++){
+  chips[ci].addEventListener('click', function(){ pickTool(this.getAttribute('data-tool')); });
+}
+window.addEventListener('keydown', function(e){
+  if(e.key==='1') pickTool('seed');
+  else if(e.key==='2') pickTool('water');
+  else if(e.key==='3') pickTool('harvest');
+});
+
+function act(idx){
+  var c=cells[idx], pos=cellCenter(idx);
+  if(tool==='seed'){
+    if(!c){
+      cells[idx]={age:0, mult:1, bloomed:false, wetT:0, ph:Math.random()*6};
+      burst(pos.x, pos.y+tile*0.12, 6, [SOIL,[90,66,40]], 26);
+    }
+  }else if(tool==='water'){
+    if(c && !c.bloomed){
+      c.mult=2;
+      c.wetT=0.9;
+      burst(pos.x, pos.y, 10, [[111,183,255],[168,216,255]], 30);
+    }
+  }else if(tool==='harvest'){
+    if(c && c.bloomed){
+      cells[idx]=null;
+      score++;
+      setScore();
+      burst(pos.x, pos.y-tile*0.3, 16, [PETALS[petalIdx[idx]],[255,255,255],[255,209,102]], 46);
+    }
+  }
+}
+
+function pointer(e){
+  var rect=canvas.getBoundingClientRect();
+  return {x:e.clientX-rect.left, y:e.clientY-rect.top};
+}
+canvas.addEventListener('pointermove', function(e){ hover=cellAt(pointer(e).x, pointer(e).y); });
+canvas.addEventListener('pointerleave', function(){ hover=-1; });
+canvas.addEventListener('pointerdown', function(e){ var p=pointer(e); act(cellAt(p.x,p.y)); });
+
+function step(dt){
+  seasonT+=dt;
+  if(seasonT>=SEASON_LEN){
+    seasonT-=SEASON_LEN;
+    season=(season+1)%4;
+    label.textContent='GARDEN 16x10 - '+SEASONS[season].name;
+  }
+  var j,c,p;
+  for(j=0;j<N;j++){
+    c=cells[j];
+    if(c){
+      c.age+=dt*c.mult;
+      if(c.wetT>0) c.wetT-=dt;
+      if(!c.bloomed && c.age>=GROW){
+        c.bloomed=true;
+        p=cellCenter(j);
+        burst(p.x, p.y-tile*0.3, 12, [PETALS[petalIdx[j]],[255,255,255]], 40);
+      }
+    }
+  }
+  for(j=parts.length-1;j>=0;j--){
+    p=parts[j];
+    p.t+=dt;
+    if(p.t>=p.life){ parts.splice(j,1); continue; }
+    p.x+=p.vx*dt;
+    p.y+=p.vy*dt;
+    p.vy+=70*dt;
+  }
+}
+
+function drawPlant(idx, cx, cy, s, cell, f){
+  var st=Math.min(3, Math.floor(cell.age/STAGE_LEN));
+  var stemC=f>0 ? mix(STEMC, FROST, f) : STEMC;
+  var petC=f>0 ? mix(PETALS[petalIdx[idx]],[205,214,224], 0.85*f) : PETALS[petalIdx[idx]];
+  var sway=Math.sin(now*1.4+cell.ph)*s*0.02;
+  var topX=cx+sway;
+  var topY=cy-s*(st===1?0.18:st===2?0.30:0.38);
+  var k,a;
+  if(st===0){
+    ctx.fillStyle=css(mix(SOIL,[120,128,140],f));
+    ctx.beginPath();
+    ctx.ellipse(cx, cy+s*0.12, s*0.14, s*0.08, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle=css(mix([196,178,142],[235,240,246],f));
+    ctx.beginPath();
+    ctx.arc(cx, cy+s*0.10, s*0.045, 0, Math.PI*2);
+    ctx.fill();
+    return;
+  }
+  ctx.strokeStyle=css(stemC);
+  ctx.lineWidth=Math.max(1.5, s*0.045);
+  ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy+s*0.14);
+  ctx.quadraticCurveTo(cx+sway*0.4, cy, topX, topY);
+  ctx.stroke();
+  ctx.fillStyle=css(stemC);
+  if(st>=1){
+    leafShape(cx, cy-s*0.02, -0.9, s*0.16);
+    leafShape(cx, cy-s*0.02, 0.9, s*0.16);
+  }
+  if(st>=2){
+    leafShape(topX, topY+s*0.12, -0.7, s*0.13);
+    leafShape(topX, topY+s*0.12, 0.7, s*0.13);
+  }
+  if(st===2){
+    ctx.fillStyle=css(petC);
+    ctx.beginPath();
+    ctx.arc(topX, topY, s*0.09, 0, Math.PI*2);
+    ctx.fill();
+  }else if(st===3){
+    for(k=0;k<5;k++){
+      a=k*(Math.PI*2/5)-Math.PI/2;
+      ctx.fillStyle=css(petC);
+      ctx.beginPath();
+      ctx.arc(topX+Math.cos(a)*s*0.11, topY+Math.sin(a)*s*0.11, s*0.10, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.fillStyle=f>0 ? css(mix([255,217,94],[232,228,216],f)) : '#ffd95e';
+    ctx.beginPath();
+    ctx.arc(topX, topY, s*0.075, 0, Math.PI*2);
+    ctx.fill();
+    if(f<0.5){
+      var tw=Math.sin(now*5+cell.ph)*0.5+0.5;
+      ctx.fillStyle='rgba(255,255,255,'+(0.5*tw*(1-f)).toFixed(3)+')';
+      ctx.beginPath(); ctx.arc(topX+s*0.2, topY-s*0.18, s*0.03, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(topX-s*0.22, topY-s*0.05, s*0.024, 0, Math.PI*2); ctx.fill();
+    }
+  }
+  if(f>0.15){
+    var capY=st===3 ? topY-s*0.14 : topY-s*0.05;
+    ctx.fillStyle='rgba(255,255,255,'+(0.9*f).toFixed(3)+')';
+    ctx.beginPath();
+    ctx.ellipse(topX, capY, s*0.13, s*0.055, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function draw(){
+  var sb=seasonBlend(), sc=sb.c;
+  var winterAmt=season===3 ? 1-sb.t : (season===2 ? sb.t : 0);
+  var j,i2,c,r,cx,cy,s,cell,tc,v;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#161a11';
+  ctx.fillRect(0,0,W,H);
+  dot.style.background=css(sc);
+  for(i2=0;i2<N;i2++){
+    r=(i2/COLS)|0; c=i2%COLS;
+    cx=ox+c*tile; cy=oy+r*tile;
+    s=tile*0.92;
+    v=base[i2];
+    tc=[clamp(sc[0]+v,0,255), clamp(sc[1]+v,0,255), clamp(sc[2]+v,0,255)];
+    ctx.fillStyle=css(tc);
+    rr(cx-s/2, cy-s/2, s, s, s*0.24);
+    ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.10)';
+    ctx.lineWidth=1;
+    ctx.stroke();
+    cell=cells[i2];
+    if(cell && cell.wetT>0){
+      ctx.strokeStyle='rgba(111,183,255,'+clamp(cell.wetT*0.8,0,1).toFixed(3)+')';
+      ctx.lineWidth=2;
+      rr(cx-s/2, cy-s/2, s, s, s*0.24);
+      ctx.stroke();
+    }
+    if(i2===hover){
+      ctx.strokeStyle='rgba(255,255,255,0.35)';
+      ctx.lineWidth=2;
+      rr(cx-s/2-1, cy-s/2-1, s+2, s+2, s*0.24);
+      ctx.stroke();
+    }
+    if(cell) drawPlant(i2, cx, cy, s, cell, winterAmt>0.4 ? (winterAmt-0.4)/0.6 : 0);
+    else if(winterAmt>0.02 && ((i2*13)%7===0)){
+      ctx.fillStyle='rgba(255,255,255,'+(0.5*winterAmt).toFixed(3)+')';
+      ctx.beginPath();
+      ctx.arc(cx+tile*0.28, cy+tile*0.30, tile*0.045, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  if(winterAmt>0.02){
+    if(snow.length<40 && Math.random()<0.3*winterAmt){
+      snow.push({x:Math.random()*W, y:-4, v:24+Math.random()*26, ph:Math.random()*6,
+                 r:1+Math.random()*1.8});
+    }
+    for(j=0;j<snow.length;j++){
+      var f=snow[j];
+      f.y+=f.v*dtLast;
+      f.x+=Math.sin(now*0.8+f.ph)*10*dtLast;
+      if(f.y>H+6){ snow.splice(j,1); j--; continue; }
+      ctx.fillStyle='rgba(255,255,255,'+(0.75*winterAmt).toFixed(3)+')';
+      ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill();
+    }
+  }else if(snow.length) snow.length=0;
+  for(j=0;j<parts.length;j++){
+    var p=parts[j];
+    var a=1-p.t/p.life;
+    ctx.fillStyle='rgba('+Math.round(p.c[0])+','+Math.round(p.c[1])+','+Math.round(p.c[2])+','+(a*0.95).toFixed(3)+')';
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r*a+0.4,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+var lastT=performance.now();
+function frame(t){
+  try{
+    var dt=(t-lastT)/1000;
+    lastT=t;
+    if(dt>0.1) dt=0.1;
+    if(dt<0) dt=0;
+    now=t/1000;
+    dtLast=dt;
+    step(dt);
+    draw();
+  }catch(err){ /* keep the loop alive */ }
+  requestAnimationFrame(frame);
+}
+fit();
+setScore();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

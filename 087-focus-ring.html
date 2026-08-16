@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus Ring - 25:00</title>
+<style>
+:root{
+  --bg:#101420; --track:#2a2f3a; --arc:#46ff9e;
+  --glass:rgba(255,255,255,.055); --glass-brd:rgba(255,255,255,.14);
+  --ink:#e8ecf4; --dim:#8b93a7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+}
+/* faint static aurora blob */
+#aurora{
+  position:fixed; left:50%; top:44%; width:min(90vmin,760px); aspect-ratio:1;
+  transform:translate(-50%,-50%); pointer-events:none;
+  background:
+    radial-gradient(42% 38% at 42% 46%, rgba(70,255,158,.075), rgba(0,0,0,0) 70%),
+    radial-gradient(50% 44% at 62% 58%, rgba(90,140,255,.06), rgba(0,0,0,0) 72%),
+    radial-gradient(30% 30% at 30% 66%, rgba(180,120,255,.045), rgba(0,0,0,0) 70%);
+  filter:blur(6px);
+}
+#stage{
+  position:fixed; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:clamp(14px,2.6vmin,26px);
+  height:100dvh; padding:12px;
+}
+/* ---------- ring ---------- */
+#ringwrap{
+  position:relative;
+  width:clamp(240px, 52vmin, 420px); aspect-ratio:1;
+}
+#ring{width:100%; height:100%; display:block; overflow:visible}
+#ring .track{fill:none; stroke:var(--track); stroke-width:10}
+#ring .prog{
+  fill:none; stroke:var(--arc); stroke-width:10; stroke-linecap:round;
+  filter:drop-shadow(0 0 6px rgba(70,255,158,.55));
+  transition:stroke .3s ease;
+}
+#ring .flash{fill:none; stroke:var(--arc); stroke-width:16; opacity:0}
+#ring .tick{stroke:rgba(255,255,255,.10); stroke-width:1.5}
+#display{
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:6px; pointer-events:none;
+}
+#time{
+  font-size:clamp(44px, 4vw + 28px, 104px);
+  font-weight:700; letter-spacing:.04em; line-height:1;
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 0 24px rgba(70,255,158,.18);
+  transition:opacity .4s ease;
+}
+#word{
+  font-size:clamp(10px,1.6vmin,14px); letter-spacing:.5em; color:var(--arc);
+  text-transform:uppercase; opacity:.9; text-shadow:0 0 10px rgba(70,255,158,.35);
+}
+#breathhint{font-size:9px; letter-spacing:.3em; color:var(--dim); opacity:0; transition:opacity .4s}
+/* confetti canvas over ring */
+#confetti{position:absolute; inset:-30px; width:calc(100% + 60px); height:calc(100% + 60px); pointer-events:none}
+/* ---------- chips ---------- */
+#chips{display:flex; gap:12px; flex-wrap:wrap; justify-content:center}
+.chip{
+  appearance:none; cursor:pointer;
+  font:inherit; font-size:clamp(10px,1.4vmin,13px); letter-spacing:.24em;
+  color:var(--dim); text-transform:uppercase;
+  background:var(--glass); border:1px solid var(--glass-brd);
+  border-radius:999px; padding:10px 20px;
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  transition:all .25s ease;
+}
+.chip:hover{color:var(--ink); border-color:rgba(255,255,255,.3); background:rgba(255,255,255,.09)}
+.chip.on{color:var(--arc); border-color:rgba(70,255,158,.5); background:rgba(70,255,158,.08); box-shadow:0 0 16px rgba(70,255,158,.15)}
+.chip.breath.on{color:#9ec9ff; border-color:rgba(126,200,255,.5); background:rgba(126,200,255,.08); box-shadow:0 0 16px rgba(126,200,255,.15)}
+/* ---------- buttons ---------- */
+#controls{display:flex; gap:14px}
+.pill{
+  appearance:none; cursor:pointer;
+  font:inherit; font-size:clamp(11px,1.5vmin,14px); letter-spacing:.3em;
+  text-transform:uppercase; color:var(--ink);
+  background:var(--glass); border:1px solid var(--glass-brd);
+  border-radius:999px; padding:13px 30px;
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  transition:all .22s ease; box-shadow:0 4px 18px rgba(0,0,0,.35);
+}
+.pill:hover{background:rgba(255,255,255,.13); border-color:rgba(255,255,255,.32); transform:translateY(-1px)}
+.pill:active{transform:translateY(0)}
+.pill.primary{color:var(--arc); border-color:rgba(70,255,158,.45)}
+.pill.primary:hover{background:rgba(70,255,158,.14); box-shadow:0 4px 22px rgba(70,255,158,.2)}
+.pill[disabled]{opacity:.4; cursor:default; transform:none}
+/* caption */
+#cap{
+  position:fixed; left:50%; bottom:14px; transform:translateX(-50%);
+  font-size:clamp(9px,1.2vmin,11px); letter-spacing:.42em;
+  color:var(--dim); text-transform:uppercase; white-space:nowrap;
+}
+</style>
+</head>
+<body>
+<div id="aurora" aria-hidden="true"></div>
+<div id="stage">
+  <div id="ringwrap">
+    <svg id="ring" viewBox="0 0 420 420" aria-hidden="true">
+      <g id="ringScale">
+        <circle class="track" cx="210" cy="210" r="180"/>
+        <g id="ticks"></g>
+        <circle class="flash" id="flash" cx="210" cy="210" r="180"/>
+        <g transform="rotate(-90 210 210)">
+          <circle class="prog" id="prog" cx="210" cy="210" r="180"/>
+        </g>
+      </g>
+    </svg>
+    <canvas id="confetti"></canvas>
+    <div id="display">
+      <div id="time">25:00</div>
+      <div id="word">Focus</div>
+      <div id="breathhint">4 inhale · 7 hold · 8 exhale</div>
+    </div>
+  </div>
+  <div id="chips">
+    <button class="chip on" id="chip-focus" type="button">25:00 · Focus</button>
+    <button class="chip" id="chip-break" type="button">5:00 · Break</button>
+    <button class="chip breath" id="chip-breath" type="button">4·7·8 · Breath</button>
+  </div>
+  <div id="controls">
+    <button class="pill primary" id="btn-start" type="button">Start</button>
+    <button class="pill" id="btn-pause" type="button">Pause</button>
+    <button class="pill" id="btn-reset" type="button">Reset</button>
+  </div>
+</div>
+<div id="cap">Focus / Ring - <span id="capt">25:00</span></div>
+
+<script>
+(function(){
+"use strict";
+var C = 2*Math.PI*180;
+var prog = document.getElementById("prog");
+var flashEl = document.getElementById("flash");
+var ringScale = document.getElementById("ringScale");
+var timeEl = document.getElementById("time");
+var wordEl = document.getElementById("word");
+var hintEl = document.getElementById("breathhint");
+var captEl = document.getElementById("capt");
+var btnStart = document.getElementById("btn-start");
+var btnPause = document.getElementById("btn-pause");
+var btnReset = document.getElementById("btn-reset");
+var chipFocus = document.getElementById("chip-focus");
+var chipBreak = document.getElementById("chip-break");
+var chipBreath = document.getElementById("chip-breath");
+
+/* subtle quarter ticks around the ring */
+(function(){
+  var g = document.getElementById("ticks"), s = "";
+  for(var i=0;i<12;i++){
+    var a = i*30*Math.PI/180;
+    var x1 = 210 + 166*Math.sin(a), y1 = 210 - 166*Math.cos(a);
+    var x2 = 210 + 172*Math.sin(a), y2 = 210 - 172*Math.cos(a);
+    s += '<line class="tick" x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'"/>';
+  }
+  g.innerHTML = s;
+})();
+
+/* ---------- confetti canvas ---------- */
+var cc = document.getElementById("confetti"), cg = cc.getContext("2d");
+var CW=0, CH=0, CDPR=1;
+function cfit(){
+  CDPR = Math.min(window.devicePixelRatio||1, 2);
+  var r = cc.getBoundingClientRect();
+  CW = Math.max(2, r.width); CH = Math.max(2, r.height);
+  cc.width = CW*CDPR; cc.height = CH*CDPR;
+  cg.setTransform(CDPR,0,0,CDPR,0,0);
+}
+window.addEventListener("resize", cfit);
+cfit();
+
+var dots = [];
+var COLORS = ["#46ff9e", "#ffffff", "#c8ff4f", "#7ec8ff", "#ffd27a"];
+function burst(){
+  for(var i=0;i<20;i++){
+    var a = Math.random()*Math.PI*2, sp = 90 + Math.random()*190;
+    dots.push({
+      x:CW/2, y:CH/2,
+      vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 60,
+      r:2.4 + Math.random()*2.8,
+      c:COLORS[i%COLORS.length],
+      life:1.4, t:0,
+      spin:Math.random()*6.283
+    });
+  }
+}
+
+/* ---------- state ---------- */
+var DUR = { focus:1500, break:300 };
+var cur = "focus";
+var total = DUR.focus, remain = total, running = false;
+var breath = false, breathT = 0, ringS = 1;
+var flashT = 0;
+
+function fmt(sec){
+  sec = Math.max(0, Math.ceil(sec));
+  var m = Math.floor(sec/60), s = sec%60;
+  return (m<10?"0":"")+m+":"+(s<10?"0":"")+s;
+}
+function setMode(m){
+  cur = m;
+  total = DUR[m]; remain = total; running = false;
+  chipFocus.classList.toggle("on", m==="focus");
+  chipBreak.classList.toggle("on", m==="break");
+  wordEl.textContent = m==="focus" ? "Focus" : "Break";
+  timeEl.textContent = fmt(remain);
+  captEl.textContent = fmt(total);
+}
+chipFocus.addEventListener("click", function(){ setMode("focus"); });
+chipBreak.addEventListener("click", function(){ setMode("break"); });
+chipBreath.addEventListener("click", function(){
+  breath = !breath;
+  chipBreath.classList.toggle("on", breath);
+  breathT = 0;
+  hintEl.style.opacity = breath ? "1" : "0";
+  if(!breath){
+    wordEl.textContent = cur==="focus" ? "Focus" : "Break";
+    timeEl.style.opacity = "1";
+  }
+});
+btnStart.addEventListener("click", function(){
+  if(remain <= 0) remain = total;
+  running = true;
+});
+btnPause.addEventListener("click", function(){ running = false; });
+btnReset.addEventListener("click", function(){ remain = total; running = false; });
+
+function ease(t){ return t*t*(3-2*t); }
+
+/* ---------- main loop ---------- */
+var last = 0;
+function tick(now){
+  var dt = Math.min(0.1, (now-last)/1000 || 0); last = now;
+  try{ frame(dt); }catch(e){ /* keep the loop alive */ }
+  requestAnimationFrame(tick);
+}
+function frame(dt){
+  /* timer */
+  if(running){
+    remain -= dt;
+    if(remain <= 0){
+      remain = 0; running = false;
+      flashT = 0.6;
+      burst();
+    }
+  }
+  if(flashT > 0){
+    flashT -= dt;
+    flashEl.style.opacity = String(Math.max(0, flashT/0.6)*0.85);
+  } else if (flashEl.style.opacity !== "0") {
+    flashEl.style.opacity = "0";
+  }
+  /* breathing: 4 inhale, 7 hold, 8 exhale */
+  var target = 1;
+  if(breath){
+    breathT += dt;
+    var ph = breathT % 19;
+    if(ph < 4){
+      target = 1 + 0.13*ease(ph/4);
+      wordEl.textContent = "Inhale";
+    } else if(ph < 11){
+      target = 1.13;
+      wordEl.textContent = "Hold";
+    } else {
+      target = 1.13 - 0.13*ease((ph-11)/8);
+      wordEl.textContent = "Exhale";
+    }
+    timeEl.style.opacity = "0.22";
+  } else {
+    timeEl.style.opacity = "1";
+  }
+  ringS += (target-ringS)*Math.min(1, dt*3.2);
+  ringScale.setAttribute("transform","translate(210 210) scale("+ringS.toFixed(4)+") translate(-210 -210)");
+  /* arc */
+  var f = total>0 ? remain/total : 0;
+  prog.setAttribute("stroke-dasharray", String(C.toFixed(2)));
+  prog.setAttribute("stroke-dashoffset", String(C*(1-f)).toFixed(2));
+  /* readouts */
+  var tstr = fmt(remain);
+  if(timeEl.textContent !== tstr){
+    timeEl.textContent = tstr;
+  }
+  btnPause.style.opacity = running ? "1" : "0.4";
+  /* confetti */
+  if(dots.length){
+    cg.clearRect(0,0,CW,CH);
+    for(var i=dots.length-1;i>=0;i--){
+      var d = dots[i];
+      d.t += dt;
+      if(d.t >= d.life){ dots.splice(i,1); continue; }
+      d.vy += 260*dt;
+      d.x += d.vx*dt; d.y += d.vy*dt;
+      d.vx *= Math.pow(0.4, dt);
+      var al = 1 - d.t/d.life;
+      cg.globalAlpha = al;
+      cg.fillStyle = d.c;
+      cg.beginPath();
+      cg.arc(d.x, d.y, d.r*(0.6+0.4*al), 0, 6.2832);
+      cg.fill();
+    }
+    cg.globalAlpha = 1;
+  }
+}
+requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>045 — Neon Sign Factory</title>
+<style>
+:root{
+  --wall:#14100e; --line:#2c241d; --mut:#8d7f6d; --paper:#efe7d8;
+  --pink:#ff2e88; --cyan:#27e0ff; --green:#46ff9e; --amber:#ffb454;
+  --accent:#ff2e88;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--wall);color:var(--paper);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;min-height:100dvh;display:flex;flex-direction:column;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 2px, transparent 2px 46px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 2px, transparent 2px 96px),
+    repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 2px, transparent 2px 46px);
+  background-size:96px 46px, auto, auto;
+  background-position:0 0, 0 0, 48px 46px;
+  background-color:var(--wall);
+}
+.hud{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:clamp(10px,2vh,18px) clamp(14px,3vw,30px);
+  border-bottom:1px solid var(--line);
+}
+.hud .idx{font-family:var(--mono);font-size:10px;letter-spacing:.32em;color:var(--mut);display:block}
+.hud h1{font-size:clamp(17px,3.2vw,26px);font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--paper);text-shadow:0 0 18px rgba(255,46,136,.35)}
+.hud .tag{font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:var(--mut);text-transform:uppercase;text-align:right}
+.shop{flex:1;display:grid;grid-template-rows:1fr auto;min-height:0;padding:clamp(10px,2vh,20px) clamp(10px,2.4vw,26px) 0}
+.wallframe{
+  position:relative;border:10px solid #2a211a;border-radius:8px;overflow:hidden;
+  box-shadow:inset 0 0 60px rgba(0,0,0,.6),0 20px 50px rgba(0,0,0,.55),inset 0 0 0 1px #3a2e23;
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(255,46,136,.10), transparent 60%),
+    linear-gradient(#171210, #100c0a 70%);
+}
+.wallframe::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.25) 0 2px, transparent 2px 44px),
+             repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 2px, transparent 2px 110px);
+  background-position:0 0, 0 0;
+}
+.wallframe::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 45%, transparent 52%, rgba(0,0,0,.42) 100%);
+}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+.mount{
+  position:absolute;top:12px;right:14px;z-index:3;font-family:var(--mono);
+  font-size:9px;letter-spacing:.28em;color:rgba(239,231,216,.34);text-transform:uppercase;
+}
+.mount b{display:block;text-align:right;font-size:10px;letter-spacing:.2em;color:rgba(239,231,216,.55);margin-bottom:3px}
+.panel{
+  margin-top:clamp(12px,2vh,20px);display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;
+  justify-content:center;
+  border:1px solid var(--line);border-radius:12px;padding:14px;
+  background:rgba(20,14,10,.82);box-shadow:0 -10px 30px rgba(0,0,0,.4);
+}
+.grp{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grp .lbl{font-family:var(--mono);font-size:9px;letter-spacing:.24em;color:var(--mut);text-transform:uppercase}
+#sign{
+  font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
+  background:#0d0a08;color:var(--accent);border:1.5px solid #3a2e23;border-radius:8px;
+  padding:9px 12px;outline:none;min-width:150px;transition:border-color .2s ease,box-shadow .2s ease;
+  text-align:center;
+}
+#sign:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,46,136,.15)}
+.swatch{
+  width:30px;height:30px;border-radius:50%;border:2px solid rgba(0,0,0,.5);cursor:pointer;
+  transition:transform .15s ease,box-shadow .15s ease;position:relative;
+}
+.swatch:hover{transform:translateY(-2px) scale(1.05)}
+.swatch.on{box-shadow:0 0 14px currentColor,0 0 0 2px var(--paper) inset}
+.swatch[data-c="pink"]{background:var(--pink);color:var(--pink)}
+.swatch[data-c="cyan"]{background:var(--cyan);color:var(--cyan)}
+.swatch[data-c="green"]{background:var(--green);color:var(--green)}
+.swatch[data-c="amber"]{background:var(--amber);color:var(--amber)}
+.chip{
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  border:1.5px solid #3a2e23;border-radius:8px;padding:8px 12px;cursor:pointer;
+  background:#0d0a08;color:var(--mut);transition:all .18s ease;
+}
+.chip:hover{color:var(--paper);border-color:#574435}
+.chip.on{color:#0d0a08;background:var(--paper);border-color:var(--paper);box-shadow:0 0 16px rgba(239,231,216,.25)}
+.chip.big{background:var(--accent);color:#140a10;border-color:var(--accent)}
+.chip.big:hover{filter:brightness(1.15);color:#140a10}
+.chip.big.on{background:var(--paper);color:#14100e}
+.cap{font-family:var(--mono);font-size:10px;letter-spacing:.34em;color:var(--mut);text-transform:uppercase;text-align:center;padding:14px 8px 18px}
+@media (max-width:560px){
+  .panel{flex-direction:column;align-items:stretch}
+  .grp{justify-content:center}
+  #sign{width:100%}
+}
+</style>
+</head>
+<body>
+<header class="hud">
+  <div>
+    <span class="idx">045 / GALLERY 100</span>
+    <h1>Neon Sign Factory</h1>
+  </div>
+  <div class="tag">two-pass glow &middot; broken-letter flicker<br>webaudio hum on gesture</div>
+</header>
+<section class="shop">
+  <div class="wallframe">
+    <canvas id="cv"></canvas>
+    <div class="mount"><b>WALL MOUNT</b>BRICK &middot; 220V &middot; GASKET SEAL</div>
+  </div>
+  <div class="panel">
+    <div class="grp">
+      <span class="lbl">Text</span>
+      <input id="sign" maxlength="12" value="OPEN" spellcheck="false" aria-label="neon sign text">
+    </div>
+    <div class="grp">
+      <span class="lbl">Color</span>
+      <button class="swatch on" data-c="pink" type="button" aria-label="pink neon"></button>
+      <button class="swatch" data-c="cyan" type="button" aria-label="cyan neon"></button>
+      <button class="swatch" data-c="green" type="button" aria-label="green neon"></button>
+      <button class="swatch" data-c="amber" type="button" aria-label="amber neon"></button>
+    </div>
+    <div class="grp">
+      <span class="lbl">Style</span>
+      <button class="chip" data-f="script" type="button">Script</button>
+      <button class="chip on" data-f="mono" type="button">Mono</button>
+      <button class="chip" data-f="block" type="button">Block</button>
+    </div>
+    <div class="grp">
+      <button class="chip" id="flick" type="button" aria-pressed="false">Flicker</button>
+      <button class="chip big" id="hum" type="button" aria-pressed="false">Hum</button>
+    </div>
+  </div>
+</section>
+<p class="cap">CUSTOM NEON - EST. 1987</p>
+<script>
+(function(){
+'use strict';
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+var W = 0, H = 0, DPR = 1;
+var COLORS = { pink:'#ff2e88', cyan:'#27e0ff', green:'#46ff9e', amber:'#ffb454' };
+var CORES = { pink:'#ffd9ef', cyan:'#d8fbff', green:'#dcffe9', amber:'#ffe9cf' };
+var FONTS = {
+  script:'italic 700 1em system-ui, -apple-system, "Segoe UI", sans-serif',
+  mono:'700 1em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+  block:'900 1em system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+};
+var text = 'OPEN';
+var color = 'pink';
+var font = 'mono';
+var flickerOn = false;
+var broken = -1;
+var brokenDim = 0;
+var nextFlip = 0;
+var audio = null;
+function fit(){
+  var r = cv.parentElement.getBoundingClientRect();
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(1, Math.round(r.width));
+  H = Math.max(1, Math.round(r.height));
+  cv.width = Math.round(W * DPR);
+  cv.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+function fontStr(px){
+  var f = FONTS[font];
+  f = f.replace('1em', px + 'px');
+  return f;
+}
+function drawSign(now){
+  ctx.clearRect(0, 0, W, H);
+  var t = text || ' ';
+  var px = Math.min(H * 0.42, (W * 0.9) / Math.max(1, t.length) * (font === 'mono' ? 0.62 : 0.8));
+  px = Math.max(28, px);
+  ctx.font = fontStr(px);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  var cy = H * 0.48;
+  for (var i = 0; i < t.length; i++){
+    var ch = t[i];
+    var cw = Math.max(10, ctx.measureText(ch).width);
+    var x = W / 2 + (i - (t.length - 1) / 2) * (cw + px * 0.14) - (ctx.measureText(t).width - cw) * 0.5;
+    var dim = 1;
+    if (flickerOn && i === broken){ dim = 0.12 + brokenDim * 0.88; }
+    var jitter = Math.sin(now * 0.02 + i * 7.3) * 0.015;
+    dim *= 1 + jitter * 0.6;
+    ctx.globalAlpha = 0.25 * dim;
+    ctx.fillStyle = COLORS[color];
+    ctx.shadowColor = COLORS[color];
+    ctx.shadowBlur = 24;
+    ctx.font = fontStr(px * 1.02);
+    ctx.fillText(ch, x, cy);
+    ctx.font = fontStr(px);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.92 * dim;
+    ctx.fillStyle = CORES[color];
+    ctx.fillText(ch, x, cy);
+    ctx.globalAlpha = 1;
+  }
+  ctx.shadowBlur = 0;
+  ctx.font = '10px ' + FONTS.mono.replace('700 ', '');
+  ctx.fillStyle = 'rgba(141,127,109,.5)';
+  ctx.fillText('EST. 1987 - HAND BENT TUBES', W / 2, H * 0.86);
+}
+function tick(nowMs){
+  try{
+    var now = nowMs / 1000;
+    if (flickerOn){
+      if (now > nextFlip && text.length){
+        broken = Math.floor(Math.random() * text.length);
+        nextFlip = now + 0.4 + Math.random() * 2.2;
+        if (audio && audio.onCrackle){ audio.onCrackle(); }
+      }
+      brokenDim = Math.min(1, brokenDim + 0.05);
+    } else {
+      brokenDim = 0;
+    }
+    drawSign(nowMs);
+  }catch(err){ /* keep alive */ }
+  requestAnimationFrame(tick);
+}
+document.getElementById('sign').addEventListener('input', function(e){
+  text = String(e.target.value || '').toUpperCase().slice(0, 12);
+  e.target.value = text;
+  if (broken >= text.length){ broken = -1; }
+});
+document.querySelectorAll('.swatch').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.swatch').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    color = b.getAttribute('data-c');
+    document.getElementById('hum').style.background = COLORS[color];
+  });
+});
+document.querySelectorAll('.chip[data-f]').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.chip[data-f]').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    font = b.getAttribute('data-f');
+  });
+});
+var flickBtn = document.getElementById('flick');
+flickBtn.addEventListener('click', function(){
+  flickerOn = !flickerOn;
+  flickBtn.classList.toggle('on', flickerOn);
+  flickBtn.setAttribute('aria-pressed', String(flickerOn));
+  if (flickerOn && text.length){
+    broken = Math.floor(Math.random() * text.length);
+    nextFlip = performance.now() / 1000 + 0.6;
+  }
+});
+var humBtn = document.getElementById('hum');
+function makeAudio(){
+  var AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC){ return; }
+  var a = new AC();
+  var master = a.createGain();
+  master.gain.value = 0.0001;
+  master.connect(a.destination);
+  var osc = a.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.value = 120;
+  var osc2 = a.createOscillator();
+  osc2.type = 'sine';
+  osc2.frequency.value = 60;
+  var g1 = a.createGain(); g1.gain.value = 0.5;
+  var g2 = a.createGain(); g2.gain.value = 0.3;
+  var lfo = a.createOscillator();
+  lfo.frequency.value = 8;
+  var lfoG = a.createGain();
+  lfoG.gain.value = 0.12;
+  lfo.connect(lfoG);
+  lfoG.connect(g1.gain);
+  var lp = a.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 600;
+  osc.connect(g1);
+  osc2.connect(g2);
+  g1.connect(lp);
+  g2.connect(lp);
+  lp.connect(master);
+  osc.start();
+  osc2.start();
+  lfo.start();
+  master.gain.linearRampToValueAtTime(0.06, a.currentTime + 0.5);
+  var obj = { on:false, a:a, master:master };
+  obj.onCrackle = function(){
+    var c = a.createOscillator();
+    c.type = 'square';
+    c.frequency.value = 1900 + Math.random() * 1400;
+    var cg = a.createGain();
+    cg.gain.setValueAtTime(0.035, a.currentTime);
+    cg.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.06);
+    var cf = a.createBiquadFilter();
+    cf.type = 'bandpass';
+    cf.frequency.value = 2600;
+    c.connect(cf);
+    cf.connect(cg);
+    cg.connect(a.destination);
+    c.start();
+    c.stop(a.currentTime + 0.09);
+  };
+  return obj;
+}
+humBtn.addEventListener('click', function(){
+  if (!audio){ audio = makeAudio(); if (!audio){ return; } }
+  audio.on = !audio.on;
+  var a = audio.a;
+  if (a.state === 'suspended'){ a.resume(); }
+  var t0 = a.currentTime;
+  audio.master.gain.cancelScheduledValues(t0);
+  audio.master.gain.setValueAtTime(audio.master.gain.value, t0);
+  if (audio.on){
+    audio.master.gain.linearRampToValueAtTime(0.06, t0 + 0.4);
+  } else {
+    audio.master.gain.linearRampToValueAtTime(0.0001, t0 + 0.35);
+  }
+  humBtn.classList.toggle('on', audio.on);
+  humBtn.setAttribute('aria-pressed', String(audio.on));
+});
+window.addEventListener('resize', fit);
+fit();
+requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

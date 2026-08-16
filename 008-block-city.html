@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Block City — 100 Lots</title>
+<style>
+:root{
+  --ink:#e8e4f5; --dim:#8d86ad; --acc:#ffd27a; --chip:#171232;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:#0f0c26;color:var(--ink);font-family:var(--mono);overflow:hidden;height:100dvh}
+.stage{position:fixed;inset:0}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#city{cursor:crosshair}
+#rain{pointer-events:none}
+
+.hud{position:fixed;top:0;left:0;right:0;z-index:6;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;padding:14px 18px;background:linear-gradient(rgba(15,12,38,.85),rgba(15,12,38,0));pointer-events:none}
+.hud h1{font-size:clamp(.72rem,1.6vw,.95rem);font-weight:700;letter-spacing:.42em}
+.hud h1 em{font-style:normal;color:var(--acc)}
+.hud .sub{margin-top:6px;font-size:.6rem;letter-spacing:.3em;color:var(--dim);display:flex;gap:1.6em;flex-wrap:wrap}
+.hud .sub b{color:var(--ink);font-weight:400}
+.hud .sub .live{color:var(--acc)}
+
+.toolbar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:6;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:94vw}
+.chip{appearance:none;border:1px solid rgba(141,134,173,.4);background:rgba(23,18,50,.92);color:var(--ink);font-family:var(--mono);font-size:.62rem;letter-spacing:.3em;padding:10px 16px 9px;cursor:pointer;line-height:1;transition:transform .15s ease,border-color .25s ease,color .25s ease,background .25s ease}
+.chip:hover{transform:translateY(-2px);border-color:var(--acc)}
+.chip.on{color:var(--acc);border-color:var(--acc);background:rgba(46,34,20,.9)}
+.chip:active{transform:translateY(0)}
+
+.hint{position:fixed;right:18px;bottom:20px;z-index:5;font-size:.55rem;letter-spacing:.26em;color:var(--dim);text-align:right;line-height:2;pointer-events:none}
+.hint b{color:var(--acc);font-weight:400}
+
+@media (max-width:460px){
+  .hud{padding:10px 12px}
+  .hud .sub{gap:1em}
+  .hint{display:none}
+  .chip{padding:9px 11px 8px;font-size:.56rem;letter-spacing:.2em}
+}
+</style>
+</head>
+<body>
+<div class="stage">
+  <canvas id="city"></canvas>
+  <canvas id="rain"></canvas>
+</div>
+
+<header class="hud" aria-label="Status">
+  <div>
+    <h1>BLOCK CITY <em>—</em> 100 LOTS</h1>
+    <div class="sub">
+      <span>BUILT <b id="built">0</b> / 100</span>
+      <span>MOOD <b id="mood" class="live">DUSK</b></span>
+      <span>TOOL <b id="tool">BUILD</b></span>
+    </div>
+  </div>
+</header>
+
+<nav class="toolbar" aria-label="Tools">
+  <button class="chip on" id="b-build" type="button">BUILD</button>
+  <button class="chip" id="b-erase" type="button">ERASE</button>
+  <button class="chip" id="b-rain" type="button">RAIN</button>
+  <button class="chip" id="b-sun" type="button">SUN / MOON</button>
+</nav>
+
+<div class="hint">CLICK A LOT TO <b>CYCLE</b> · EMPTY → GRASS → HOUSE → TOWER → SKYLINE<br>KEYS <b>B</b> <b>E</b> <b>R</b> <b>S</b></div>
+
+<script>
+(function(){
+"use strict";
+
+var SIZE = 10;
+var canvas = document.getElementById("city");
+var rainCanvas = document.getElementById("rain");
+var ctx = canvas.getContext("2d");
+var rctx = rainCanvas.getContext("2d");
+var builtEl = document.getElementById("built");
+var moodEl = document.getElementById("mood");
+var toolEl = document.getElementById("tool");
+
+var tool = "build";
+var rainOn = false;
+var sunOn = false;
+var lots = [];
+var allWins = [];
+var view = { tw:40, ox:300, oy:200 };
+var drops = [];
+var lastNow = performance.now();
+
+var PAL = {
+  dusk: {
+    empty:  ["#3a3560","#28234a","#1a1634"],
+    grass:  ["#4c8a58","#35603f","#24412c"],
+    house:  ["#9c6a45","#74482f","#523222"],
+    tower:  ["#767e9e","#525a7d","#3a405e"],
+    sky:    ["#8b94b8","#5d6488","#414666"],
+    win:    "#ffd27a"
+  },
+  day: {
+    empty:  ["#8fa8b8","#6d8494","#54697a"],
+    grass:  ["#79c96f","#52a34e","#3b7a3a"],
+    house:  ["#d99b62","#b57140","#8c5230"],
+    tower:  ["#b6c0d8","#8b95b3","#6b7493"],
+    sky:    ["#cdd5e8","#a2abc8","#7d85a4"],
+    win:    "#ffb43a"
+  }
+};
+var STAGE_NAME = ["empty","grass","house","tower","skyline"];
+
+function makeLots(){
+  lots = [];
+  for(let i = 0; i < SIZE; i++){
+    var row = [];
+    for(let j = 0; j < SIZE; j++) row.push({ stage:0, wins:[], pop:0 });
+    lots.push(row);
+  }
+}
+
+function rebuildWins(i, j){
+  var lot = lots[i][j];
+  lot.wins = [];
+  if(lot.stage === 2){
+    lot.wins.push({ i:i, j:j, face:0, u:0.5, v:0.55, on:true, blink:false });
+  } else if(lot.stage >= 3){
+    var cols = lot.stage === 4 ? 4 : 3;
+    var rows = lot.stage === 4 ? 4 : 3;
+    for(let f = 0; f < 2; f++){
+      for(let c = 0; c < cols; c++){
+        for(let r = 0; r < rows; r++){
+          lot.wins.push({
+            i:i, j:j, face:f,
+            u: (c + 0.5) / cols,
+            v: (r + 0.5) / rows,
+            on: Math.random() < 0.7,
+            blink: true
+          });
+        }
+      }
+    }
+  }
+}
+
+function refreshAllWins(){
+  allWins = [];
+  for(let i = 0; i < SIZE; i++){
+    for(let j = 0; j < SIZE; j++){
+      var w = lots[i][j].wins;
+      for(let k = 0; k < w.length; k++) if(w[k].blink) allWins.push(w[k]);
+    }
+  }
+}
+
+function setStage(i, j, s){
+  var lot = lots[i][j];
+  lot.stage = s;
+  lot.pop = 1;
+  rebuildWins(i, j);
+  refreshAllWins();
+  updateBuilt();
+}
+
+function updateBuilt(){
+  var n = 0;
+  for(let i = 0; i < SIZE; i++){
+    for(let j = 0; j < SIZE; j++) if(lots[i][j].stage >= 2) n++;
+  }
+  builtEl.textContent = String(n);
+}
+
+function fit(){
+  var dpr = Math.min(2.5, window.devicePixelRatio || 1);
+  var w = canvas.clientWidth || 320;
+  var h = canvas.clientHeight || 480;
+  canvas.width = Math.max(2, Math.round(w * dpr));
+  canvas.height = Math.max(2, Math.round(h * dpr));
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  rainCanvas.width = canvas.width;
+  rainCanvas.height = canvas.height;
+  rctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  var availW = w - 48;
+  var availH = h - 168;
+  view.tw = Math.max(15, Math.min(availW / 10.4, availH / 7.6, 56));
+  view.ox = w / 2;
+  var contentTop = 54;
+  var contentH = Math.max(120, h - contentTop - 118);
+  var boardH = view.tw * 7.4;
+  view.oy = contentTop + Math.max(0, (contentH - boardH) / 2) + view.tw * 2.4;
+
+  if(drops.length === 0){
+    for(let k = 0; k < 110; k++){
+      drops.push({ x:Math.random() * w, y:Math.random() * h, len:9 + Math.random() * 10, spd:520 + Math.random() * 420 });
+    }
+  }
+}
+
+function tileCenter(i, j){
+  return {
+    x: view.ox + (i - j) * view.tw / 2,
+    y: view.oy + (i + j) * view.tw / 4 + view.tw / 4
+  };
+}
+
+function diamond(c, cx, cy, tw, lift){
+  var th = tw / 2;
+  c.moveTo(cx, cy - th / 2 - lift);
+  c.lineTo(cx + tw / 2, cy - lift);
+  c.lineTo(cx, cy + th / 2 - lift);
+  c.lineTo(cx - tw / 2, cy - lift);
+  c.closePath();
+}
+
+function drawTile(i, j){
+  var lot = lots[i][j];
+  var c = tileCenter(i, j);
+  var tw = view.tw * (1 + lot.pop * 0.12);
+  var pal = sunOn ? "day" : "dusk";
+  var cols = PAL[pal][lot.stage === 0 ? "empty" : STAGE_NAME[lot.stage]];
+
+  ctx.beginPath();
+  diamond(ctx, c.x, c.y, tw, 0);
+  ctx.fillStyle = cols[0];
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.07)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  if(lot.stage === 1){
+    ctx.fillStyle = cols[2];
+    var p1 = tileDot(c.x - tw * 0.18, c.y - tw * 0.06, tw * 0.07);
+    var p2 = tileDot(c.x + tw * 0.14, c.y + tw * 0.08, tw * 0.055);
+    var p3 = tileDot(c.x + tw * 0.02, c.y - tw * 0.14, tw * 0.05);
+    p1(); p2(); p3();
+    return;
+  }
+
+  var key = STAGE_NAME[lot.stage];
+  var H = lot.stage === 2 ? tw * 0.52 : (lot.stage === 3 ? tw * 1.18 : tw * 1.7);
+  drawPrism(c.x, c.y, tw, H, cols);
+
+  if(lot.stage === 4){
+    var tw2 = tw * 0.44;
+    drawPrism(c.x, c.y - H, tw2, tw * 0.6, PAL[pal].sky);
+  }
+  drawWindows(lot, c, tw, H);
+}
+
+function tileDot(x, y, r){
+  return function(){
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 6.2832);
+    ctx.fill();
+  };
+}
+
+function drawPrism(cx, cy, tw, H, cols){
+  var th = tw / 2;
+  /* left face */
+  ctx.beginPath();
+  ctx.moveTo(cx - tw / 2, cy);
+  ctx.lineTo(cx, cy + th / 2);
+  ctx.lineTo(cx, cy + th / 2 - H);
+  ctx.lineTo(cx - tw / 2, cy - H);
+  ctx.closePath();
+  ctx.fillStyle = cols[1];
+  ctx.fill();
+  /* right face */
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + th / 2);
+  ctx.lineTo(cx + tw / 2, cy);
+  ctx.lineTo(cx + tw / 2, cy - H);
+  ctx.lineTo(cx, cy + th / 2 - H);
+  ctx.closePath();
+  ctx.fillStyle = cols[2];
+  ctx.fill();
+  /* top face */
+  ctx.beginPath();
+  diamond(ctx, cx, cy, tw, H);
+  ctx.fillStyle = cols[0];
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.25)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function facePoint(face, u, v, c, tw, H){
+  var th = tw / 2;
+  if(face === 0){
+    return { x: c.x - tw / 2 + u * tw / 2, y: c.y + u * th / 2 - v * H };
+  }
+  return { x: c.x + u * tw / 2, y: c.y + th / 2 - u * th / 2 - v * H };
+}
+
+function drawWindows(lot, c, tw, H){
+  if(!lot.wins.length) return;
+  var pal = sunOn ? "day" : "dusk";
+  var winCol = PAL[pal].win;
+  var alpha = rainOn ? 1 : 0.88;
+  ctx.save();
+  if(rainOn){ ctx.shadowColor = winCol; ctx.shadowBlur = 9; }
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = winCol;
+  var du = 0.10, dv = 0.10;
+  for(let k = 0; k < lot.wins.length; k++){
+    var w = lot.wins[k];
+    if(!w.on) continue;
+    var p0 = facePoint(w.face, w.u - du, w.v - dv, c, tw, H);
+    var p1 = facePoint(w.face, w.u + du, w.v - dv, c, tw, H);
+    var p2 = facePoint(w.face, w.u + du, w.v + dv, c, tw, H);
+    var p3 = facePoint(w.face, w.u - du, w.v + dv, c, tw, H);
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.lineTo(p3.x, p3.y);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function pickLot(px, py){
+  var a = (px - view.ox) / (view.tw / 2);
+  var b = (py - view.oy) / (view.tw / 4);
+  var i = Math.round((a + b) / 2);
+  var j = Math.round((b - a) / 2);
+  if(i < 0 || j < 0 || i >= SIZE || j >= SIZE) return null;
+  return { i:i, j:j };
+}
+
+function drawSky(){
+  var w = canvas.clientWidth, h = canvas.clientHeight;
+  var g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, sunOn ? "#4a4072" : "#2b2450");
+  g.addColorStop(1, sunOn ? "#1c1838" : "#0f0c26");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  if(!sunOn){
+    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    for(let k = 0; k < 26; k++){
+      var sx = (k * 137.5) % w;
+      var sy = (k * 89.7) % (h * 0.45);
+      var r = 0.5 + (k % 3) * 0.4;
+      ctx.globalAlpha = 0.25 + 0.3 * Math.abs(Math.sin(k * 12.9898));
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, 6.2832);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#e9e4ff";
+    ctx.beginPath();
+    ctx.arc(w * 0.82, h * 0.16, Math.min(26, w * 0.035), 0, 6.2832);
+    ctx.fill();
+    ctx.fillStyle = "rgba(233,228,255,0.14)";
+    ctx.beginPath();
+    ctx.arc(w * 0.82, h * 0.16, Math.min(46, w * 0.06), 0, 6.2832);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = "rgba(255,220,140,0.95)";
+    ctx.beginPath();
+    ctx.arc(w * 0.82, h * 0.16, Math.min(30, w * 0.04), 0, 6.2832);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,220,140,0.16)";
+    ctx.beginPath();
+    ctx.arc(w * 0.82, h * 0.16, Math.min(58, w * 0.08), 0, 6.2832);
+    ctx.fill();
+  }
+}
+
+function drawRain(dt, w, h){
+  rctx.clearRect(0, 0, w, h);
+  if(!rainOn) return;
+  rctx.strokeStyle = "rgba(167,193,255,0.38)";
+  rctx.lineWidth = 1;
+  rctx.beginPath();
+  for(let k = 0; k < drops.length; k++){
+    var d = drops[k];
+    d.y += d.spd * dt;
+    d.x += d.spd * dt * 0.055;
+    if(d.y > h + 24){ d.y = -24; d.x = Math.random() * w; }
+    rctx.moveTo(d.x, d.y);
+    rctx.lineTo(d.x - 2.5, d.y + d.len);
+  }
+  rctx.stroke();
+}
+
+function blinkWindows(){
+  if(!allWins.length) return;
+  var n = 1 + (Math.random() < 0.4 ? 1 : 0);
+  for(let k = 0; k < n; k++){
+    var w = allWins[Math.floor(Math.random() * allWins.length)];
+    w.on = !w.on;
+  }
+}
+
+function frame(now){
+  try{
+    var dt = (now - lastNow) / 1000;
+    lastNow = now;
+    if(dt < 0) dt = 0;
+    if(dt > 0.1) dt = 0.1;
+
+    for(let i = 0; i < SIZE; i++){
+      for(let j = 0; j < SIZE; j++){
+        var lot = lots[i][j];
+        if(lot.pop > 0) lot.pop = Math.max(0, lot.pop - dt * 2.6);
+      }
+    }
+    blinkWindows();
+
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    if(w < 4 || h < 4) return;
+    drawSky();
+    for(let s = 0; s < SIZE * 2 - 1; s++){
+      for(let i = 0; i < SIZE; i++){
+        var j = s - i;
+        if(j < 0 || j >= SIZE) continue;
+        drawTile(i, j);
+      }
+    }
+    drawRain(dt, w, h);
+  }catch(e){ /* frame guard */ }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- input ---------- */
+canvas.addEventListener("pointerdown", function(ev){
+  var r = canvas.getBoundingClientRect();
+  var p = pickLot(ev.clientX - r.left, ev.clientY - r.top);
+  if(!p) return;
+  var lot = lots[p.i][p.j];
+  if(tool === "erase"){
+    if(lot.stage !== 0) setStage(p.i, p.j, 0);
+  } else {
+    setStage(p.i, p.j, (lot.stage + 1) % 5);
+  }
+});
+
+function setTool(name){
+  tool = name;
+  var ids = { build:"b-build", erase:"b-erase" };
+  var bBuild = document.getElementById(ids.build);
+  var bErase = document.getElementById(ids.erase);
+  bBuild.classList.toggle("on", tool === "build");
+  bErase.classList.toggle("on", tool === "erase");
+  toolEl.textContent = name.toUpperCase();
+}
+document.getElementById("b-build").addEventListener("click", function(){ setTool("build"); });
+document.getElementById("b-erase").addEventListener("click", function(){ setTool("erase"); });
+
+var bRain = document.getElementById("b-rain");
+bRain.addEventListener("click", function(){
+  rainOn = !rainOn;
+  bRain.classList.toggle("on", rainOn);
+});
+
+var bSun = document.getElementById("b-sun");
+bSun.addEventListener("click", function(){
+  sunOn = !sunOn;
+  bSun.classList.toggle("on", sunOn);
+  moodEl.textContent = sunOn ? "SUN" : "DUSK";
+});
+
+window.addEventListener("keydown", function(ev){
+  var k = (ev.key || "").toLowerCase();
+  if(k === "b") setTool("build");
+  else if(k === "e") setTool("erase");
+  else if(k === "r") bRain.click();
+  else if(k === "s") bSun.click();
+});
+
+window.addEventListener("resize", function(){ try{ fit(); }catch(e){} });
+
+makeLots();
+fit();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

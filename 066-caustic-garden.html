@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset=utf-8>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caustics — Glass Sculpture Garden</title>
+<style>
+:root{
+  --bg:#101418;
+  --ink:#e9f3f9;
+  --dim:#8fa6b5;
+  --warm:#ffd9a0;
+  --glass:#cfe8f5;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  overflow:hidden;
+}
+#stage{position:fixed;inset:0}
+canvas{
+  display:block;width:100%;height:100%;
+  touch-action:none;cursor:grab;
+}
+canvas.grabbing{cursor:grabbing}
+#hud{
+  position:fixed;left:0;right:0;top:0;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px clamp(14px,2.5vw,28px);
+  background:linear-gradient(to bottom,rgba(9,12,15,.94) 20%,rgba(9,12,15,0));
+  pointer-events:none;z-index:2;
+}
+.brand{
+  font-size:clamp(11px,1.5vw,14px);
+  letter-spacing:.34em;text-transform:uppercase;
+  color:var(--ink);white-space:nowrap;
+}
+.brand span{color:var(--dim);letter-spacing:.26em}
+.ctrl{display:flex;gap:10px;align-items:center;pointer-events:auto}
+.chip{
+  font:inherit;font-size:11px;letter-spacing:.24em;
+  padding:7px 15px;border-radius:999px;
+  border:1px solid rgba(207,232,245,.35);
+  background:rgba(207,232,245,.07);
+  color:var(--dim);cursor:pointer;
+  transition:color .25s ease,background .25s ease,border-color .25s ease;
+}
+.chip:hover{color:var(--ink);border-color:rgba(207,232,245,.7)}
+.chip.on{
+  color:#0d1820;font-weight:600;
+  background:linear-gradient(180deg,#bfe6ff,#63b1d6);
+  border-color:transparent;
+  box-shadow:0 0 14px rgba(120,190,235,.35);
+}
+#hint{
+  font-size:10px;letter-spacing:.28em;text-transform:uppercase;
+  color:var(--dim);opacity:.85;transition:opacity .8s ease;
+}
+#caption{
+  position:fixed;left:clamp(14px,2.5vw,28px);bottom:16px;
+  font-size:clamp(10px,1.2vw,12px);
+  letter-spacing:.42em;text-transform:uppercase;
+  color:var(--dim);pointer-events:none;z-index:2;
+}
+#caption b{color:var(--warm);font-weight:600;letter-spacing:.3em}
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="cv"></canvas></div>
+<header id="hud">
+  <div class="brand">CAUSTICS <span>&#183; 7 GLASS BODIES</span></div>
+  <div class="ctrl">
+    <span id="hint">drag the sun</span>
+    <button class="chip" id="water" type="button">WATER</button>
+  </div>
+</header>
+<div id="caption">CAUSTICS &#8212; 7 GLASS BODIES &#183; <b id="state">DRY FLOOR</b></div>
+<script>
+(function(){
+  'use strict';
+  const cv=document.getElementById('cv');
+  const ctx=cv.getContext('2d');
+  const hint=document.getElementById('hint');
+  const waterBtn=document.getElementById('water');
+  const stateEl=document.getElementById('state');
+
+  let W=0,H=0,DPR=1,T=0;
+  let water=false;
+  let dragging=false;
+  const sun={x:0.5,y:0.2,tx:0.5,ty:0.2};
+  const HORIZON=0.34;
+
+  // 7 bodies: t 0 = flat glass disc, 1 = standing prism
+  const bodies=[
+    {t:0,x:0.125,y:0.585,r:0.046,rot:0.6,rs:0.14,ph:0.0,seed:1.7},
+    {t:1,x:0.255,y:0.700,r:0.050,rot:2.2,rs:-0.10,ph:1.1,seed:2.3},
+    {t:0,x:0.385,y:0.615,r:0.058,rot:1.2,rs:0.10,ph:2.0,seed:3.1},
+    {t:0,x:0.515,y:0.735,r:0.040,rot:0.2,rs:0.18,ph:0.6,seed:4.2},
+    {t:1,x:0.635,y:0.645,r:0.052,rot:4.0,rs:0.12,ph:3.3,seed:5.0},
+    {t:0,x:0.765,y:0.600,r:0.050,rot:2.8,rs:-0.15,ph:1.8,seed:6.4},
+    {t:0,x:0.885,y:0.705,r:0.036,rot:1.7,rs:0.22,ph:4.1,seed:7.9}
+  ];
+
+  function fit(){
+    DPR=Math.min(2,window.devicePixelRatio||1);
+    W=cv.clientWidth||window.innerWidth;
+    H=cv.clientHeight||window.innerHeight;
+    cv.width=Math.max(2,Math.round(W*DPR));
+    cv.height=Math.max(2,Math.round(H*DPR));
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize',fit);
+
+  // how directly the sun sits over a body
+  function align(b){
+    let f=1-Math.abs(sun.x-b.x)*0.95;
+    f-=Math.abs(sun.y-b.y)*0.3;
+    return Math.max(0.14,Math.min(1,f));
+  }
+
+  function sky(){
+    const hor=H*HORIZON;
+    const g=ctx.createLinearGradient(0,0,0,hor);
+    g.addColorStop(0,'#0a0d11');
+    g.addColorStop(1,'#141b22');
+    ctx.fillStyle=g;
+    ctx.fillRect(0,0,W,hor);
+    const hz=ctx.createLinearGradient(0,hor-H*0.15,0,hor);
+    hz.addColorStop(0,'rgba(34,44,54,0)');
+    hz.addColorStop(1,'rgba(36,48,58,0.5)');
+    ctx.fillStyle=hz;
+    ctx.fillRect(0,hor-H*0.15,W,H*0.15);
+  }
+
+  function floor(){
+    const hor=H*HORIZON;
+    const g=ctx.createLinearGradient(0,hor,0,H);
+    if(water){
+      g.addColorStop(0,'#0c151d');
+      g.addColorStop(0.35,'#0e1d28');
+      g.addColorStop(1,'#132a3a');
+    }else{
+      g.addColorStop(0,'#101418');
+      g.addColorStop(0.4,'#151c23');
+      g.addColorStop(1,'#1c242d');
+    }
+    ctx.fillStyle=g;
+    ctx.fillRect(0,hor,W,H-hor);
+    ctx.strokeStyle='rgba(255,255,255,0.028)';
+    ctx.lineWidth=1;
+    for(let i=1;i<10;i++){
+      const y=hor+(H-hor)*Math.pow(i/10,1.7);
+      ctx.beginPath();
+      ctx.moveTo(0,y);
+      ctx.lineTo(W,y);
+      ctx.stroke();
+    }
+    if(water){
+      ctx.globalCompositeOperation='lighter';
+      for(let i=0;i<64;i++){
+        const sx=(Math.abs(Math.sin(i*127.31))*W);
+        const sy=hor+(H-hor)*(0.12+0.85*Math.abs(Math.sin(i*311.7)));
+        const tw=0.5+0.5*Math.sin(T*2+i*1.7);
+        ctx.fillStyle='rgba(150,214,248,'+(0.05*tw).toFixed(3)+')';
+        ctx.fillRect(sx,sy,1.5,1.5);
+      }
+      ctx.globalCompositeOperation='source-over';
+    }
+  }
+
+  // one sine-warped bright ring
+  function wavyRing(x,y,r,ph,alpha,amp){
+    ctx.beginPath();
+    const N=30;
+    for(let i=0;i<=N;i++){
+      const a=i/N*Math.PI*2;
+      const rr=r*(1+amp*Math.sin(a*3+T*1.6+ph)+amp*0.5*Math.sin(a*5-T*2.2+ph*1.7));
+      const px=x+Math.cos(a)*rr;
+      const py=y+Math.sin(a)*rr*0.55;
+      if(i===0){ctx.moveTo(px,py);}else{ctx.lineTo(px,py);}
+    }
+    ctx.closePath();
+    ctx.strokeStyle='rgba(255,214,150,'+alpha.toFixed(3)+')';
+    ctx.lineWidth=1.4;
+    ctx.stroke();
+  }
+
+  function caustics(b){
+    const bx=b.x*W,by=b.y*H,r=b.r*W;
+    const a=align(b);
+    const cx=bx+(sun.x-b.x)*r*1.6;
+    const cy=by+r*0.9;
+    ctx.globalCompositeOperation='lighter';
+    const cr=r*(0.72+0.14*Math.sin(T*1.3+b.seed));
+    let g=ctx.createRadialGradient(cx,cy,0,cx,cy,cr*1.3);
+    g.addColorStop(0,'rgba(255,226,170,'+(0.30*a).toFixed(3)+')');
+    g.addColorStop(0.55,'rgba(255,196,120,'+(0.12*a).toFixed(3)+')');
+    g.addColorStop(1,'rgba(255,180,100,0)');
+    ctx.fillStyle=g;
+    ctx.beginPath();
+    ctx.ellipse(cx,cy,cr*1.4,cr*0.66,0,0,Math.PI*2);
+    ctx.fill();
+    const n=6;
+    for(let i=0;i<n;i++){
+      const ang=i*Math.PI*2/n+b.rot*0.7+Math.sin(T*0.4+b.seed+i)*0.28;
+      const dist=r*(0.55+0.45*Math.sin(T*0.7+b.ph+i*1.9));
+      const px=cx+Math.cos(ang)*dist*1.45;
+      const py=cy+Math.sin(ang)*dist*0.55;
+      const rr=r*(0.34+0.16*Math.sin(i*2.3+T*1.1+b.seed));
+      wavyRing(px,py,Math.max(2,rr),b.ph+i*1.3,a*0.5,0.16+0.1*Math.sin(T+b.seed+i));
+    }
+    ctx.globalCompositeOperation='source-over';
+  }
+
+  function waterRings(){
+    ctx.globalCompositeOperation='lighter';
+    for(let k=0;k<bodies.length;k++){
+      const b=bodies[k];
+      const bx=b.x*W,by=b.y*H+b.r*W*0.9;
+      for(let i=0;i<3;i++){
+        const phase=(T*0.5+i/3+b.seed*0.13)%1;
+        const rr=b.r*W*(0.4+phase*2.2);
+        ctx.beginPath();
+        ctx.ellipse(bx,by,Math.max(1,rr),Math.max(1,rr*0.42),0,0,Math.PI*2);
+        ctx.strokeStyle='rgba(160,220,255,'+(0.11*(1-phase)).toFixed(3)+')';
+        ctx.lineWidth=1;
+        ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation='source-over';
+  }
+
+  function drawDisc(b){
+    const x=b.x*W,y=b.y*H,r=b.r*W,hgt=r*0.5,ry=r*0.32;
+    ctx.beginPath();
+    ctx.ellipse(x,y+2,Math.max(1,r*1.18),Math.max(1,r*0.36),0,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,0.4)';
+    ctx.fill();
+    const g=ctx.createLinearGradient(x-r,0,x+r,0);
+    g.addColorStop(0,'rgba(207,232,245,0.04)');
+    g.addColorStop(0.5,'rgba(207,232,245,0.16)');
+    g.addColorStop(1,'rgba(207,232,245,0.04)');
+    ctx.beginPath();
+    ctx.moveTo(x-r,y-hgt);
+    ctx.lineTo(x-r,y);
+    ctx.ellipse(x,y,Math.max(1,r),Math.max(1,ry),0,Math.PI,0,true);
+    ctx.lineTo(x+r,y-hgt);
+    ctx.ellipse(x,y-hgt,Math.max(1,r),Math.max(1,ry),0,0,Math.PI,true);
+    ctx.closePath();
+    ctx.fillStyle=g;
+    ctx.fill();
+    ctx.strokeStyle='rgba(207,232,245,0.5)';
+    ctx.lineWidth=1.2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(x,y-hgt,Math.max(1,r),Math.max(1,ry),0,0,Math.PI*2);
+    ctx.fillStyle='rgba(230,246,255,0.2)';
+    ctx.fill();
+    ctx.strokeStyle='rgba(235,248,255,0.75)';
+    ctx.lineWidth=1;
+    ctx.stroke();
+    for(let i=0;i<3;i++){
+      ctx.beginPath();
+      ctx.ellipse(x,y-hgt,Math.max(1,r*(0.72-i*0.16)),Math.max(1,ry*(0.72-i*0.16)),0,
+        b.rot+i*2.1,b.rot+i*2.1+1.9);
+      ctx.strokeStyle='rgba(255,255,255,0.28)';
+      ctx.lineWidth=0.8;
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(x-r*0.4,y-hgt-ry*0.5,Math.max(0.5,r*0.09),0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.7)';
+    ctx.fill();
+  }
+
+  function drawPrism(b){
+    const x=b.x*W,y=b.y*H,r=b.r*W;
+    const w=r*0.9,d=r*0.5,h=r*1.9;
+    ctx.beginPath();
+    ctx.ellipse(x,y+r*0.18,Math.max(1,r*1.1),Math.max(1,r*0.4),0,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,0.4)';
+    ctx.fill();
+    const pA={x:x-w,y:y+d*0.9};
+    const pB={x:x+w*0.9,y:y+d*0.5};
+    const pC={x:x-w*0.15,y:y-d};
+    ctx.beginPath();
+    ctx.moveTo(pA.x,pA.y);
+    ctx.lineTo(pC.x,pC.y);
+    ctx.lineTo(pC.x,pC.y-h);
+    ctx.lineTo(pA.x,pA.y-h);
+    ctx.closePath();
+    ctx.fillStyle='rgba(207,232,245,0.10)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(pC.x,pC.y);
+    ctx.lineTo(pB.x,pB.y);
+    ctx.lineTo(pB.x,pB.y-h);
+    ctx.lineTo(pC.x,pC.y-h);
+    ctx.closePath();
+    const g=ctx.createLinearGradient(pC.x,0,pB.x,0);
+    g.addColorStop(0,'rgba(207,232,245,0.18)');
+    g.addColorStop(1,'rgba(207,232,245,0.05)');
+    ctx.fillStyle=g;
+    ctx.fill();
+    ctx.strokeStyle='rgba(214,238,252,0.55)';
+    ctx.lineWidth=1.1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(pA.x,pA.y-h);
+    ctx.lineTo(pC.x,pC.y-h);
+    ctx.lineTo(pB.x,pB.y-h);
+    ctx.closePath();
+    ctx.fillStyle='rgba(235,248,255,0.22)';
+    ctx.fill();
+    ctx.strokeStyle='rgba(240,250,255,0.8)';
+    ctx.lineWidth=1;
+    ctx.stroke();
+    const mx=pC.x+(Math.sin(b.rot)*0.5+0.5)*(pB.x-pC.x)*0.6;
+    ctx.beginPath();
+    ctx.moveTo(mx,pC.y);
+    ctx.lineTo(mx,pC.y-h*0.94);
+    ctx.strokeStyle='rgba(255,230,190,0.35)';
+    ctx.lineWidth=1.2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(pC.x,pC.y-h*0.92,Math.max(0.5,r*0.07),0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.75)';
+    ctx.fill();
+  }
+
+  function sunSpot(){
+    const sx=sun.x*W,sy=sun.y*H;
+    const r=Math.max(40,Math.min(W,H)*0.34);
+    ctx.globalCompositeOperation='lighter';
+    let g=ctx.createRadialGradient(sx,sy,0,sx,sy,r);
+    g.addColorStop(0,'rgba(255,214,150,0.46)');
+    g.addColorStop(0.25,'rgba(255,190,120,0.16)');
+    g.addColorStop(1,'rgba(255,170,90,0)');
+    ctx.fillStyle=g;
+    ctx.beginPath();
+    ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fill();
+    const core=r*0.07;
+    const g2=ctx.createRadialGradient(sx,sy,0,sx,sy,core);
+    g2.addColorStop(0,'rgba(255,244,220,0.95)');
+    g2.addColorStop(1,'rgba(255,214,150,0)');
+    ctx.fillStyle=g2;
+    ctx.beginPath();
+    ctx.arc(sx,sy,core,0,Math.PI*2);
+    ctx.fill();
+    if(dragging){
+      ctx.strokeStyle='rgba(255,230,190,0.5)';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.arc(sx,sy,core+5,0,Math.PI*2);
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation='source-over';
+  }
+
+  function setSun(e){
+    const r=cv.getBoundingClientRect();
+    if(r.width<2||r.height<2){return;}
+    sun.tx=Math.max(0.05,Math.min(0.95,(e.clientX-r.left)/r.width));
+    sun.ty=Math.max(0.08,Math.min(0.42,(e.clientY-r.top)/r.height));
+  }
+  cv.addEventListener('pointerdown',function(e){
+    dragging=true;
+    cv.classList.add('grabbing');
+    try{cv.setPointerCapture(e.pointerId);}catch(err){}
+    setSun(e);
+    hint.style.opacity='0';
+  });
+  cv.addEventListener('pointermove',function(e){
+    if(dragging){setSun(e);}
+  });
+  window.addEventListener('pointerup',function(){
+    dragging=false;
+    cv.classList.remove('grabbing');
+  });
+  window.addEventListener('pointercancel',function(){
+    dragging=false;
+    cv.classList.remove('grabbing');
+  });
+
+  waterBtn.addEventListener('click',function(){
+    water=!water;
+    waterBtn.classList.toggle('on',water);
+    stateEl.textContent=water?'SHALLOW WATER':'DRY FLOOR';
+  });
+
+  function frame(ts){
+    requestAnimationFrame(frame);
+    try{
+      T=ts/1000;
+      sun.x+=(sun.tx-sun.x)*0.08;
+      sun.y+=(sun.ty-sun.y)*0.08;
+      for(let i=0;i<bodies.length;i++){
+        bodies[i].rot+=bodies[i].rs*0.016;
+      }
+      sky();
+      floor();
+      for(let i=0;i<bodies.length;i++){caustics(bodies[i]);}
+      if(water){waterRings();}
+      for(let i=0;i<bodies.length;i++){
+        if(bodies[i].t===0){drawDisc(bodies[i]);}else{drawPrism(bodies[i]);}
+      }
+      sunSpot();
+    }catch(err){}
+  }
+
+  fit();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
