@@ -41,6 +41,6 @@ All pages were produced under these hard rules:
 6. Canvas pages are devicePixelRatio-aware and fit once at boot
 7. Every page well over 3000 bytes of real, hand-authored craft
 
-## QA
+## Production notes
 
-`_qa/run-qa.py NNN` verifies a page end-to-end: HTML parse, `http`-substring grep, size check, `node --check` on the script, and a headless-Chromium runtime smoke test (console errors + canvas pixel probe). Pages in `_briefs/` are the per-slice creative briefs used to generate the prompts.
+Each page was generated from a per-slice creative brief (its verbatim text is the `PROMPT:` field in the matching `.txt`) and verified before publishing: HTML parse, `http`-substring grep, size check, JS syntax check, and a headless-Chromium runtime smoke test (console errors + canvas pixel probe). The briefs and QA tooling were intentionally kept out of this repo.
